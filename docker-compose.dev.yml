@@ -1,0 +1,89 @@
+# Development database and code-execution engine.
+#
+#   pnpm db:up            start both services
+#   pnpm db:migrate       create the schema
+#   pnpm db:seed          copy lib/problems/catalog.ts into it
+#   pnpm piston:runtimes  install Python into the engine (once, then restart it)
+#   pnpm db:down          stop it (add `down -v` to wipe the data)
+#
+# The host port is 5441 rather than the usual 5432: this machine already runs
+# other Postgres containers on 5432-5440, so 5441 is the first free slot. Piston
+# follows the same rule and takes 2001 instead of its default 2000. Both are
+# bound to 127.0.0.1 only — a practice database and a code runner have no
+# business on the LAN.
+#
+# Compose substitutes variables from `.env` and the shell, *not* from
+# `.env.local`. The defaults below are the same ones lib/db/env.ts and
+# lib/piston/client.ts fall back to, so overriding them is rarely necessary.
+name: dsa-software-dev
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-dsa_software}
+    ports:
+      - '127.0.0.1:${POSTGRES_PORT:-5441}:5432'
+    volumes:
+      # PG18 keeps data under /var/lib/postgresql/<major>/, so the parent
+      # directory is what gets mounted. Mounting /var/lib/postgresql/data is the
+      # pre-18 pattern and makes the 18 image refuse to start.
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-dsa_software}',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  # The code-execution engine: Piston, running Isolate inside this container.
+  #
+  # `privileged` is not optional. Isolate sandboxes each job with its own mount,
+  # PID, IPC and network namespaces plus a cgroup, and its official compose
+  # (docker-compose.yaml in engineer-man/piston) is privileged for exactly that
+  # reason. That is why the runner is a separate container the app only talks to
+  # over HTTP, and why the port is bound to loopback.
+  #
+  # Piston requires the host to run cgroup v2 with cgroup v1 disabled — true here
+  # (Fedora 44, cgroup2fs, Docker's Cgroup Driver: systemd).
+  #
+  # Runtimes are *not* in the image. They live in the volume and are read once at
+  # API start-up, so after `pnpm piston:runtimes` the container has to restart
+  # before the new languages appear in GET /api/v2/runtimes.
+  piston:
+    # Pinned by digest: `latest` is a moving tag, and a surprise engine upgrade
+    # would change language versions (and therefore the cached run results).
+    image: ghcr.io/engineer-man/piston@sha256:2f66b7456189c4d713aa986d98eccd0b6ee16d26c7ec5f21b30e942756fd127a
+    restart: unless-stopped
+    privileged: true
+    ports:
+      - '127.0.0.1:${PISTON_PORT:-2001}:2000'
+    volumes:
+      - piston_data:/piston
+    environment:
+      # Piston caps every stdio buffer at 1024 bytes by default, which is small
+      # enough to truncate a legitimate stdout. The runner caps what it reports
+      # for display separately.
+      PISTON_OUTPUT_MAX_SIZE: '65536'
+      # Ceilings the API is allowed to request. The runner asks for less
+      # (PISTON_RUN_TIMEOUT_MS / PISTON_RUN_MEMORY_MB in .env.example); these are
+      # the hard stops if a request ever asks for more.
+      PISTON_RUN_TIMEOUT: '5000'
+      PISTON_RUN_CPU_TIME: '5000'
+      PISTON_RUN_MEMORY_LIMIT: '536870912'
+      # Compilation is the memory-hungry stage (javac especially), so it gets
+      # more headroom and a longer budget than a single run.
+      PISTON_COMPILE_TIMEOUT: '20000'
+      PISTON_COMPILE_CPU_TIME: '20000'
+      PISTON_COMPILE_MEMORY_LIMIT: '1073741824'
+
+volumes:
+  postgres_data:
+  piston_data:

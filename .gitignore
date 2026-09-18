@@ -32,6 +32,10 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+
+# generated: monaco's AMD build, copied from node_modules by scripts/sync-monaco.mjs
+/public/monaco/
 
 # vercel
 .vercel

@@ -1,0 +1,16 @@
+---
+description: Follow the DSA practice-app plan in docs/plan. Work one phase at a time and tick completed items.
+alwaysApply: true
+---
+
+# Plan execution
+
+Work is sequenced in `docs/plan/README.md`. The current phase is named at the top of that file.
+
+- Read the tracker and the current phase file before changing code.
+- Execute only the next unchecked work unit in the current phase. Do not start a later phase, and do not skip units.
+- After a work unit lands, tick its boxes in the phase file. After a phase’s gate passes, tick the phase in `docs/plan/README.md` and move **Current phase** to the next file.
+- Do not reset the database. Preserve problem IDs and practice data.
+- Scope: local personal app, Python only, Piston, local Postgres. Defer hosting, accounts, other languages, study-coach features, linked lists/trees, and Submit batching unless Phase 4’s latency checkpoint triggers a separate milestone.
+- `@/lib/problems` is the shared public interface. Do not re-export reference solutions or the full catalog into client-facing imports.
+- Only a successful Piston Submit marks a problem solved. Run and mock never qualify.

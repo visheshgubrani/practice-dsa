@@ -1,0 +1,1 @@
+ALTER TABLE "problem_testcases" ADD COLUMN "arguments" jsonb;
