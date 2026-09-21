@@ -5,9 +5,9 @@ import { databaseUrl } from "./env";
 import { relations } from "./relations";
 
 /**
- * The database client. Server-only: the catalog queries in
- * lib/db/queries/problems.ts are its only runtime consumer so far, and they are
- * imported by pages and route handlers — never by a client component.
+ * The database client. Server-only: catalog and practice queries in
+ * lib/db/queries/ are imported by pages and route handlers — never by a
+ * client component.
  *
  * `pg` is already in Next's default `serverExternalPackages`, so importing it
  * from a route handler or server component needs no config change.

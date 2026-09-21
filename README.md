@@ -59,10 +59,37 @@ order is the `problems.position` column, also written by the seed.
 | Table | Holds |
 | --- | --- |
 | `problems`, `problem_examples`, `problem_testcases`, `problem_starter_code` | the catalog — read by the app, seeded from `lib/problems/catalog.ts` |
-| `drafts` | the editor buffer per problem and language (`dsa.code.*`) |
-| `problem_progress` | status, preferred language and your own notes (`dsa.progress`, `dsa.language`, `dsa.notes`) |
+| `drafts` | the editor buffer per problem and language |
+| `problem_progress` | verified status, preferred language, and your own notes |
+| `legacy_accepted` | imported pre-Postgres accepted-code snapshots (never verified solved) |
 | `submissions`, `submission_cases` | every Run and Submit, plus each reported case |
-| `chat_threads`, `chat_messages` | tutor transcripts, each turn carrying the code and run it was asked about |
+| `chat_threads`, `chat_messages` | tutor transcripts per problem, including code snapshot and linked submission |
+
+Practice state is **Postgres**. Browser `dsa.*` keys are a recovery copy for
+unsaved edits and a one-time import source; they are not the store. Stopping
+the container with `pnpm db:down` keeps the volume; `pnpm db:down` **with
+`-v`** wipes drafts, notes, progress, and history. Do not do that unless you
+mean to.
+
+### Backup and restore
+
+The data lives in the `postgres_data` volume from `docker-compose.dev.yml`.
+Restarting Postgres or the app does not replace it. A dump does:
+
+```bash
+# custom-format dump (safe to keep next to the repo; gitignored if you name it *.dump)
+docker compose -f docker-compose.dev.yml exec -T postgres \
+  pg_dump -U postgres -Fc dsa_software > dsa-software.dump
+
+# restore into the running container (replaces database objects, not the volume)
+docker compose -f docker-compose.dev.yml exec -T postgres \
+  pg_restore -U postgres -d dsa_software --clean --if-exists --no-owner \
+  < dsa-software.dump
+```
+
+`pg_restore --clean` drops and recreates the dumped objects inside
+`dsa_software`. It does not run `db:down -v`. After a restore, `pnpm db:migrate`
+is only needed if the dump is from an older schema.
 
 ## Configuration
 
@@ -114,47 +141,79 @@ offers. The other three remain in the database enum, and a row written for one o
 them is still readable — adding a language back means writing its harness and one
 entry in `lib/languages.ts`.
 
+## Authoring a problem
+
+A new problem is a module under `lib/problems/`, then an entry in
+`lib/problems/catalog.ts`. Catalog edits take effect only after `pnpm db:seed`.
+Stay on the current argument kinds and the return-value harness — no linked
+lists, trees, custom classes, or in-place (`void`) contracts. Use larger
+stress cases only when they stay inside the execution and output limits.
+
+For each problem, in this order:
+
+1. Original statement, precise constraints, signature, Python starter.
+2. 2–3 visible cases with explanations, at least 8 hidden cases.
+3. Cover minima, duplicates, negatives, ordering, and constraint boundaries.
+   Empty inputs only when the contract allows them.
+4. Reference solution, comparison policy, approach, complexity notes,
+   `sourceUrl`.
+5. `pnpm problems:check`. Review generated expectation candidates by hand.
+   Never auto-replace a mismatch.
+6. Add at least one plausible incorrect implementation in
+   `lib/harness/fixtures.ts` that the suite rejects.
+7. `pnpm db:seed`, `pnpm piston:check`, then practice it in the UI (fail a
+   hidden case, then accept).
+
+`pnpm problems:check` and seed refuse a catalog that skips those structural
+steps. `pnpm piston:check` walks every seeded problem and fails if one has no
+wrong-answer fixture.
+
 ## Current plan
 
-Work is sequenced in [`docs/plan`](docs/plan/README.md). Execute one phase at a
-time and tick boxes there as they land. The order is trustworthy judging, then
-durable persistence, then a larger catalog, then a durable tutor.
+Work is sequenced in [`docs/plan`](docs/plan/README.md). The five phases are
+complete: trustworthy judging, durable persistence, a 16-problem catalog, and
+a durable, context-aware tutor.
 
 ## What is real and what is not
 
-The notes below are the state after Phase 1 (trustworthy judging). Drafts,
-progress, and chat transcripts are still browser-side; Submit still judges
-visible cases only.
+The notes below are the state after Phase 5 (persisted chats and contextual tutoring).
 
-- **Real**: routing, layout, editor, code persistence, notes and progress
-  persistence in `localStorage`, the chat transport and streaming UI, the
-  run/submit flow and every console state — and **code execution**, through
-  Piston. The problem catalog — statement, examples, visible testcases, starter
-  templates, reference notes — comes from Postgres. Only a successful Piston
-  Submit marks a problem solved. Debug prints do not corrupt comparison. Two Sum
-  accepts either index order; Group Anagrams allows group/member permutations.
+- **Durable (Postgres)**: the catalog, drafts, notes, preferred language,
+  verified solved status, imported legacy snapshots, every Run/Submit plus
+  its cases, and tutor conversations. Restarting the app or Postgres keeps that
+  data. Only a successful **Piston Submit** marks a problem solved; a later
+  failing Submit keeps the original `solvedAt`. Historical rows keep a catalog
+  revision and are not rewritten on reseed. The first failing hidden case is
+  revealed; hidden successes stay status-and-metrics. The tutor sees that same
+  disclosed attempt, not the unrevealed hidden suite or the reference-solution
+  source.
+- **Browser recovery only**: `dsa.*` keys are a local copy of unsaved edits and
+  the source for a one-time import. Import never overwrites Postgres and never
+  turns a legacy accept into verified solved. If a save fails, the console
+  still shows the verdict with a **not saved** state; reload does not claim
+  durable progress.
 - **Simulated only when asked for**: `lib/runner/mock.ts` never runs anything; it
   maps shapes of the submitted source onto verdicts. It answers when `PISTON_URL`
   is unset, or when `RUNNER_KIND=mock` asks for it, and the console labels those
-  runs `simulated`. Mark any submission with `force:wrong-answer`,
+  runs `simulated`. Mock rows are stored as history but excluded from genuine
+  progress. Mark any submission with `force:wrong-answer`,
   `force:runtime-error`, or `force:tle` inside a comment to reach a state on
-  demand.
-- **Still in the browser**: drafts, progress, accepted solutions and notes live in
-  `localStorage`, so they do not follow you to another device; `submissions`,
-  `submission_cases` and the chat tables are migrated but nothing writes to them
-  yet — a run is judged and returned, not stored.
-- **Not built yet**: persisting drafts, progress, runs and chat transcripts,
-  hidden testcases for `Submit` (every case is currently a visible sample),
-  problem import, custom test input, and a light theme.
+  demand. Without `DEEPSEEK_API_KEY`, the tutor streams a scripted demo answer
+  through the same protocol.
+- **Not built yet**: custom test input, and a light theme.
 
 ## Layout of the code
 
 ```
-app/                 routes: list page, workspace page, /api/chat, /api/run
+app/                 routes: list page, workspace page, /api/chat, /api/run, /api/practice, /api/submissions
 components/ui/       shadcn components (base-nova preset, Base UI primitives)
 components/problems/ problem list + difficulty badge
-components/workspace/ header, problem panel, editor, console, chat
+components/workspace/ header, problem panel, editor, console, history, chat
 lib/                 problem types + seed data, languages, runner types, AI prompts, hooks
+lib/ai/              tutor prompts and disclosed workspace context
+lib/chat/            client-safe chat types and the server turn handler
+lib/practice/        load/save recovery, import scan, serial write queues
+lib/submissions/     client-safe history types and fetch helpers
 lib/harness/         the generated Python program: argument parsing, comparison, wrapping
 lib/piston/          the engine client: runtimes, execute, caching, verdict mapping
 lib/runner/          the seam: Piston runner, the deterministic mock, shared result types
@@ -163,17 +222,22 @@ drizzle/             generated migrations (one folder each, with its snapshot)
 scripts/sync-monaco.mjs    Monaco's AMD build into public/monaco/vs
 scripts/piston-runtimes.mjs  install/verify the engine's language runtimes
 scripts/piston-check.mts     reference solutions through the whole judging path
+scripts/piston-latency.mts   Submit wall-time checkpoint (largest suite, cache bypassed)
+scripts/chat-smoke.mts       disclosed tutor payload; live DeepSeek when a key is set
 docker-compose.dev.yml
 ```
 
 ## Checks
 
 ```bash
-pnpm lint          # eslint
-pnpm typecheck     # tsc --noEmit
-pnpm test          # unit checks next to the code they cover
-pnpm build         # production build
-pnpm piston:check  # needs the engine: reference + broken solutions, all four problems
+pnpm lint             # eslint
+pnpm typecheck        # tsc --noEmit
+pnpm test             # unit + Postgres persistence checks next to the code they cover
+pnpm problems:check   # catalog conformance, no Docker
+pnpm build            # production build
+pnpm piston:check     # needs the engine: reference + broken solutions, seeded catalog
+pnpm piston:latency   # Phase 4 Submit wall-time checkpoint (cache bypassed)
+pnpm chat:smoke       # disclosed tutor payload; live DeepSeek when a key is set
 ```
 
 Note: `PageProps` route types are generated by `next dev`, `next build`, or

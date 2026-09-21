@@ -11,7 +11,11 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { createdAt, timestamps } from "./columns";
-import { chatRoleEnum, languageEnum } from "./enums";
+import {
+  chatCompletionStatusEnum,
+  chatRoleEnum,
+  languageEnum,
+} from "./enums";
 import { problems } from "./problems";
 import { submissions } from "./submissions";
 
@@ -49,9 +53,9 @@ export const chatMessages = pgTable(
       .notNull()
       .references(() => chatThreads.id, { onDelete: "cascade" }),
     /**
-     * Per-thread ordinal. A user message and its reply are written in one
-     * transaction, so they would otherwise share `now()` and replay in an
-     * arbitrary order. Assigned as `max(seq) + 1` inside that transaction.
+     * Per-thread ordinal. Assigned inside a transaction that first locks the
+     * parent thread row, then takes `max(seq) + 1`. Without that lock two
+     * concurrent writers can pick the same seq and collide on the unique index.
      */
     seq: integer("seq").notNull(),
     /** The AI SDK's own `UIMessage.id`, so a streamed turn reconciles with its row. */
@@ -79,6 +83,18 @@ export const chatMessages = pgTable(
       onDelete: "set null",
     }),
     // --- Assistant metadata -----------------------------------------------
+    /**
+     * Distinguishes a finished answer from a Stop, a provider error, or a
+     * placeholder written before generation. Restored history can then show the
+     * interrupted turn instead of pretending it never happened.
+     */
+    completionStatus: chatCompletionStatusEnum("completion_status")
+      .notNull()
+      .default("pending"),
+    /** Provider-specific payload (finish details, extra usage fields). */
+    providerMetadata: jsonb("provider_metadata").$type<Record<string, unknown>>(),
+    /** Set when generation failed; null on completed and aborted turns. */
+    error: text("error"),
     model: text("model"),
     finishReason: text("finish_reason"),
     promptTokens: integer("prompt_tokens"),

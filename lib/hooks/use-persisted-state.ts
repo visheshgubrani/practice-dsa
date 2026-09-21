@@ -5,6 +5,10 @@ import { useCallback, useMemo, useSyncExternalStore } from "react";
 /**
  * localStorage-backed state that is safe to server-render and safe to re-key.
  *
+ * In the workspace this is a recovery copy for unsaved edits, not the durable
+ * store — drafts and notes are written to Postgres after load. The problem
+ * list still reads `dsa.progress` from here until Submit persistence lands.
+ *
  * The value lives in a tiny external store per storage key and is read with
  * `useSyncExternalStore`, which is what keeps the server render deterministic
  * (the fallback) while the client render picks up whatever is on disk — without

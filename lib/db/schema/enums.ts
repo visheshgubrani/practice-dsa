@@ -58,6 +58,18 @@ export const chatRoleEnum = pgEnum("chat_role", [
   "system",
 ]);
 
+/**
+ * How far an assistant turn got. User turns are stored as `completed`.
+ * Interrupted Stop / failed requests stay as rows so a retry can reuse the
+ * same `ui_id` instead of inserting a duplicate.
+ */
+export const chatCompletionStatusEnum = pgEnum("chat_completion_status", [
+  "pending",
+  "completed",
+  "failed",
+  "aborted",
+]);
+
 export const progressStatusEnum = pgEnum("progress_status", [
   "todo",
   "attempted",

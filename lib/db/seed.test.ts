@@ -31,6 +31,7 @@ describe("preserved practice data", () => {
     for (const forbidden of [
       "drafts",
       "problemProgress",
+      "legacyAccepted",
       "submissions",
       "submissionCases",
       "chatThreads",

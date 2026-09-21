@@ -5,6 +5,10 @@
  * field, rather than as a wrong-answer verdict later. Authoring may omit
  * `expected` (conformance prints a candidate for hand review). Judging and
  * seed may not, and nothing here writes an expectation in to fill the gap.
+ *
+ * Completeness for the Phase 4 authoring workflow (statement, constraints,
+ * notes, compare, return-value signature, starter/reference method) is
+ * enforced here so a thin module never reaches seed.
  */
 
 import {
@@ -34,6 +38,14 @@ function preview(value: unknown): string {
   } catch {
     return String(value);
   }
+}
+
+function isIdentifier(name: string): boolean {
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(name);
+}
+
+function hasPythonDef(source: string, name: string): boolean {
+  return new RegExp(`\\bdef\\s+${name}\\s*\\(`).test(source);
 }
 
 function checkArgs(
@@ -101,12 +113,63 @@ export function validateProblem(
   const requireExpected = options.requireExpected ?? false;
   const issues: string[] = [];
 
-  if ((problem.starterCode.python ?? "").trim().length === 0) {
-    issues.push(at(problem.slug, "no starter code for python"));
+  if (problem.statement.trim().length === 0) {
+    issues.push(at(problem.slug, "has no statement"));
   }
 
-  if ((problem.reference ?? "").trim().length === 0) {
+  const constraints = problem.constraints.filter(
+    (constraint) => constraint.trim().length > 0,
+  );
+  if (constraints.length === 0) {
+    issues.push(at(problem.slug, "has no constraints"));
+  }
+
+  if (problem.notes.approach.trim().length === 0) {
+    issues.push(at(problem.slug, "has no approach notes"));
+  }
+  if (problem.notes.timeComplexity.trim().length === 0) {
+    issues.push(at(problem.slug, "has no time complexity notes"));
+  }
+  if (problem.notes.spaceComplexity.trim().length === 0) {
+    issues.push(at(problem.slug, "has no space complexity notes"));
+  }
+
+  if (!problem.compare) {
+    issues.push(at(problem.slug, "missing compare policy"));
+  }
+
+  const method = problem.signature.name.trim();
+  if (!isIdentifier(method)) {
+    issues.push(at(problem.slug, "signature name is not a Python identifier"));
+  }
+  if (problem.signature.params.length === 0) {
+    issues.push(at(problem.slug, "signature has no parameters"));
+  }
+  if (problem.signature.returns === "void") {
+    issues.push(
+      at(
+        problem.slug,
+        "returns void; in-place output contracts are deferred — use a return-value signature",
+      ),
+    );
+  }
+
+  const starter = problem.starterCode.python ?? "";
+  if (starter.trim().length === 0) {
+    issues.push(at(problem.slug, "no starter code for python"));
+  } else if (isIdentifier(method) && !hasPythonDef(starter, method)) {
+    issues.push(
+      at(problem.slug, `python starter does not define ${method}`),
+    );
+  }
+
+  const reference = problem.reference ?? "";
+  if (reference.trim().length === 0) {
     issues.push(at(problem.slug, "no python reference solution"));
+  } else if (isIdentifier(method) && !hasPythonDef(reference, method)) {
+    issues.push(
+      at(problem.slug, `python reference does not define ${method}`),
+    );
   }
 
   if (problem.testcases.length === 0) {

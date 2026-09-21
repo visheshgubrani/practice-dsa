@@ -177,6 +177,17 @@ function strengthIssues(problem: AuthoredProblem): ConformanceIssue[] {
     });
   }
 
+  const unexplainedExamples = problem.examples
+    .map((example, index) => ({ example, index }))
+    .filter(({ example }) => (example.explanation ?? "").trim().length === 0);
+  if (unexplainedExamples.length > 0) {
+    issues.push({
+      slug: problem.slug,
+      kind: "strength",
+      message: `${problem.slug}: examples ${unexplainedExamples.map(({ index }) => index + 1).join(", ")} have no explanation`,
+    });
+  }
+
   const unexplained = problem.testcases
     .map((testcase, index) => ({ testcase, index }))
     .filter(

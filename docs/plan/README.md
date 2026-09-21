@@ -4,7 +4,7 @@ Build in this order: **trustworthy judging → durable persistence → more prob
 
 Get the existing four problems working end to end before expanding the catalog.
 
-**Current phase:** [Phase 3 — Durable practice](./03-durable-practice.md)
+**Current phase:** done — all five phases complete.
 
 Tick boxes here when a whole phase is done. Tick boxes inside the phase file when a work unit is done. Do not start the next phase until the current one is complete.
 
@@ -20,9 +20,9 @@ Invariants and the “done” scenario live in [00-scope.md](./00-scope.md).
 
 - [x] [Phase 1 — Repair baseline checks and judging correctness](./01-baseline.md)
 - [x] [Phase 2 — Structured cases, hidden judging, and conformance](./02-structured-judging.md)
-- [ ] [Phase 3 — Durable practice state and submission history](./03-durable-practice.md)
-- [ ] [Phase 4 — Expand to 16 verified problems and measure Submit latency](./04-catalog.md)
-- [ ] [Phase 5 — Persist chats and deliver contextual tutoring](./05-tutor.md)
+- [x] [Phase 3 — Durable practice state and submission history](./03-durable-practice.md)
+- [x] [Phase 4 — Expand to 16 verified problems and measure Submit latency](./04-catalog.md)
+- [x] [Phase 5 — Persist chats and deliver contextual tutoring](./05-tutor.md)
 
 ## How to work a phase
 
@@ -54,4 +54,5 @@ pnpm test                 # added in Phase 1; grows each phase
 pnpm problems:check       # added in Phase 2; no Docker
 pnpm db:migrate && pnpm db:seed
 pnpm piston:check         # seeded catalog + real engine
+pnpm chat:smoke           # disclosed tutor payload; live DeepSeek when a key is set
 ```

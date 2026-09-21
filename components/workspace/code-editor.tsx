@@ -8,10 +8,12 @@ import { AlertTriangleIcon, RotateCcwIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
+import type { SaveStatus } from "@/lib/hooks/use-practice";
 import type { LanguageId } from "@/lib/languages";
 
 import { LanguagePicker } from "./language-picker";
 import { ensureMonacoLoader, MONACO_VS_PATH } from "./monaco-setup";
+import { SaveStatusLabel } from "./save-status";
 
 /** `ssr: false` is only allowed inside a client component. */
 const MonacoCodeEditor = dynamic(() => import("./code-editor-impl"), {
@@ -41,6 +43,8 @@ export type CodeEditorPaneProps = {
   onLanguageChange: (language: LanguageId) => void;
   onReset: () => void;
   onRun: () => void;
+  saveStatus?: SaveStatus;
+  onRetrySave?: () => void;
 };
 
 export function CodeEditorPane({
@@ -52,6 +56,8 @@ export function CodeEditorPane({
   onLanguageChange,
   onReset,
   onRun,
+  saveStatus = "idle",
+  onRetrySave,
 }: CodeEditorPaneProps) {
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [attempt, setAttempt] = useState(0);
@@ -83,9 +89,12 @@ export function CodeEditorPane({
     <div className="flex h-full min-h-0 flex-col bg-background">
       <div className="flex h-[34px] shrink-0 items-center gap-1 border-b border-border bg-panel-2 pr-2 pl-1">
         <LanguagePicker value={language} onChange={onLanguageChange} />
-        <span className="ml-auto hidden font-mono text-[11px] text-muted-foreground md:inline">
-          ⌘↵ run
-        </span>
+        <div className="ml-auto flex items-center gap-2">
+          <SaveStatusLabel status={saveStatus} onRetry={onRetrySave} />
+          <span className="hidden font-mono text-[11px] text-muted-foreground md:inline">
+            ⌘↵ run
+          </span>
+        </div>
         <Button
           variant="ghost"
           size="icon-sm"

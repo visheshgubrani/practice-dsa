@@ -18,10 +18,10 @@ Existing seeded problems: `two-sum`, `valid-parentheses`, `group-anagrams`, `tra
 
 - Python JSON-args harness, Piston judging, Postgres catalog, streaming AI chat.
 - Submit judges the full suite (visible then hidden), reveals the first failing hidden case, and redacts hidden successes.
-- Drafts, notes, progress, and accepted code live in `localStorage`.
-- `submissions`, `submission_cases`, `chat_threads`, and `chat_messages` exist with no application writers.
-- AI receives the problem, editor contents, and a short verdict summary — not the actual failing case.
-- `pnpm test`, `pnpm problems:check`, and `pnpm piston:check` pass.
+- Drafts, notes, verified progress, submission history, and tutor conversations live in Postgres. Browser `dsa.*` keys are recovery copies and a one-time import source.
+- Only a successful Piston Submit marks a problem solved. Mock and Run never qualify. Legacy imported accepts stay labeled snapshots.
+- The tutor restores the latest thread, sees the referenced attempt (submitted source and first failing case, including a revealed hidden case), and never receives the unrevealed hidden suite or reference-solution source.
+- `pnpm test`, `pnpm problems:check`, `pnpm piston:check`, and `pnpm chat:smoke` pass. Live DeepSeek still needs `DEEPSEEK_API_KEY`; without it, demo mode is the tutor.
 
 ## Hard constraints
 

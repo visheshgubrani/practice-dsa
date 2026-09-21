@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { caseLabel, isVerifiedAcceptance } from "@/lib/runner/types";
+import { caseLabel, isVerifiedAcceptance, runRequestSchema } from "@/lib/runner/types";
 
 describe("caseLabel", () => {
   it("labels visible and hidden cases distinctly", () => {
@@ -51,6 +51,29 @@ describe("isVerifiedAcceptance", () => {
         runner: "piston",
         verdict: "wrong_answer",
       }),
+      false,
+    );
+  });
+});
+
+describe("runRequestSchema", () => {
+  it("accepts an optional request id and rejects a non-uuid", () => {
+    const base = {
+      slug: "two-sum",
+      language: "python",
+      source: "class Solution:\n    pass\n",
+      mode: "submit",
+    };
+    assert.equal(runRequestSchema.safeParse(base).success, true);
+    assert.equal(
+      runRequestSchema.safeParse({
+        ...base,
+        requestId: "11111111-1111-4111-8111-111111111111",
+      }).success,
+      true,
+    );
+    assert.equal(
+      runRequestSchema.safeParse({ ...base, requestId: "not-a-uuid" }).success,
       false,
     );
   });

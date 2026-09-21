@@ -1,14 +1,25 @@
-import { pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import {
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 import { timestamps } from "./columns";
 import { languageEnum, progressStatusEnum } from "./enums";
 import { problems } from "./problems";
 
 /**
- * Per-problem practice state — the eventual home of the `dsa.*` localStorage
+ * Per-problem practice state — the durable home of the `dsa.*` localStorage
  * keys. Both tables are keyed by problem and hold nothing that can be derived
  * from `submissions`: attempt counts and "last tried at" are always computed,
  * never cached, so they cannot drift.
+ *
+ * `revision` is what a stale tab compares against before overwriting. Status
+ * and `solvedAt` are written only from a verified Piston Submit, never from
+ * the practice PATCH.
  */
 
 /** One editor buffer per problem and language (`dsa.code.<slug>.<language>`). */
@@ -21,6 +32,8 @@ export const drafts = pgTable(
       .references(() => problems.id, { onDelete: "cascade" }),
     language: languageEnum("language").notNull(),
     source: text("source").notNull().default(""),
+    /** Starts at 1; every save increments it. */
+    revision: integer("revision").notNull().default(1),
     ...timestamps,
   },
   (t) => [
@@ -51,9 +64,32 @@ export const problemProgress = pgTable(
     userNotesSpaceComplexity: text("user_notes_space_complexity"),
     /** Set once, when the first accepted submission flips `status` to solved. */
     solvedAt: timestamp("solved_at", { withTimezone: true }),
+    /** Shared by notes and preferred language; every save of either increments it. */
+    revision: integer("revision").notNull().default(1),
     ...timestamps,
   },
   (t) => [
     uniqueIndex("problem_progress_problem_key").on(t.problemId),
   ],
+);
+
+/**
+ * Browser `dsa.accepted.*` records imported as labeled snapshots. They are not
+ * submissions and never flip `problem_progress.status` to solved — those
+ * records may be mock runs or sample-only judging.
+ */
+export const legacyAccepted = pgTable(
+  "legacy_accepted",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    problemId: uuid("problem_id")
+      .notNull()
+      .references(() => problems.id, { onDelete: "cascade" }),
+    language: languageEnum("language").notNull(),
+    source: text("source").notNull(),
+    /** The timestamp the browser stored, when it was a valid ISO string. */
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("legacy_accepted_problem_key").on(t.problemId)],
 );

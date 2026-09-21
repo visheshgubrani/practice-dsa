@@ -194,6 +194,15 @@ export function VerdictStrip({
             {engineLabel}
           </span>
         )}
+        {runState.status === "done" && runState.result.persisted === false ? (
+          <Badge
+            variant="outline"
+            className="border-destructive/40 bg-destructive/10 font-mono text-[10px] text-destructive"
+            title="The verdict is shown, but the history row was not written. This does not count as durable progress."
+          >
+            not saved
+          </Badge>
+        ) : null}
         {(runState.status === "done" || runState.status === "error") && (
           <CopyOutputButton text={outputTextFor(runState)} />
         )}

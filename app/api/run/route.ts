@@ -1,10 +1,46 @@
+import { getPractice } from "@/lib/db/queries/practice";
+import {
+  getSubmissionByRequestId,
+  persistRunResult,
+  toRunResult,
+} from "@/lib/db/queries/submissions";
 import { runSubmission, InvalidRunRequestError } from "@/lib/runner";
-import { runRequestSchema } from "@/lib/runner/types";
+import { runRequestSchema, type RunResult } from "@/lib/runner/types";
+import type { PracticeProgress, VerifiedAccepted } from "@/lib/practice/types";
 
 /**
- * Executes one Run or Submit. Repeatable without limits — the UI keeps no
- * submission history, it just renders the newest result in the console.
+ * Executes one Run or Submit, then stores the completed result. The engine
+ * runs outside a database transaction; history, cases, and progress are
+ * written together afterwards. A save failure still returns the verdict.
  */
+
+type PersistedRunResult = RunResult & {
+  persisted: boolean;
+  submissionId?: string;
+  progress?: PracticeProgress;
+  latestAccepted?: VerifiedAccepted | null;
+};
+
+function withPersist(
+  result: RunResult,
+  extra: {
+    persisted: boolean;
+    submissionId?: string;
+    progress?: PracticeProgress;
+    latestAccepted?: VerifiedAccepted | null;
+  },
+): PersistedRunResult {
+  return {
+    ...result,
+    persisted: extra.persisted,
+    ...(extra.submissionId ? { submissionId: extra.submissionId } : {}),
+    ...(extra.progress ? { progress: extra.progress } : {}),
+    ...(extra.latestAccepted !== undefined
+      ? { latestAccepted: extra.latestAccepted }
+      : {}),
+  };
+}
+
 export async function POST(request: Request) {
   let payload: unknown;
   try {
@@ -21,9 +57,55 @@ export async function POST(request: Request) {
     );
   }
 
+  const body = parsed.data;
+
   try {
-    const result = await runSubmission(parsed.data);
-    return Response.json(result);
+    if (body.requestId) {
+      const existing = await getSubmissionByRequestId(body.requestId);
+      if (existing) {
+        const practice = await getPractice(body.slug, body.language);
+        return Response.json(
+          withPersist(toRunResult(existing), {
+            persisted: true,
+            submissionId: existing.id,
+            ...(practice
+              ? {
+                  progress: practice.progress,
+                  latestAccepted: practice.latestAccepted,
+                }
+              : {}),
+          }),
+        );
+      }
+    }
+
+    const result = await runSubmission(body);
+
+    try {
+      const stored = await persistRunResult({
+        slug: body.slug,
+        language: body.language,
+        source: body.source,
+        testcaseIndex: body.testcaseIndex,
+        requestId: body.requestId,
+        result,
+      });
+      const practice = await getPractice(body.slug, body.language);
+      return Response.json(
+        withPersist(result, {
+          persisted: true,
+          submissionId: stored.id,
+          ...(practice
+            ? {
+                progress: practice.progress,
+                latestAccepted: practice.latestAccepted,
+              }
+            : {}),
+        }),
+      );
+    } catch {
+      return Response.json(withPersist(result, { persisted: false }));
+    }
   } catch (error) {
     if (error instanceof InvalidRunRequestError) {
       return Response.json({ error: error.message }, { status: 400 });

@@ -34,7 +34,9 @@ loadPistonEnv();
 
 const { getProblemForJudging } = await import("@/lib/db/queries/problems");
 const { pool } = await import("@/lib/db/index");
-const { FIXTURES } = await import("@/lib/harness/fixtures");
+const { FIXTURES, hasPlausibleWrongAnswer } = await import(
+  "@/lib/harness/fixtures"
+);
 const { forgetRuntimes, missingRuntimes } = await import("@/lib/piston/client");
 const { runWithPiston } = await import("@/lib/runner/piston");
 const { DEFAULT_LANGUAGE } = await import("@/lib/languages");
@@ -97,6 +99,12 @@ async function main(): Promise<void> {
     }
 
     console.log(`\n${problem.number}. ${problem.title} (${problem.slug})`);
+
+    record(
+      `plausible incorrect implementation that the suite rejects`,
+      "true",
+      String(hasPlausibleWrongAnswer(fixture)),
+    );
 
     const accepted = await runWithPiston(
       { slug: problem.slug, language, source: fixture.accepted, mode: "submit" },

@@ -34,6 +34,9 @@ yarn-error.log*
 .env*
 !.env.example
 
+# local database dumps from `pg_dump` (see README)
+*.dump
+
 # generated: monaco's AMD build, copied from node_modules by scripts/sync-monaco.mjs
 /public/monaco/
 

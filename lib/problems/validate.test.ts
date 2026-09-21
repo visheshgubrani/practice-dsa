@@ -24,7 +24,11 @@ function problem(overrides: Partial<AuthoredProblem> = {}): AuthoredProblem {
     def twoSum(self, nums: List[int], target: int) -> List[int]:
         `,
     },
-    notes: { approach: "", timeComplexity: "", spaceComplexity: "" },
+    notes: {
+      approach: "hash map",
+      timeComplexity: "O(n)",
+      spaceComplexity: "O(n)",
+    },
     reference: `class Solution:
     def twoSum(self, nums, target):
         return [0, 1]
@@ -113,6 +117,58 @@ describe("validateProblem", () => {
   it("requires a python reference solution", () => {
     const issues = validateProblem(problem({ reference: "   " }));
     assert.match(issues.join("\n"), /no python reference solution/);
+  });
+
+  it("requires a statement, constraints, and complexity notes", () => {
+    const issues = validateProblem(
+      problem({
+        statement: "  ",
+        constraints: ["", "   "],
+        notes: { approach: "", timeComplexity: "", spaceComplexity: "" },
+      }),
+    );
+    assert.match(issues.join("\n"), /has no statement/);
+    assert.match(issues.join("\n"), /has no constraints/);
+    assert.match(issues.join("\n"), /has no approach notes/);
+    assert.match(issues.join("\n"), /has no time complexity notes/);
+    assert.match(issues.join("\n"), /has no space complexity notes/);
+  });
+
+  it("requires a compare policy and rejects in-place void returns", () => {
+    const missingCompare = validateProblem(problem({ compare: undefined }));
+    assert.match(missingCompare.join("\n"), /missing compare policy/);
+
+    const inPlace = validateProblem(
+      problem({
+        signature: {
+          name: "twoSum",
+          params: [
+            { name: "nums", kind: "int[]" },
+            { name: "target", kind: "int" },
+          ],
+          returns: "void",
+        },
+      }),
+    );
+    assert.match(inPlace.join("\n"), /returns void/);
+  });
+
+  it("requires the starter and reference to define the signature method", () => {
+    const issues = validateProblem(
+      problem({
+        starterCode: {
+          python: `class Solution:
+    def other(self, nums: List[int], target: int) -> List[int]:
+        `,
+        },
+        reference: `class Solution:
+    def other(self, nums, target):
+        return [0, 1]
+`,
+      }),
+    );
+    assert.match(issues.join("\n"), /python starter does not define twoSum/);
+    assert.match(issues.join("\n"), /python reference does not define twoSum/);
   });
 });
 

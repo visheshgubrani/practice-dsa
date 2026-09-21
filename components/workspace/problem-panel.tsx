@@ -5,6 +5,8 @@ import { SparklesIcon } from "lucide-react";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { SaveStatus } from "@/lib/hooks/use-practice";
+import type { LegacySnapshot } from "@/lib/practice/types";
 import type { Problem, SolutionNotes } from "@/lib/problems";
 
 import { ProblemStatement } from "./problem-statement";
@@ -16,6 +18,10 @@ export type ProblemPanelProps = {
   onNotesChange: (notes: SolutionNotes) => void;
   accepted: AcceptedSolution;
   onLoadAccepted: () => void;
+  legacySnapshot?: LegacySnapshot | null;
+  onLoadLegacy?: () => void;
+  notesSaveStatus?: SaveStatus;
+  onRetryNotesSave?: () => void;
   /** The chat pane, kept mounted so a streaming answer survives tab switches. */
   chat: React.ReactNode;
 };
@@ -26,6 +32,10 @@ export function ProblemPanel({
   onNotesChange,
   accepted,
   onLoadAccepted,
+  legacySnapshot,
+  onLoadLegacy,
+  notesSaveStatus,
+  onRetryNotesSave,
   chat,
 }: ProblemPanelProps) {
   const [tab, setTab] = useState("description");
@@ -73,6 +83,10 @@ export function ProblemPanel({
               onNotesChange={onNotesChange}
               accepted={accepted}
               onLoadAccepted={onLoadAccepted}
+              legacySnapshot={legacySnapshot}
+              onLoadLegacy={onLoadLegacy}
+              saveStatus={notesSaveStatus}
+              onRetrySave={onRetryNotesSave}
             />
           </div>
         </ScrollArea>

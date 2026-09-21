@@ -49,6 +49,7 @@ export default async function Page(props: PageProps<"/problems/[slug]">) {
 
   return (
     <Workspace
+      key={problem.slug}
       problem={problem}
       previous={previous}
       next={next}

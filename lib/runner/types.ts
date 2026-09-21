@@ -41,6 +41,8 @@ export const runRequestSchema = z.object({
   mode: z.enum(RUN_MODES),
   /** Only meaningful for `mode: "run"` — the case selected in the console. */
   testcaseIndex: z.number().int().min(0).max(50).optional(),
+  /** Idempotency key so a retry cannot insert a second history row. */
+  requestId: z.string().uuid().optional(),
 });
 
 export type RunRequest = z.infer<typeof runRequestSchema>;
@@ -87,6 +89,12 @@ export type RunResult = {
   at: string;
   /** The engine's version of the language, when a real engine judged this run. */
   pistonVersion?: string;
+  /**
+   * False when judging succeeded but the history / progress write did not.
+   * Missing on results that never went through `/api/run`.
+   */
+  persisted?: boolean;
+  submissionId?: string;
 };
 
 export const VERDICT_LABEL: Record<Verdict, string> = {
@@ -138,8 +146,6 @@ export function isRunResult(value: unknown): value is RunResult {
  * Only a successful Piston Submit counts as solving a problem.
  *
  * A sample Run that happens to pass, and any mock / simulated result, do not.
- * Phase 3 will enforce this on the server; until then the workspace uses this
- * gate before writing local progress.
  */
 export function isVerifiedAcceptance(
   result: Pick<RunResult, "mode" | "runner" | "verdict">,

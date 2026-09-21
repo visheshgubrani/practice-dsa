@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
   index,
   integer,
@@ -21,6 +22,10 @@ import { problems } from "./problems";
  * rendered by the same console code, and `mode` is what separates a scratch run
  * from a judged submission. Runs are kept rather than discarded because the
  * tutor benefits from seeing what was already tried.
+ *
+ * Reads always apply Phase 2 disclosure: hidden successes stay status-and-
+ * metrics; the first failing hidden case is revealed. The stored row may keep
+ * the full executed payload so a later re-read does not invent a leakier DTO.
  */
 export const submissions = pgTable(
   "submissions",
@@ -48,6 +53,16 @@ export const submissions = pgTable(
      * it, and reinstalling a runtime is a one-command change.
      */
     pistonVersion: text("piston_version"),
+    /**
+     * Snapshot of the catalog at execution time (the problem row's `updatedAt`
+     * ISO string). Historical rows are never rewritten when a problem is reseeded.
+     */
+    catalogRevision: text("catalog_revision").notNull().default(""),
+    /**
+     * Client-supplied idempotency key. Null on rows written before the client
+     * sent one; unique so a retry cannot insert a second history row.
+     */
+    requestId: uuid("request_id"),
     createdAt,
   },
   (t) => [
@@ -57,6 +72,13 @@ export const submissions = pgTable(
     index("submissions_accepted_idx")
       .on(t.problemId, t.createdAt.desc())
       .where(sql`${t.verdict} = 'accepted'`),
+    // Verified solved restoration: Piston Submit only, never a Run or mock.
+    index("submissions_verified_accepted_idx")
+      .on(t.problemId, t.createdAt.desc())
+      .where(
+        sql`${t.verdict} = 'accepted' AND ${t.mode} = 'submit' AND ${t.runner} = 'piston'`,
+      ),
+    uniqueIndex("submissions_request_id_key").on(t.requestId),
     check("submissions_passed_lte_total", sql`${t.passedCount} <= ${t.totalCount}`),
   ],
 );
@@ -70,10 +92,15 @@ export const submissionCases = pgTable(
       .notNull()
       .references(() => submissions.id, { onDelete: "cascade" }),
     position: integer("position").notNull(),
+    /** Public slot within the visible group, or within the hidden group. */
+    caseIndex: integer("case_index").notNull().default(0),
     status: verdictEnum("status").notNull(),
+    hidden: boolean("hidden").notNull().default(false),
     input: text("input").notNull().default(""),
     expected: text("expected").notNull().default(""),
     stdout: text("stdout"),
+    /** User `print()` output, captured separately from the return value. */
+    debug: text("debug"),
     stderr: text("stderr"),
     timeMs: integer("time_ms"),
     memoryKb: integer("memory_kb"),

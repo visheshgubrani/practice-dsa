@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { FIXTURES, hasPlausibleWrongAnswer } from "@/lib/harness/fixtures";
 import type { AuthoredProblem } from "@/lib/problems/authoring";
 import { PROBLEMS } from "@/lib/problems/catalog";
 import { checkCatalog, formatConformanceReport } from "@/lib/problems/conformance";
-import { FIXTURES } from "@/lib/harness/fixtures";
 
 function mini(overrides: Partial<AuthoredProblem> = {}): AuthoredProblem {
   return {
@@ -43,7 +43,11 @@ function mini(overrides: Partial<AuthoredProblem> = {}): AuthoredProblem {
     starterCode: {
       python: "class Solution:\n    def twoSum(self, nums, target):\n        \n",
     },
-    notes: { approach: "", timeComplexity: "", spaceComplexity: "" },
+    notes: {
+      approach: "hash map",
+      timeComplexity: "O(n)",
+      spaceComplexity: "O(n)",
+    },
     signature: {
       name: "twoSum",
       params: [
@@ -136,16 +140,32 @@ describe("checkCatalog", () => {
     assert.match(mismatch.message, /\[9,9\]/);
     assert.match(mismatch.message, /\[0,1\]/);
   });
+
+  it("requires example explanations", () => {
+    const report = checkCatalog([
+      mini({
+        examples: [{ args: [[2, 7], 9], output: "[0,1]" }],
+      }),
+    ]);
+    assert.equal(report.ok, false);
+    const strength = report.issues.find((issue) => issue.kind === "strength");
+    assert.ok(strength);
+    assert.match(strength.message, /examples 1 have no explanation/);
+  });
 });
 
 describe("fixtures", () => {
-  it("uses each problem module's reference as the accepted program", () => {
+  it("covers every catalog problem with its reference and a wrong-answer reject", () => {
+    assert.deepEqual(
+      FIXTURES.map((fixture) => fixture.slug),
+      PROBLEMS.map((problem) => problem.slug),
+    );
     for (const problem of PROBLEMS) {
       const fixture = FIXTURES.find((entry) => entry.slug === problem.slug);
       assert.equal(fixture?.accepted, problem.reference);
       assert.ok(
-        (fixture?.broken?.length ?? 0) > 0,
-        `${problem.slug} needs a broken implementation`,
+        fixture && hasPlausibleWrongAnswer(fixture),
+        `${problem.slug} needs a plausible incorrect implementation the suite rejects`,
       );
     }
   });

@@ -9,15 +9,15 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { useIsWideLayout } from "@/lib/hooks/use-media-query";
-import { usePersistedState } from "@/lib/hooks/use-persisted-state";
+import { usePractice } from "@/lib/hooks/use-practice";
+import { usePracticeImport } from "@/lib/hooks/use-practice-import";
 import { useProgress } from "@/lib/hooks/use-progress";
+import { toLanguageId } from "@/lib/languages";
 import {
-  DEFAULT_LANGUAGE,
-  getLanguage,
-  toLanguageId,
-  type LanguageId,
-} from "@/lib/languages";
-import type { Problem, ProblemSummary, SolutionNotes } from "@/lib/problems";
+  codeDirtyKey,
+  codeRecoveryKey,
+} from "@/lib/practice/keys";
+import type { PracticeProgress, VerifiedAccepted } from "@/lib/practice/types";
 import {
   isRunResult,
   isVerifiedAcceptance,
@@ -26,6 +26,7 @@ import {
   type RunResult,
   type RunnerKind,
 } from "@/lib/runner/types";
+import type { Problem, ProblemSummary } from "@/lib/problems";
 
 import { AiChatPane, type AiMode } from "./ai-chat";
 import {
@@ -36,11 +37,35 @@ import {
 import { CodeEditorPane } from "./code-editor";
 import { ConsolePanel, type ConsoleTab } from "./console-panel";
 import { ProblemPanel } from "./problem-panel";
-import type { AcceptedSolution } from "./solution-notes";
+import {
+  ImportPracticeAlert,
+  LoadErrorAlert,
+  SaveConflictAlert,
+} from "./save-status";
 import type { RunState } from "./verdict-strip";
 import { WorkspaceHeader } from "./workspace-header";
 
 type Neighbour = Pick<ProblemSummary, "slug" | "title" | "number">;
+
+function persistFields(payload: unknown): {
+  persisted: boolean;
+  progress?: PracticeProgress;
+  latestAccepted?: VerifiedAccepted | null;
+} {
+  if (typeof payload !== "object" || payload === null) {
+    return { persisted: false };
+  }
+  const body = payload as {
+    persisted?: unknown;
+    progress?: PracticeProgress;
+    latestAccepted?: VerifiedAccepted | null;
+  };
+  return {
+    persisted: body.persisted === true,
+    progress: body.progress,
+    latestAccepted: body.latestAccepted,
+  };
+}
 
 export type WorkspaceProps = {
   problem: Problem;
@@ -59,37 +84,15 @@ export function Workspace({
   runner,
 }: WorkspaceProps) {
   const isWide = useIsWideLayout();
-  const { progress, hydrated: progressHydrated, markAccepted } = useProgress();
-
-  const languageState = usePersistedState<LanguageId>(
-    `dsa.language.${problem.slug}`,
-    DEFAULT_LANGUAGE,
-  );
-  // A buffer saved under a language that is no longer offered reads back as that
-  // value; the app runs Python, so an unknown one falls back rather than throwing
-  // at someone who simply opened an old problem.
-  const language = getLanguage(toLanguageId(languageState.value) ?? DEFAULT_LANGUAGE);
-
-  const codeState = usePersistedState<string>(
-    `dsa.code.${problem.slug}.${language.id}`,
-    problem.starterCode[language.id],
-  );
-
-  const notesState = usePersistedState<SolutionNotes>(
-    `dsa.notes.${problem.slug}`,
-    problem.notes,
-  );
-
-  const acceptedState = usePersistedState<AcceptedSolution>(
-    `dsa.accepted.${problem.slug}`,
-    null,
-  );
-  const setAccepted = acceptedState.setValue;
-  const setLanguage = languageState.setValue;
-  const clearCode = codeState.reset;
+  const { markAccepted } = useProgress();
+  const practice = usePractice(problem);
+  const importer = usePracticeImport({
+    onImported: practice.retryLoad,
+  });
 
   const [runState, setRunState] = useState<RunState>({ status: "idle" });
   const [consoleTab, setConsoleTab] = useState<ConsoleTab>("testcase");
+  const [historyEpoch, setHistoryEpoch] = useState(0);
   const [testcaseIndex, setTestcaseIndex] = useState(0);
   const [consoleMinimized, setConsoleMinimized] = useState(false);
   const consolePanelRef = usePanelRef();
@@ -97,15 +100,15 @@ export function Workspace({
 
   const runSummary =
     runState.status === "done" ? summarizeRun(runState.result) : undefined;
+  const submissionId =
+    runState.status === "done" ? runState.result.submissionId : undefined;
 
-  const solved = progressHydrated && Boolean(progress[problem.slug]);
+  const solved = practice.progress.status === "solved";
 
   const run = useCallback(
     async (mode: RunMode) => {
-      // Snapshot at click. Later keystrokes must not change the judged source,
-      // the accepted-code record, or the tutor context for this attempt.
-      const source = codeState.value;
-      const languageId = language.id;
+      const source = practice.source;
+      const languageId = practice.language.id;
       const selectedIndex = testcaseIndex;
       setJudgedSource(source);
 
@@ -119,6 +122,7 @@ export function Workspace({
       }
 
       try {
+        const requestId = crypto.randomUUID();
         const response = await fetch("/api/run", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -128,6 +132,7 @@ export function Workspace({
             source,
             mode,
             testcaseIndex: selectedIndex,
+            requestId,
           }),
         });
 
@@ -154,11 +159,20 @@ export function Workspace({
           return;
         }
 
-        const result: RunResult = payload;
+        const persist = persistFields(payload);
+        const result: RunResult = { ...payload, persisted: persist.persisted };
         setRunState({ status: "done", result });
 
-        if (isVerifiedAcceptance(result)) {
-          setAccepted({
+        if (persist.persisted) {
+          practice.applyPersistedRun({
+            progress: persist.progress,
+            latestAccepted: persist.latestAccepted,
+          });
+          setHistoryEpoch((epoch) => epoch + 1);
+        }
+
+        if (persist.persisted && isVerifiedAcceptance(result)) {
+          practice.setAccepted({
             source,
             language: languageId,
             at: result.at,
@@ -178,18 +192,15 @@ export function Workspace({
     },
     [
       consolePanelRef,
-      language.id,
       markAccepted,
+      practice,
       problem.slug,
-      setAccepted,
       testcaseIndex,
-      codeState.value,
     ],
   );
 
   const busyMode = runState.status === "running" ? runState.mode : null;
 
-  /** Keeps the strip's minimized flag honest when the divider is dragged. */
   const handleConsoleResize = useCallback((inPixels: number) => {
     const next = inPixels <= CONSOLE_STRIP_PX + 6;
     setConsoleMinimized((previous) => (previous === next ? previous : next));
@@ -205,44 +216,119 @@ export function Workspace({
     }
   }, [consolePanelRef]);
 
-  /**
-   * Restore the accepted submission into the editor. When it was written in
-   * another language, the buffer hook re-reads its storage key after the
-   * language switch, so the accepted source is written to that key first.
-   */
+  const handleConsoleTabChange = useCallback(
+    (tab: ConsoleTab) => {
+      setConsoleTab(tab);
+      const panel = consolePanelRef.current;
+      if (!panel) return;
+      if (panel.getSize().inPixels <= CONSOLE_STRIP_PX + 6) {
+        panel.resize(CONSOLE_EXPANDED_SIZE);
+      }
+    },
+    [consolePanelRef],
+  );
+
+  const loadSource = useCallback(
+    (source: string, languageId: string) => {
+      const language = toLanguageId(languageId);
+      if (!language || language === practice.language.id) {
+        practice.onCodeChange(source);
+        return;
+      }
+
+      try {
+        window.localStorage.setItem(
+          codeRecoveryKey(problem.slug, language),
+          JSON.stringify(source),
+        );
+        window.localStorage.setItem(
+          codeDirtyKey(problem.slug, language),
+          JSON.stringify(true),
+        );
+      } catch {
+        // Storage unavailable: the switch still happens, the buffer just stays.
+      }
+      practice.onLanguageChange(language);
+    },
+    [practice, problem.slug],
+  );
+
   const loadAcceptedCode = useCallback(() => {
-    const accepted = acceptedState.value;
+    const accepted = practice.accepted;
     if (!accepted) return;
+    loadSource(accepted.source, accepted.language);
+  }, [loadSource, practice.accepted]);
 
-    if (accepted.language === language.id) {
-      codeState.setValue(accepted.source);
-      return;
-    }
+  const loadLegacyCode = useCallback(() => {
+    const legacy = practice.legacySnapshot;
+    if (!legacy) return;
+    loadSource(legacy.source, legacy.language);
+  }, [loadSource, practice.legacySnapshot]);
 
-    try {
-      window.localStorage.setItem(
-        `dsa.code.${problem.slug}.${accepted.language}`,
-        JSON.stringify(accepted.source),
-      );
-    } catch {
-      // Storage unavailable: the switch still happens, the buffer just stays.
-    }
-    setLanguage(accepted.language);
-  }, [acceptedState.value, codeState, language.id, problem.slug, setLanguage]);
+  const acceptedForNotes =
+    !practice.hasVerifiedAccepted &&
+    practice.accepted &&
+    practice.legacySnapshot &&
+    practice.accepted.source === practice.legacySnapshot.source
+      ? null
+      : practice.accepted;
+
+  const banners =
+    importer.visible ||
+    practice.loadError ||
+    practice.draftConflict ||
+    practice.notesConflict ? (
+      <div className="flex shrink-0 flex-col gap-2 border-b border-border px-3 py-2">
+        {importer.visible ? (
+          <ImportPracticeAlert
+            summary={importer.summary}
+            importing={importer.status === "importing"}
+            error={importer.error}
+            onImport={importer.importNow}
+            onDismiss={importer.dismiss}
+          />
+        ) : null}
+        {practice.loadError ? (
+          <LoadErrorAlert
+            message={practice.loadError}
+            onRetry={practice.retryLoad}
+          />
+        ) : null}
+        {practice.draftConflict ? (
+          <SaveConflictAlert
+            resource="draft"
+            onReload={practice.reloadDraft}
+            onOverwrite={practice.overwriteDraft}
+          />
+        ) : null}
+        {practice.notesConflict ? (
+          <SaveConflictAlert
+            resource="progress"
+            onReload={practice.reloadNotes}
+            onOverwrite={practice.overwriteNotes}
+          />
+        ) : null}
+      </div>
+    ) : null;
 
   const problemPanel = (
     <ProblemPanel
       problem={problem}
-      notes={notesState.value}
-      onNotesChange={notesState.setValue}
-      accepted={acceptedState.value}
+      notes={practice.notes}
+      onNotesChange={practice.onNotesChange}
+      accepted={acceptedForNotes}
       onLoadAccepted={loadAcceptedCode}
+      legacySnapshot={practice.legacySnapshot}
+      onLoadLegacy={loadLegacyCode}
+      notesSaveStatus={practice.notesStatus}
+      onRetryNotesSave={practice.retryNotesSave}
       chat={
         <AiChatPane
           problem={problem}
-          language={language}
-          code={judgedSource ?? codeState.value}
+          language={practice.language}
+          code={judgedSource ?? practice.source}
           runSummary={runSummary}
+          submissionId={submissionId}
           aiMode={aiMode}
         />
       }
@@ -252,15 +338,17 @@ export function Workspace({
   const editorPane = (
     <CodeEditorPane
       slug={problem.slug}
-      value={codeState.value}
-      language={language.id}
-      monacoLanguage={language.monacoId}
-      onValueChange={codeState.setValue}
-      onLanguageChange={setLanguage}
-      onReset={clearCode}
+      value={practice.source}
+      language={practice.language.id}
+      monacoLanguage={practice.language.monacoId}
+      onValueChange={practice.onCodeChange}
+      onLanguageChange={practice.onLanguageChange}
+      onReset={practice.onReset}
       onRun={() => {
         void run("run");
       }}
+      saveStatus={practice.draftStatus}
+      onRetrySave={practice.retryDraftSave}
     />
   );
 
@@ -269,7 +357,7 @@ export function Workspace({
       problem={problem}
       runState={runState}
       tab={consoleTab}
-      onTabChange={setConsoleTab}
+      onTabChange={handleConsoleTabChange}
       testcaseIndex={testcaseIndex}
       onTestcaseChange={setTestcaseIndex}
       minimized={consoleMinimized}
@@ -277,7 +365,13 @@ export function Workspace({
       onRun={() => {
         void run("run");
       }}
-      simulated={runner === "mock"}
+      simulated={
+        runState.status === "done"
+          ? runState.result.runner === "mock"
+          : runner === "mock"
+      }
+      historyEpoch={historyEpoch}
+      onLoadSource={loadSource}
     />
   );
 
@@ -305,6 +399,7 @@ export function Workspace({
           void run("submit");
         }}
       />
+      {banners}
 
       {isWide ? (
         <ResizablePanelGroup
