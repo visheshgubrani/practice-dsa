@@ -96,7 +96,6 @@ export function Workspace({
   const [testcaseIndex, setTestcaseIndex] = useState(0);
   const [consoleMinimized, setConsoleMinimized] = useState(false);
   const consolePanelRef = usePanelRef();
-  const [judgedSource, setJudgedSource] = useState<string | undefined>();
 
   const runSummary =
     runState.status === "done" ? summarizeRun(runState.result) : undefined;
@@ -110,7 +109,6 @@ export function Workspace({
       const source = practice.source;
       const languageId = practice.language.id;
       const selectedIndex = testcaseIndex;
-      setJudgedSource(source);
 
       setRunState({ status: "running", mode });
       setConsoleTab("result");
@@ -326,7 +324,7 @@ export function Workspace({
         <AiChatPane
           problem={problem}
           language={practice.language}
-          code={judgedSource ?? practice.source}
+          code={practice.source}
           runSummary={runSummary}
           submissionId={submissionId}
           aiMode={aiMode}

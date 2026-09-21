@@ -4,7 +4,7 @@ Build in this order: **trustworthy judging → durable persistence → more prob
 
 Get the existing four problems working end to end before expanding the catalog.
 
-**Current phase:** done — all five phases complete.
+**Current phase:** done — all five phases complete, plus the tutor-hint follow-up.
 
 Tick boxes here when a whole phase is done. Tick boxes inside the phase file when a work unit is done. Do not start the next phase until the current one is complete.
 
@@ -23,6 +23,7 @@ Invariants and the “done” scenario live in [00-scope.md](./00-scope.md).
 - [x] [Phase 3 — Durable practice state and submission history](./03-durable-practice.md)
 - [x] [Phase 4 — Expand to 16 verified problems and measure Submit latency](./04-catalog.md)
 - [x] [Phase 5 — Persist chats and deliver contextual tutoring](./05-tutor.md)
+- [x] [Follow-up — Tutor hints grounded in the current attempt](./06-tutor-hints.md)
 
 ## How to work a phase
 

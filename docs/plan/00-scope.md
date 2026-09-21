@@ -20,7 +20,7 @@ Existing seeded problems: `two-sum`, `valid-parentheses`, `group-anagrams`, `tra
 - Submit judges the full suite (visible then hidden), reveals the first failing hidden case, and redacts hidden successes.
 - Drafts, notes, verified progress, submission history, and tutor conversations live in Postgres. Browser `dsa.*` keys are recovery copies and a one-time import source.
 - Only a successful Piston Submit marks a problem solved. Mock and Run never qualify. Legacy imported accepts stay labeled snapshots.
-- The tutor restores the latest thread, sees the referenced attempt (submitted source and first failing case, including a revealed hidden case), and never receives the unrevealed hidden suite or reference-solution source.
+- The tutor restores the latest thread, sees the referenced attempt (submitted source and first failing case, including a revealed hidden case), and never receives the unrevealed hidden suite or reference-solution source. Hints name one issue in the current attempt and a small next step. Examples are attributed to the failing case, the statement, or an illustration — not to the user unless they supplied the input.
 - `pnpm test`, `pnpm problems:check`, `pnpm piston:check`, and `pnpm chat:smoke` pass. Live DeepSeek still needs `DEEPSEEK_API_KEY`; without it, demo mode is the tutor.
 
 ## Hard constraints

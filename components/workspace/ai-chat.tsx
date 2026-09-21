@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { AlertTriangleIcon, MessagesSquareIcon } from "lucide-react";
@@ -93,8 +93,21 @@ function TutorThread({
   onSelectThread: (id: string) => void;
   onTurnSettled: () => void;
 }) {
+  const extras = {
+    problemSlug: problem.slug,
+    language: language.id,
+    code,
+    runSummary,
+    threadId,
+    submissionId,
+  };
+  const extrasRef = useRef(extras);
+  useEffect(() => {
+    extrasRef.current = extras;
+  });
+
   const transport = useMemo(
-    () => new DefaultChatTransport({ api: "/api/chat" }),
+    () => new DefaultChatTransport<TutorUIMessage>({ api: "/api/chat" }),
     [],
   );
 
@@ -115,15 +128,6 @@ function TutorThread({
       onTurnSettled();
     },
   });
-
-  const requestContext = {
-    problemSlug: problem.slug,
-    language: language.id,
-    code,
-    runSummary,
-    threadId,
-    submissionId,
-  };
 
   const isStreaming = status === "streaming" || status === "submitted";
   const hasMessages = messages.length > 0;
@@ -296,7 +300,7 @@ function TutorThread({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => regenerate({ body: requestContext })}
+                        onClick={() => regenerate({ body: extrasRef.current })}
                       >
                         Retry
                       </Button>
@@ -322,7 +326,7 @@ function TutorThread({
         language={language}
         isStreaming={isStreaming}
         onSend={(text) => {
-          void sendMessage({ text }, { body: requestContext });
+          void sendMessage({ text }, { body: extrasRef.current });
         }}
         onStop={stop}
       />
@@ -340,7 +344,7 @@ export function AiChatPane({
 }: {
   problem: Problem;
   language: Language;
-  /** The editor buffer, or the source snapshotted at the last Run/Submit. */
+  /** The live editor buffer. */
   code: string;
   /** One-line summary of the last run, when there is one. */
   runSummary?: string;

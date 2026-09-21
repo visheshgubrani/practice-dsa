@@ -70,9 +70,11 @@ function fence(language: Language, source: string): string {
 function formatCaseDetails(entry: CaseResult): string {
   const disclosed = discloseCaseForTutor(entry);
   const lines = [`${caseLabel(disclosed)} — ${titleCaseVerdict(disclosed.status)}`];
-  if (disclosed.hidden && disclosed.status !== "accepted") {
+  if (disclosed.status !== "accepted") {
     lines.push(
-      "This hidden case is revealed because it is the first failure. It is a real judge case, not an illustration.",
+      disclosed.hidden
+        ? "This hidden case is revealed because it is the first failure. It is a real judge case, not an illustration. Call it the failing test case or the revealed hidden case, never the user's example."
+        : "This is the failing test case from the judge, not an example the user wrote.",
     );
   }
   const fields: Array<[string, string | undefined]> = [
@@ -148,16 +150,21 @@ export function buildTutorInstructions(
     "You help one developer understand and solve the problem currently open in the workspace.",
     "",
     "How to answer:",
-    "- Be a guide, not a solution printer. Give the smallest useful nudge for the question asked.",
+    "- Be a guide, not a solution printer. Identify one relevant issue or unfinished step in the attached code, explain why it matters for the question asked, and suggest a small next action. Do not skip ahead to later parts of the algorithm.",
     "- Never paste a complete working solution unless the user explicitly asks for the full solution.",
-    "- Prefer concrete reasoning about the user's own code over generic advice.",
+    "- Ground the reply in the attached editor. If a referenced submission is attached and the editor has changed, tutor against the submission when they ask about that result, and against the editor when they ask about the new draft.",
+    "- Treat incomplete or syntactically unfinished code as work in progress. Mention syntax only when it blocks the requested task or explains an actual execution failure.",
+    "- If earlier turns show they are still stuck on the same point, make the next hint more specific: point at a concrete place in the attached code and the question they should ask next. Do not repeat prior advice. Name the next missing idea, not the rest of the algorithm — no pairing map, complete loop, or working control flow unless they explicitly ask for the full solution.",
+    "- Do not use generic praise or unsupported reassurance such as \"exactly right\", \"good start\", or \"you're close\".",
     "- Answer in the language shown below; if the user writes in another programming language, respect it.",
-    "- Keep replies under about 150 words unless the user asks for depth.",
+    "- Keep replies under about 150 words unless the user asks for a broader review or more depth.",
     "- Wrap any code in fenced blocks with a language tag, and keep snippets short.",
     "- If the user's approach cannot work, say so plainly in one sentence and say why.",
     "- Do not invent constraints. Stay consistent with the statement and constraints below.",
-    "- You may invent small illustrative inputs to explain an idea. Always label them as your own examples. Never present invented inputs as official examples, catalog tests, or judge cases.",
+    "- Attribute examples accurately. Call an attached failure \"the failing test case\" or \"the revealed hidden case\". Call a catalog example \"the statement example\". If you invent a small input, introduce it as \"consider this illustrative input\". Call something \"your example\" only when the user typed that input in the chat. Never present invented inputs as official examples, catalog tests, or judge cases.",
+    "- Use an example only when it clarifies the current issue. Do not retrace the same case once it has already been used in this thread.",
     "- You have the app's approach notes, not the reference-solution source. Do not quote a canonical implementation unless the user asks for a full solution.",
+    "- The workbench attaches the live editor (and any referenced run) after the user's latest message. That attachment IS their code, even if they did not paste it in the chat. Never say you cannot see their code, and never ask them to paste the editor, when that block is present and the buffer is not empty. Only ask them to paste if the workbench says the buffer is empty.",
     "",
     `Problem: ${problem.number}. ${problem.title} (${problem.difficulty})`,
     `Tags: ${problem.tags.join(", ")}`,
@@ -274,7 +281,7 @@ export function buildWorkspaceContext(input: {
   if (submission && editorMatchesAttempt === false) {
     lines.push("");
     lines.push(
-      "The editor has changed since this result. Tutor against the submission source below when the user is asking about that attempt; use the editor buffer when they are asking about the new draft.",
+      "The editor has changed since this result. Tutor against the submission source below when the user is asking about that attempt; use the editor buffer when they are asking about the new draft. Treat the editor as work in progress if it is incomplete.",
     );
   }
 
@@ -301,10 +308,54 @@ export type AssembledTutorTurn = {
   omittedTurns: number;
 };
 
+/** Marker that the live editor was attached by the app, not typed in chat. */
+export const WORKBENCH_CONTEXT_PREAMBLE =
+  "Workbench context (attached by the app, not typed in chat). This is the live editor at send time. Treat it as the user's current attempt, including unfinished work. Do not ask them to paste it unless the buffer is empty.";
+
+/**
+ * Join instructions and model-facing messages so tests can assert leakage
+ * against the whole payload, not only the system prompt.
+ */
+export function tutorPayloadText(assembled: AssembledTutorTurn): string {
+  return [
+    assembled.instructions,
+    ...assembled.messages.map((message) => messageText(message.parts)),
+  ].join("\n");
+}
+
+function attachWorkbenchContext(
+  messages: TutorUIMessage[],
+  workspaceText: string,
+): { messages: TutorUIMessage[]; attached: boolean } {
+  if (workspaceText.length === 0) {
+    return { messages, attached: false };
+  }
+
+  let index = -1;
+  for (let cursor = messages.length - 1; cursor >= 0; cursor -= 1) {
+    if (messages[cursor]?.role === "user") {
+      index = cursor;
+      break;
+    }
+  }
+  if (index === -1) return { messages, attached: false };
+
+  const target = messages[index];
+  if (!target) return { messages, attached: false };
+
+  const suffix = `\n\n${WORKBENCH_CONTEXT_PREAMBLE}\n\n${workspaceText}`;
+  const next = messages.slice();
+  next[index] = {
+    ...target,
+    parts: [{ type: "text", text: `${messageText(target.parts)}${suffix}` }],
+  };
+  return { messages: next, attached: true };
+}
+
 /**
  * The exact prompt payload `/api/chat` sends to the model: bounded stored
- * history plus disclosed submission context. Tests assert against this rather
- * than reconstructing the route.
+ * history plus disclosed editor and submission context. Tests assert against
+ * this rather than reconstructing the route.
  */
 export function assembleTutorTurn(input: {
   problem: Problem;
@@ -315,18 +366,24 @@ export function assembleTutorTurn(input: {
   history: TutorUIMessage[];
 }): AssembledTutorTurn {
   const history = boundConversation(input.history);
-  const prompt = buildTutorPrompt({
-    problem: input.problem,
+  const workspace = buildWorkspaceContext({
     language: input.language,
     editorCode: input.editorCode,
     submission: input.submission,
     runSummary: input.submission ? null : (input.runSummary ?? null),
+  });
+  const attached = attachWorkbenchContext(history.messages, workspace.text);
+  const prompt = buildTutorPrompt({
+    problem: input.problem,
+    language: input.language,
+    workspaceText: attached.attached ? undefined : workspace.text,
+    workspaceTruncated: workspace.truncated,
     conversationTruncated: history.truncated,
     omittedTurns: history.omitted,
   });
   return {
     instructions: prompt.instructions,
-    messages: history.messages,
+    messages: attached.messages,
     truncated: prompt.truncated,
     omittedTurns: history.omitted,
   };
@@ -335,21 +392,13 @@ export function assembleTutorTurn(input: {
 export function buildTutorPrompt(input: {
   problem: Problem;
   language: Language;
-  editorCode: string;
-  submission?: SubmissionDetail | null;
-  runSummary?: string | null;
+  workspaceText?: string;
+  workspaceTruncated?: boolean;
   conversationTruncated?: boolean;
   omittedTurns?: number;
 }): { instructions: string; truncated: boolean } {
-  const workspace = buildWorkspaceContext({
-    language: input.language,
-    editorCode: input.editorCode,
-    submission: input.submission,
-    runSummary: input.runSummary,
-  });
-
   const notes: string[] = [];
-  if (workspace.truncated) {
+  if (input.workspaceTruncated) {
     notes.push(
       "Some attached code was truncated to fit the context budget. The truncation markers say how much was omitted.",
     );
@@ -365,7 +414,7 @@ export function buildTutorPrompt(input: {
 
   const instructions = [
     buildTutorInstructions(input.problem, input.language),
-    workspace.text,
+    input.workspaceText ?? "",
     notes.length > 0
       ? ["Context budget:", ...notes.map((note) => `- ${note}`)].join("\n")
       : "",
@@ -375,7 +424,8 @@ export function buildTutorPrompt(input: {
 
   return {
     instructions,
-    truncated: workspace.truncated || Boolean(input.conversationTruncated),
+    truncated:
+      Boolean(input.workspaceTruncated) || Boolean(input.conversationTruncated),
   };
 }
 
@@ -400,8 +450,8 @@ export const QUICK_ACTIONS: readonly QuickAction[] = [
   {
     id: "hint",
     label: "Give me a hint",
-    prompt: ({ problem }) =>
-      `Give me one hint for "${problem.title}" that moves me forward without revealing the solution.`,
+    prompt: ({ problem, language }) =>
+      `Look at the ${language.label} code currently in my editor for "${problem.title}". Give me one focused hint: name the issue or unfinished step that matters most, say why, and suggest a small next action. Do not reveal the rest of the solution.`,
   },
   {
     id: "complexity",
@@ -413,15 +463,19 @@ export const QUICK_ACTIONS: readonly QuickAction[] = [
     id: "review",
     label: "Review my code",
     prompt: ({ language }) =>
-      `Review my current ${language.label} code for correctness and edge cases. Point out bugs and name the failing input shape, but don't rewrite it for me.`,
+      `Review the ${language.label} code currently in my editor. You can go into more detail than a hint. Identify issues or unfinished steps, explain why they matter, and suggest small next actions. Don't rewrite the solution for me.`,
   },
   {
     id: "debug",
     label: "Why is this failing?",
     prompt: () =>
-      "Look at the test result attached to this conversation and explain what my code does wrong on that case. Don't give me the fixed code.",
+      "Look at the attached test result and my current attempt. Explain what this code does wrong on the failing test case. Call it the failing test case, not my example. Don't give me the fixed code.",
   },
 ] as const;
+
+/** Shown with every scripted reply so demo mode never pretends to have read the attempt. */
+export const DEMO_MODE_DISCLAIMER =
+  "Demo mode cannot analyse the current attempt. Set `DEEPSEEK_API_KEY` in `.env.local` and restart to talk to the real tutor.";
 
 /** The scripted tutor used when no DEEPSEEK_API_KEY is configured. */
 export function buildDemoAnswer(input: {
@@ -429,48 +483,38 @@ export function buildDemoAnswer(input: {
   problem: Problem;
   language: Language;
 }): string {
-  const { question, problem, language } = input;
+  const { question, problem } = input;
   const lower = question.toLowerCase();
 
   if (lower.includes("complexity")) {
     return [
-      `For **${problem.title}**, the reference solution runs in \`${problem.notes.timeComplexity}\` time and \`${problem.notes.spaceComplexity}\` space.`,
+      `For **${problem.title}**, the problem notes list \`${problem.notes.timeComplexity}\` time and \`${problem.notes.spaceComplexity}\` space.`,
       "",
-      "Why that is the floor: you have to look at every element at least once, so the time cannot drop below linear. The extra space is what buys you that single pass — drop it and you are back to a quadratic scan or a sort.",
+      "Demo mode cannot check whether the current attempt meets that.",
       "",
-      "This answer is scripted: set `DEEPSEEK_API_KEY` in `.env.local` and restart to talk to the real tutor.",
+      DEMO_MODE_DISCLAIMER,
     ].join("\n");
   }
 
   if (lower.includes("fail") || lower.includes("wrong")) {
     return [
-      "The failing case is usually the one where your early exit fires too early or the accumulator is never reset between inputs.",
+      "Demo mode cannot inspect the failing test case or the current attempt, so it cannot say what went wrong.",
       "",
-      "Trace that one input by hand, writing down the variables after each loop iteration. The first iteration where your trace disagrees with the expected output is the bug — everything after it is noise.",
-      "",
-      "This answer is scripted: set `DEEPSEEK_API_KEY` in `.env.local` and restart to talk to the real tutor.",
+      DEMO_MODE_DISCLAIMER,
     ].join("\n");
   }
 
   if (lower.includes("review")) {
     return [
-      `Three things I check first in a ${language.label} submission:`,
+      "Demo mode cannot read the editor, so it cannot review this attempt.",
       "",
-      "1. The empty and single-element inputs — most index arithmetic breaks there.",
-      "2. Whether the loop can terminate without ever touching the last element.",
-      "3. Whether the result is built in the order the problem expects.",
-      "",
-      "Line up your code against those three and the bug usually shows itself.",
-      "",
-      "This answer is scripted: set `DEEPSEEK_API_KEY` in `.env.local` and restart to talk to the real tutor.",
+      DEMO_MODE_DISCLAIMER,
     ].join("\n");
   }
 
   return [
-    `A nudge for **${problem.title}**: ${problem.notes.approach}`,
+    `Demo mode cannot see the current editor, so it cannot give a hint for **${problem.title}** that is grounded in this attempt.`,
     "",
-    `Start from the brute-force pass in \`O(n²)\`, then ask which piece of information you are recomputing. Caching exactly that piece is what gets you to \`${problem.notes.timeComplexity}\`.`,
-    "",
-    "This answer is scripted: set `DEEPSEEK_API_KEY` in `.env.local` and restart to talk to the real tutor.",
+    DEMO_MODE_DISCLAIMER,
   ].join("\n");
 }

@@ -5,7 +5,8 @@ import { eq } from "drizzle-orm";
 import type { UIMessage } from "ai";
 
 import { loadTutorSubmission } from "@/lib/ai/context";
-import { assembleTutorTurn } from "@/lib/ai/prompts";
+import { assembleTutorTurn, tutorPayloadText } from "@/lib/ai/prompts";
+import { messageText } from "@/lib/chat/messages";
 import { executeChatTurn } from "@/lib/chat/turn";
 import { db } from "@/lib/db";
 import {
@@ -260,7 +261,7 @@ describe("tutor context through the stored submission path", () => {
     assert.equal(restored?.thread?.messages[0]?.id, userId);
     assert.equal(restored?.thread?.messages[1]?.role, "assistant");
     assert.equal(restored?.thread?.messages[1]?.completionStatus, "completed");
-    assert.match(restored?.thread?.messages[1]?.text ?? "", /Hash each complement/);
+    assert.match(restored?.thread?.messages[1]?.text ?? "", /cannot analyse the current attempt/);
     assert.equal(restored?.thread?.model, "demo");
   });
 
@@ -292,25 +293,41 @@ describe("tutor context through the stored submission path", () => {
       editorCode: LATER_DRAFT,
       submission,
       runSummary: "Wrong Answer · 1/3",
-      history: [],
+      history: [
+        {
+          id: "u1",
+          role: "user",
+          parts: userParts("Give me one hint without the solution."),
+          metadata: { completionStatus: "completed" },
+        },
+      ],
     });
 
-    assert.match(assembled.instructions, /submitted-attempt/);
-    assert.match(assembled.instructions, /later-draft/);
-    assert.match(assembled.instructions, /The editor has changed since this result/);
-    assert.match(assembled.instructions, /First failing case/);
-    assert.match(assembled.instructions, /nums = \[3,3\]/);
-    assert.match(assembled.instructions, /saw 3 and 3/);
-    assert.match(assembled.instructions, /Hash each complement as you scan/);
-    assert.equal(assembled.instructions.includes(UNREVEALED_SUCCESS), false);
-    assert.equal(assembled.instructions.includes("trace-should-not-leak"), false);
-    assert.equal(assembled.instructions.includes("stderr-should-not-leak"), false);
-    assert.equal(assembled.instructions.includes("SECRET_CATALOG_HIDDEN"), false);
-    assert.equal(
-      assembled.instructions.includes(String(HIDDEN_CATALOG_VALUE)),
-      false,
+    const lastUser = assembled.messages.findLast(
+      (message) => message.role === "user",
     );
-    assert.equal(assembled.instructions.includes("Wrong Answer · 1/3"), false);
+    assert.ok(lastUser);
+    const lastUserText = messageText(lastUser.parts);
+    assert.match(lastUserText, /Give me one hint without the solution/);
+    assert.match(lastUserText, /submitted-attempt/);
+    assert.match(lastUserText, /later-draft/);
+    assert.match(lastUserText, /The editor has changed since this result/);
+    assert.match(lastUserText, /First failing case/);
+    assert.match(lastUserText, /nums = \[3,3\]/);
+    assert.match(lastUserText, /saw 3 and 3/);
+    assert.match(lastUserText, /never the user's example/);
+    assert.match(assembled.instructions, /Hash each complement as you scan/);
+    assert.match(assembled.instructions, /consider this illustrative input/);
+    assert.match(assembled.instructions, /never ask them to paste the editor/i);
+    assert.equal(assembled.instructions.includes("later-draft"), false);
+
+    const payload = tutorPayloadText(assembled);
+    assert.equal(payload.includes(UNREVEALED_SUCCESS), false);
+    assert.equal(payload.includes("trace-should-not-leak"), false);
+    assert.equal(payload.includes("stderr-should-not-leak"), false);
+    assert.equal(payload.includes("SECRET_CATALOG_HIDDEN"), false);
+    assert.equal(payload.includes(String(HIDDEN_CATALOG_VALUE)), false);
+    assert.equal(payload.includes("Wrong Answer · 1/3"), false);
   });
 
   it("does not leak unrevealed fields even when the stored row still holds them", async () => {
@@ -331,10 +348,18 @@ describe("tutor context through the stored submission path", () => {
       language,
       editorCode: SUBMITTED_SOURCE,
       submission: stored,
-      history: [],
+      history: [
+        {
+          id: "u1",
+          role: "user",
+          parts: userParts("why is this failing?"),
+          metadata: { completionStatus: "completed" },
+        },
+      ],
     });
-    assert.equal(assembled.instructions.includes(UNREVEALED_SUCCESS), false);
-    assert.equal(assembled.instructions.includes("trace-should-not-leak"), false);
+    const payload = tutorPayloadText(assembled);
+    assert.equal(payload.includes(UNREVEALED_SUCCESS), false);
+    assert.equal(payload.includes("trace-should-not-leak"), false);
   });
 
   it("interruption and retry reuse the same two turns", async () => {
@@ -380,7 +405,7 @@ describe("tutor context through the stored submission path", () => {
     assert.equal(restored?.thread?.messages.length, 2);
     assert.equal(restored?.thread?.messages[0]?.id, userId);
     assert.equal(restored?.thread?.messages[1]?.completionStatus, "completed");
-    assert.match(restored?.thread?.messages[1]?.text ?? "", /failing case/i);
+    assert.match(restored?.thread?.messages[1]?.text ?? "", /cannot inspect the failing test case/);
   });
 
   it("recovers draft, notes, accepted solution, history, and conversation after a restart", async () => {
