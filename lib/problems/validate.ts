@@ -105,6 +105,41 @@ function checkExpected(
   return [];
 }
 
+/**
+ * The marker `scripts/catalog-scaffold.mts` leaves behind for every field a
+ * human has to write. A draft carrying one is not a problem yet, so it cannot
+ * pass conformance, cannot seed, and cannot reach the app.
+ */
+const DRAFT_MARKER = /\bTODO\(/;
+
+/** Which authored fields still carry a draft marker, as printable labels. */
+function draftMarkers(problem: AuthoredProblem): string[] {
+  const marked: string[] = [];
+
+  const check = (label: string, value: string | undefined): void => {
+    if (value && DRAFT_MARKER.test(value)) marked.push(label);
+  };
+
+  check("statement", problem.statement);
+  for (const [index, constraint] of problem.constraints.entries()) {
+    check(`constraint ${index + 1}`, constraint);
+  }
+  check("approach notes", problem.notes.approach);
+  check("time complexity notes", problem.notes.timeComplexity);
+  check("space complexity notes", problem.notes.spaceComplexity);
+  for (const [index, example] of problem.examples.entries()) {
+    check(`example ${index + 1} output`, example.output);
+    check(`example ${index + 1} explanation`, example.explanation);
+  }
+  for (const [index, testcase] of problem.testcases.entries()) {
+    check(`testcase ${index + 1} expected`, testcase.expected);
+    check(`testcase ${index + 1} note`, testcase.note);
+  }
+  check("rejection fixture", problem.rejection);
+
+  return marked;
+}
+
 /** Everything wrong with one authored problem, as sentences ready to print. */
 export function validateProblem(
   problem: AuthoredProblem,
@@ -112,6 +147,13 @@ export function validateProblem(
 ): string[] {
   const requireExpected = options.requireExpected ?? false;
   const issues: string[] = [];
+
+  const marked = draftMarkers(problem);
+  if (marked.length > 0) {
+    issues.push(
+      at(problem.slug, `is still a draft — replace the TODO marker in: ${marked.join(", ")}`),
+    );
+  }
 
   if (problem.statement.trim().length === 0) {
     issues.push(at(problem.slug, "has no statement"));

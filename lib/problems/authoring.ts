@@ -68,6 +68,18 @@ export type AuthoredProblem = {
    * never sent to the client or the tutor.
    */
   reference: string;
+  /**
+   * A plausible *incorrect* implementation the suite must reject.
+   *
+   * `lib/harness/fixtures.ts` runs it through `pnpm piston:check` and expects
+   * `wrong_answer`; a near-miss is what proves the hidden suite has teeth, so
+   * this stays a hand-authored sentence-length program rather than a generated
+   * mutant. It lives here rather than in the shared fixture registry so a new
+   * problem arrives with its own reject case in the same reviewable module.
+   *
+   * Like `reference`, it is never sent to the client or the tutor.
+   */
+  rejection?: string;
 };
 
 /** Every judging case has arguments, an expected value, and a visibility flag. */

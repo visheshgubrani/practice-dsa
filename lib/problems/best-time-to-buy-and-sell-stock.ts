@@ -5,7 +5,7 @@ export const bestTimeToBuyAndSellStock = {
   number: 121,
   title: "Best Time to Buy and Sell Stock",
   difficulty: "easy",
-  tags: ["array", "dynamic-programming"],
+  tags: ["array", "dynamic-programming", "neetcode-150"],
   statement: [
     "You are given an array `prices` where `prices[i]` is the price of a given stock on the `i`th day.",
     "",

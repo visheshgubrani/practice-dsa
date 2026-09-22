@@ -5,7 +5,7 @@ export const binarySearch = {
   number: 704,
   title: "Binary Search",
   difficulty: "easy",
-  tags: ["array", "binary-search"],
+  tags: ["array", "binary-search", "neetcode-150"],
   statement: [
     "Given an array of integers `nums` which is sorted in ascending order, and an integer `target`, write a function to search `target` in `nums`. If `target` exists, then return its index. Otherwise, return `-1`.",
     "",

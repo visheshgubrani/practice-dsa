@@ -1,0 +1,1 @@
+ALTER TYPE "compare_mode" ADD VALUE 'unordered_outer' BEFORE 'index_pair';

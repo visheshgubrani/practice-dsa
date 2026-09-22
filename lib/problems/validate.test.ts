@@ -170,6 +170,39 @@ describe("validateProblem", () => {
     assert.match(issues.join("\n"), /python starter does not define twoSum/);
     assert.match(issues.join("\n"), /python reference does not define twoSum/);
   });
+
+  it("refuses a scaffolded draft that still carries TODO markers", () => {
+    const issues = validateProblem(
+      problem({
+        statement: "TODO(statement): Two Sum.",
+        examples: [
+          { args: [[2, 7], 9], output: "TODO(example)", explanation: "TODO(note)" },
+        ],
+        testcases: [{ args: [[2, 7], 9], note: "TODO(note)" }],
+        notes: { approach: "TODO(approach)", timeComplexity: "O(n)", spaceComplexity: "O(n)" },
+        rejection: `class Solution:
+    def twoSum(self, nums, target):
+        return []  # TODO(rejection)
+`,
+      }),
+    );
+
+    assert.match(issues.join("\n"), /is still a draft/);
+    assert.match(issues.join("\n"), /statement/);
+    assert.match(issues.join("\n"), /example 1 output/);
+    assert.match(issues.join("\n"), /approach notes/);
+    assert.match(issues.join("\n"), /testcase 1 note/);
+    assert.match(issues.join("\n"), /rejection fixture/);
+  });
+
+  it("does not trip on prose that merely says todo without a marker", () => {
+    const issues = validateProblem(
+      problem({ statement: "A todo list of indices, returned in order." }),
+      { requireExpected: true },
+    );
+
+    assert.deepEqual(issues, []);
+  });
 });
 
 describe("validateCatalog", () => {
@@ -178,8 +211,10 @@ describe("validateCatalog", () => {
   });
 
   it("rejects duplicate slugs and numbers", () => {
+    const twoSum = PROBLEMS.find((entry) => entry.slug === "two-sum");
+    assert.ok(twoSum, "the catalog is expected to keep two-sum seeded");
     const copy = problem({ slug: "two-sum", number: 1, title: "Copy" });
-    const issues = validateCatalog([PROBLEMS[0]!, copy], {
+    const issues = validateCatalog([twoSum, copy], {
       requireExpected: true,
     });
     assert.match(issues.join("\n"), /slug is reused/);

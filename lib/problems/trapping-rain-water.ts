@@ -5,7 +5,7 @@ export const trappingRainWater = {
   number: 42,
   title: "Trapping Rain Water",
   difficulty: "hard",
-  tags: ["array", "two-pointers", "stack", "dynamic-programming"],
+  tags: ["array", "two-pointers", "stack", "dynamic-programming", "neetcode-150"],
   statement: [
     "Given `n` non-negative integers representing an elevation map where the width of each bar is `1`, compute how much water it can trap after raining.",
   ].join("\n"),

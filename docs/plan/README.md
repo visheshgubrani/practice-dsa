@@ -4,7 +4,7 @@ Build in this order: **trustworthy judging → durable persistence → more prob
 
 Get the existing four problems working end to end before expanding the catalog.
 
-**Current phase:** done — all five phases complete, plus the tutor-hint follow-up.
+**Current phase:** [Phase 7 — Import the NeetCode 150](./07-neetcode-150.md) — in progress.
 
 Tick boxes here when a whole phase is done. Tick boxes inside the phase file when a work unit is done. Do not start the next phase until the current one is complete.
 

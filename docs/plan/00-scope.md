@@ -10,9 +10,9 @@ Local only. One user. Python only. Piston for execution. Postgres on the compose
 
 ## Order of work
 
-Trustworthy judging, then durable persistence, then more problems, then a better AI tutor. Do not expand the catalog until the existing four problems work end to end.
+Trustworthy judging, then durable persistence, then more problems, then a better AI tutor.
 
-Existing seeded problems: `two-sum`, `valid-parentheses`, `group-anagrams`, `trapping-rain-water`.
+The catalog is seeded from `lib/problems/catalog.ts` in NeetCode 150 roadmap order. Phase 7 is importing the sheet: 104 of the 150 problems are judgeable by this harness, and the other 46 are deferred with a reason in [`docs/catalog/README.md`](../catalog/README.md). The original four problems are still seeded, plus a growing set of sheet problems.
 
 ## What is already here
 

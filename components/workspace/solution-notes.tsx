@@ -103,6 +103,7 @@ export function SolutionNotesPanel({
   onLoadLegacy,
   saveStatus = "idle",
   onRetrySave,
+  simulated = false,
 }: {
   notes: SolutionNotes;
   onNotesChange: (notes: SolutionNotes) => void;
@@ -112,6 +113,8 @@ export function SolutionNotesPanel({
   onLoadLegacy?: () => void;
   saveStatus?: SaveStatus;
   onRetrySave?: () => void;
+  /** True when Run and Submit are answered without executing anything. */
+  simulated?: boolean;
 }) {
   const showAccepted = Boolean(accepted);
   const showLegacy = Boolean(legacySnapshot);
@@ -210,8 +213,13 @@ export function SolutionNotesPanel({
           <EmptyHeader>
             <EmptyTitle>No accepted submission yet</EmptyTitle>
             <EmptyDescription>
-              The code you get accepted with lands here, so the solution tab
-              keeps both the idea and the working version.
+              {simulated
+                ? "Run and Submit are being answered by the mock runner, so " +
+                  "nothing was executed and no submission was recorded. A mock " +
+                  "verdict never counts as solved — point PISTON_URL at the " +
+                  "engine in .env.local (see .env.example) and Submit again."
+                : "The code you get accepted with lands here, so the solution " +
+                  "tab keeps both the idea and the working version."}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>

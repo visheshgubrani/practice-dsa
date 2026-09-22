@@ -43,14 +43,20 @@ export type SolutionNotes = {
 /**
  * How a returned value is compared with a testcase's `expected`.
  *
- *   exact      — canonical JSON text, identical after trimming
- *   unordered  — same, but every array may be in any order (groups and members)
- *   index_pair — a two-element array; the values may appear in either order
- *   intervals  — a list of `[start, end]` pairs, in order; endpoints stay ordered
+ *   exact            — canonical JSON text, identical after trimming
+ *   unordered        — same, but every array may be in any order (groups and members)
+ *   unordered_outer  — the outermost array may be in any order; inner order is kept
+ *   index_pair       — a two-element array; the values may appear in either order
+ *   intervals        — a list of `[start, end]` pairs, in order; endpoints stay ordered
  *
  * `unordered` is the LeetCode convention for "return the answer in any order",
  * and it is the only reason `group-anagrams` can be judged at all: its expected
  * value enumerates one valid grouping, not the only one.
+ *
+ * `unordered_outer` is for a *set of ordered sequences* — permutations, N-Queens
+ * boards, palindrome partitions, Pacific-Atlantic cells, K-Closest points. There
+ * the outer order is free but a piece's order is the answer, and recursive
+ * `unordered` would sort the pieces too (`[[2,1]]` matching `[[1,2]]`).
  *
  * Two Sum is `index_pair`, not `unordered`: the unique answer may be reversed,
  * but a longer permutation is not an answer. Merge Intervals is `intervals`,
@@ -59,6 +65,7 @@ export type SolutionNotes = {
 export const COMPARE_MODES = [
   "exact",
   "unordered",
+  "unordered_outer",
   "index_pair",
   "intervals",
 ] as const;

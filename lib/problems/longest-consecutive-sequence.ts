@@ -5,7 +5,7 @@ export const longestConsecutiveSequence = {
   number: 128,
   title: "Longest Consecutive Sequence",
   difficulty: "medium",
-  tags: ["array", "hash-table", "union-find"],
+  tags: ["array", "hash-table", "union-find", "neetcode-150"],
   statement: [
     "Given an unsorted array of integers `nums`, return *the length of the longest consecutive elements sequence*.",
     "",

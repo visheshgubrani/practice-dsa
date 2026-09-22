@@ -182,7 +182,7 @@ export function VerdictStrip({
           <Badge
             variant="outline"
             className="border-difficulty-medium/40 bg-difficulty-medium/10 font-mono text-[10px] text-difficulty-medium"
-            title="RUNNER_KIND=mock: verdicts are simulated, nothing was executed."
+            title="Mock runs are simulated: nothing was executed, no history row is written, and a problem is never marked solved."
           >
             simulated
           </Badge>

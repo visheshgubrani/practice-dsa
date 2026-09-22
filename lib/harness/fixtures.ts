@@ -8,11 +8,15 @@
  * answers the way the console will.
  *
  * `FIXTURES` is the seeded catalog. Every problem needs at least one
- * plausible `wrong_answer` program — a near-miss the suite must reject —
- * listed in `BROKEN`. Harness-level crashes (syntax, TLE, missing import)
- * belong on one problem, not on every new one.
+ * plausible `wrong_answer` program — a near-miss the suite must reject. A
+ * problem normally carries its own in `AuthoredProblem.rejection`, next to the
+ * reference it is a near-miss of; `BROKEN` below is the central registry for
+ * the original problems and for extra variants (a crash, a timeout, a second
+ * wrong answer). Harness-level crashes (syntax, TLE, missing import) belong on
+ * one problem, not on every new one.
  */
 
+import type { AuthoredProblem } from "@/lib/problems/authoring";
 import { PROBLEMS } from "@/lib/problems/catalog";
 
 export type BrokenCase = {
@@ -330,11 +334,31 @@ const VARIANTS: Record<string, readonly AcceptedVariant[]> = {
   ],
 };
 
+/**
+ * The module's own near-miss, as a rejection case.
+ *
+ * A problem that carries `rejection` needs no entry here; `piston:check` runs
+ * it and requires `wrong_answer`, exactly as it does for a `BROKEN` entry.
+ */
+function authoredRejection(
+  problem: AuthoredProblem,
+): readonly BrokenCase[] | undefined {
+  const source = problem.rejection?.trim() ?? "";
+  if (source.length === 0) return undefined;
+  return [
+    {
+      label: "the problem's authored near-miss",
+      expect: "wrong_answer",
+      source: problem.rejection as string,
+    },
+  ];
+}
+
 export const FIXTURES: readonly ProblemFixtures[] = PROBLEMS.map((problem) => ({
   slug: problem.slug,
   accepted: problem.reference,
   acceptedVariants: VARIANTS[problem.slug],
-  broken: BROKEN[problem.slug],
+  broken: BROKEN[problem.slug] ?? authoredRejection(problem),
 }));
 
 export function hasPlausibleWrongAnswer(

@@ -81,6 +81,67 @@ describe("compareOutput", () => {
   });
 });
 
+/**
+ * A set of ordered sequences: the outer order is free, the inner order is the
+ * answer. Recursive `unordered` sorts the inner arrays too, which is what these
+ * three cases pin down.
+ */
+describe("unordered_outer", () => {
+  it("accepts the pieces in any order", () => {
+    const expected = "[[1,2,3],[1,3,2],[2,1,3],[2,3,1],[3,1,2],[3,2,1]]";
+    const shuffled = "[[3,2,1],[2,3,1],[1,3,2],[3,1,2],[2,1,3],[1,2,3]]";
+
+    const comparison = compareOutput(shuffled, expected, "unordered_outer");
+
+    assert.equal(comparison.matches, true);
+    assert.equal(comparison.detail, "unordered outer (inner order significant)");
+  });
+
+  it("rejects a permuted permutation that recursive unordered accepts", () => {
+    const expected = "[[1,2,3],[1,3,2],[2,1,3],[2,3,1],[3,1,2],[3,2,1]]";
+    const allTheSame = "[[1,2,3],[1,2,3],[1,2,3],[1,2,3],[1,2,3],[1,2,3]]";
+
+    assert.equal(compareOutput(allTheSame, expected, "unordered").matches, true);
+    assert.equal(compareOutput(allTheSame, expected, "unordered_outer").matches, false);
+    assert.equal(compareOutput(allTheSame, expected, "exact").matches, false);
+  });
+
+  it("rejects a swapped point coordinate", () => {
+    assert.equal(compareOutput("[[2,1],[4,3]]", "[[1,2],[3,4]]", "unordered").matches, true);
+    assert.equal(
+      compareOutput("[[2,1],[4,3]]", "[[1,2],[3,4]]", "unordered_outer").matches,
+      false,
+    );
+  });
+
+  it("rejects a permuted palindrome partition", () => {
+    assert.equal(compareOutput('[["a","ab"]]', '[["ab","a"]]', "unordered").matches, true);
+    assert.equal(
+      compareOutput('[["a","ab"]]', '[["ab","a"]]', "unordered_outer").matches,
+      false,
+    );
+  });
+
+  it("still accepts a legitimate outer-order permutation", () => {
+    assert.equal(
+      compareOutput("[[-1,1,0],[-1,0,1]]", "[[-1,0,1],[-1,1,0]]", "unordered_outer")
+        .matches,
+      true,
+    );
+  });
+
+  it("falls back to exact text when a side is not JSON", () => {
+    const comparison = compareOutput("not json", "[[1,2]]", "unordered_outer");
+
+    assert.equal(comparison.matches, false);
+    assert.equal(
+      comparison.detail,
+      "unordered outer (fell back to exact: a side was not JSON)",
+    );
+    assert.equal(compareOutput("[1,2]", "[1,2]", "unordered_outer").matches, true);
+  });
+});
+
 describe("compareIndexPair", () => {
   it("accepts the authored Two Sum order", () => {
     assert.equal(compareIndexPair("[0,1]", "[0,1]").matches, true);

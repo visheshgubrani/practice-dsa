@@ -320,6 +320,7 @@ export function Workspace({
       onLoadLegacy={loadLegacyCode}
       notesSaveStatus={practice.notesStatus}
       onRetryNotesSave={practice.retryNotesSave}
+      simulated={runner === "mock"}
       chat={
         <AiChatPane
           problem={problem}

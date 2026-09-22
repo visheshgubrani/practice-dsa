@@ -54,12 +54,16 @@ function describe(error) {
 }
 
 /**
- * Installs through the container's CLI rather than `POST /api/v2/packages`.
- * Both write the same files, but the CLI is interactive-safe and streams the
- * download progress of the larger packages (python is ~200 MB) to this process
- * instead of holding a request open.
+ * Installs through the container's CLI when the image ships one, and falls back
+ * to `POST /api/v2/packages` when it does not.
+ *
+ * Both write the same files. The CLI streams the download progress of the
+ * larger packages (python is ~200 MB) to this process instead of holding one
+ * request open, so it is preferred; but the pinned image digest has been the
+ * API-only build (`piston-api` with no `cli/index.js`) since it was re-tagged,
+ * and the HTTP endpoint is the documented alternative.
  */
-function install(pkg, version) {
+function installThroughCli(pkg, version) {
   // `cli/index.js` is not executable in the image, so it is run through node.
   const output = execFileSync(
     "docker",
@@ -67,6 +71,38 @@ function install(pkg, version) {
     { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 15 * 60_000 },
   );
   return output.trim();
+}
+
+async function installThroughApi(pkg, version) {
+  const response = await fetch(`${BASE}/api/v2/packages`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ language: pkg, version }),
+    // The engine downloads and unpacks the whole runtime inside this request.
+    signal: AbortSignal.timeout(30 * 60_000),
+  });
+  const body = await response.text();
+  if (!response.ok) {
+    throw new Error(`POST /packages failed (${response.status}): ${body.slice(0, 200)}`);
+  }
+  return body.trim();
+}
+
+function hasCli() {
+  try {
+    execFileSync("docker", ["exec", CONTAINER, "test", "-f", "piston_api/cli/index.js"], {
+      stdio: "ignore",
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function install(pkg, version) {
+  if (hasCli()) return installThroughCli(pkg, version);
+  console.log("  note      this image has no CLI; installing through POST /api/v2/packages");
+  return installThroughApi(pkg, version);
 }
 
 async function main() {
@@ -93,7 +129,7 @@ async function main() {
 
     console.log(`  install   ${wanted.language} ${wanted.version} (package ${wanted.pkg})`);
     try {
-      install(wanted.pkg, wanted.version);
+      await install(wanted.pkg, wanted.version);
     } catch (error) {
       throw new Error(
         `Could not install ${wanted.pkg}=${wanted.version} (${wanted.language}): ` +

@@ -5,7 +5,7 @@ export const twoSum = {
   number: 1,
   title: "Two Sum",
   difficulty: "easy",
-  tags: ["array", "hash-table"],
+  tags: ["array", "hash-table", "neetcode-150"],
   statement: [
     "Given an array of integers `nums` and an integer `target`, return *indices of the two numbers such that they add up to `target`*.",
     "",

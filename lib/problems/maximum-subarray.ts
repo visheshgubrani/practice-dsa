@@ -5,7 +5,7 @@ export const maximumSubarray = {
   number: 53,
   title: "Maximum Subarray",
   difficulty: "medium",
-  tags: ["array", "divide-and-conquer", "dynamic-programming"],
+  tags: ["array", "divide-and-conquer", "dynamic-programming", "neetcode-150"],
   statement: [
     "Given an integer array `nums`, find the subarray with the largest sum, and return *its sum*.",
   ].join("\n"),

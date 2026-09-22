@@ -127,8 +127,15 @@ describe("compileForSeed", () => {
 
 describe("catalog", () => {
   it("generates the previous console and example strings from args", () => {
-    const [twoSum, validParentheses, groupAnagrams, trappingRainWater] =
-      PROBLEMS.map(toPublicProblem);
+    // Found by slug, not by index: `PROBLEMS` order is the NeetCode 150 roadmap
+    // order and shifts as batches land.
+    const bySlug = new Map(
+      PROBLEMS.map((problem) => [problem.slug, toPublicProblem(problem)]),
+    );
+    const twoSum = bySlug.get("two-sum");
+    const validParentheses = bySlug.get("valid-parentheses");
+    const groupAnagrams = bySlug.get("group-anagrams");
+    const trappingRainWater = bySlug.get("trapping-rain-water");
 
     assert.deepEqual(
       twoSum?.testcases.map((testcase) => testcase.stdin),
@@ -162,8 +169,10 @@ describe("catalog", () => {
       trappingRainWater?.testcases[0]?.stdin,
       "height = [0,1,0,2,1,0,1,3,2,1,2,1]",
     );
+    const authoredTwoSum = PROBLEMS.find((problem) => problem.slug === "two-sum");
+    assert.ok(authoredTwoSum);
     assert.equal(
-      formatArguments(PROBLEMS[0]!.testcases[0]!.args, PROBLEMS[0]!.signature),
+      formatArguments(authoredTwoSum.testcases[0]!.args, authoredTwoSum.signature),
       twoSum?.testcases[0]?.stdin,
     );
   });

@@ -5,7 +5,7 @@ export const groupAnagrams = {
   number: 49,
   title: "Group Anagrams",
   difficulty: "medium",
-  tags: ["array", "hash-table", "string", "sorting"],
+  tags: ["array", "hash-table", "string", "sorting", "neetcode-150"],
   statement: [
     "Given an array of strings `strs`, group the anagrams together. You can return the answer in any order.",
     "",

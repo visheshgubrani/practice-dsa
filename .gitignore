@@ -40,6 +40,11 @@ yarn-error.log*
 # generated: monaco's AMD build, copied from node_modules by scripts/sync-monaco.mjs
 /public/monaco/
 
+# fetched catalog sources: LeetCode statement HTML and MIT reference solutions,
+# kept locally as authoring input by `pnpm catalog:fetch`. The authored modules
+# under lib/problems/ are what gets committed.
+/docs/catalog/sources/
+
 # vercel
 .vercel
 

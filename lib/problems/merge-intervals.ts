@@ -5,7 +5,7 @@ export const mergeIntervals = {
   number: 56,
   title: "Merge Intervals",
   difficulty: "medium",
-  tags: ["array", "sorting"],
+  tags: ["array", "sorting", "neetcode-150"],
   statement: [
     "Given an array of `intervals` where `intervals[i] = [startᵢ, endᵢ]`, merge all overlapping intervals, and return *an array of the non-overlapping intervals that cover all the intervals in the input*.",
   ].join("\n"),

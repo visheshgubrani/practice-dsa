@@ -5,7 +5,7 @@ export const longestSubstringWithoutRepeatingCharacters = {
   number: 3,
   title: "Longest Substring Without Repeating Characters",
   difficulty: "medium",
-  tags: ["hash-table", "string", "sliding-window"],
+  tags: ["hash-table", "string", "sliding-window", "neetcode-150"],
   statement: [
     "Given a string `s`, find the length of the **longest substring** without repeating characters.",
   ].join("\n"),

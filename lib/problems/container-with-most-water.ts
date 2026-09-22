@@ -5,7 +5,7 @@ export const containerWithMostWater = {
   number: 11,
   title: "Container With Most Water",
   difficulty: "medium",
-  tags: ["array", "two-pointers", "greedy"],
+  tags: ["array", "two-pointers", "greedy", "neetcode-150"],
   statement: [
     "You are given an integer array `height` of length `n`. There are `n` vertical lines drawn such that the two endpoints of the `i`th line are `(i, 0)` and `(i, height[i])`.",
     "",

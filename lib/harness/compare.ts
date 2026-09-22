@@ -40,14 +40,28 @@ function canonicalize(value: unknown): unknown {
   return value;
 }
 
+/**
+ * Sorts only the outermost array, leaving every inner array untouched.
+ *
+ * This is the mode for answers that are a *set of ordered sequences*: the
+ * solver may return the pieces in any order, but the order inside a piece
+ * carries meaning. Permutations, N-Queens boards, palindrome partitions,
+ * Pacific-Atlantic cells and K-Closest points are all this shape, and recursive
+ * `unordered` cannot judge them: it sorts the pieces too, so it accepts
+ * `[[1,2,3],[1,2,3],…]` as a set of permutations and `[[2,1]]` as `[[1,2]]`.
+ */
+function canonicalizeOuter(value: unknown): unknown {
+  if (Array.isArray(value)) return [...value].sort(compareEntries);
+  return value;
+}
+
 function compareEntries(left: unknown, right: unknown): number {
   const a = JSON.stringify(left) ?? "";
   const b = JSON.stringify(right) ?? "";
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
-/** Both sides as comparable JSON, or null when either is not JSON. */
-function asJson(text: string): unknown | undefined {
+/** Both sides as comparable JSON, or null when either is not JSON. */function asJson(text: string): unknown | undefined {
   try {
     return JSON.parse(text);
   } catch {
@@ -91,6 +105,26 @@ export function compareOutput(
           JSON.stringify(canonicalize(actualValue)) ===
           JSON.stringify(canonicalize(wantedValue)),
         detail: "unordered",
+      };
+    }
+    case "unordered_outer": {
+      const actual = stdout.trim();
+      const wanted = expected.trim();
+      const actualValue = asJson(actual);
+      const wantedValue = asJson(wanted);
+
+      if (actualValue === undefined || wantedValue === undefined) {
+        return {
+          matches: actual === wanted,
+          detail: "unordered outer (fell back to exact: a side was not JSON)",
+        };
+      }
+
+      return {
+        matches:
+          JSON.stringify(canonicalizeOuter(actualValue)) ===
+          JSON.stringify(canonicalizeOuter(wantedValue)),
+        detail: "unordered outer (inner order significant)",
       };
     }
   }

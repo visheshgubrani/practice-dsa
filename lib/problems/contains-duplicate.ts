@@ -5,7 +5,7 @@ export const containsDuplicate = {
   number: 217,
   title: "Contains Duplicate",
   difficulty: "easy",
-  tags: ["array", "hash-table"],
+  tags: ["array", "hash-table", "neetcode-150"],
   statement: [
     "Given an integer array `nums`, return `true` if any value appears **at least twice** in the array, and return `false` if every element is distinct.",
   ].join("\n"),

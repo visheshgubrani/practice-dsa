@@ -5,7 +5,7 @@ export const productOfArrayExceptSelf = {
   number: 238,
   title: "Product of Array Except Self",
   difficulty: "medium",
-  tags: ["array", "prefix-sum"],
+  tags: ["array", "prefix-sum", "neetcode-150"],
   statement: [
     "Given an integer array `nums`, return an array `answer` such that `answer[i]` is equal to the product of all the elements of `nums` except `nums[i]`.",
     "",

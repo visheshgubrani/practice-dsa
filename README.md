@@ -144,10 +144,25 @@ entry in `lib/languages.ts`.
 ## Authoring a problem
 
 A new problem is a module under `lib/problems/`, then an entry in
-`lib/problems/catalog.ts`. Catalog edits take effect only after `pnpm db:seed`.
-Stay on the current argument kinds and the return-value harness — no linked
-lists, trees, custom classes, or in-place (`void`) contracts. Use larger
-stress cases only when they stay inside the execution and output limits.
+`lib/problems/catalog.ts` (which is ordered by the NeetCode 150 roadmap). Catalog
+edits take effect only after `pnpm db:seed`. Stay on the current argument kinds
+and the return-value harness — no linked lists, trees, custom classes, or
+in-place (`void`) contracts. Use larger stress cases only when they stay inside
+the execution and output limits.
+
+Problems on the [NeetCode 150 sheet](docs/catalog/README.md) come with tooling:
+
+```bash
+pnpm catalog:status                       # what is authored, what is left, what is still a draft
+pnpm catalog:fetch --slug 3sum            # metadata, statement input, MIT reference + notes
+pnpm catalog:scaffold --slug 3sum         # a draft module with TODO markers
+pnpm problems:check --slug 3sum           # iterate on one problem
+```
+
+The scaffolder writes identity, signature, starter, reference, example
+arguments, and a hidden-case battery. It never writes a statement, an
+expectation, or a wrong answer: those carry `TODO(` markers, and a draft with a
+marker cannot pass conformance or seed.
 
 For each problem, in this order:
 
@@ -159,8 +174,9 @@ For each problem, in this order:
    `sourceUrl`.
 5. `pnpm problems:check`. Review generated expectation candidates by hand.
    Never auto-replace a mismatch.
-6. Add at least one plausible incorrect implementation in
-   `lib/harness/fixtures.ts` that the suite rejects.
+6. Add at least one plausible incorrect implementation the suite rejects:
+   either in `lib/harness/fixtures.ts`, or as `rejection` on the problem module
+   itself (what the scaffolder emits).
 7. `pnpm db:seed`, `pnpm piston:check`, then practice it in the UI (fail a
    hidden case, then accept).
 
@@ -170,9 +186,12 @@ wrong-answer fixture.
 
 ## Current plan
 
-Work is sequenced in [`docs/plan`](docs/plan/README.md). The five phases are
-complete: trustworthy judging, durable persistence, a 16-problem catalog, and
-a durable, context-aware tutor.
+Work is sequenced in [`docs/plan`](docs/plan/README.md). Phases 1–5 and the
+tutor-hint follow-up are complete: trustworthy judging, durable persistence,
+a durable context-aware tutor. **Phase 7** is in progress: importing the
+NeetCode 150, with 104 of the 150 importable under the current harness and the
+other 46 deferred with reasons (see
+[`docs/catalog/README.md`](docs/catalog/README.md)).
 
 ## What is real and what is not
 

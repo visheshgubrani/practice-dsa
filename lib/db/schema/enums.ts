@@ -48,6 +48,7 @@ export const runnerKindEnum = pgEnum("runner_kind", ["mock", "piston", "judge0"]
 export const compareModeEnum = pgEnum("compare_mode", [
   "exact",
   "unordered",
+  "unordered_outer",
   "index_pair",
   "intervals",
 ]);

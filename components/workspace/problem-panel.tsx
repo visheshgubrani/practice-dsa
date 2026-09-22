@@ -22,6 +22,8 @@ export type ProblemPanelProps = {
   onLoadLegacy?: () => void;
   notesSaveStatus?: SaveStatus;
   onRetryNotesSave?: () => void;
+  /** True when Run and Submit are answered without executing anything. */
+  simulated?: boolean;
   /** The chat pane, kept mounted so a streaming answer survives tab switches. */
   chat: React.ReactNode;
 };
@@ -36,6 +38,7 @@ export function ProblemPanel({
   onLoadLegacy,
   notesSaveStatus,
   onRetryNotesSave,
+  simulated = false,
   chat,
 }: ProblemPanelProps) {
   const [tab, setTab] = useState("description");
@@ -87,6 +90,7 @@ export function ProblemPanel({
               onLoadLegacy={onLoadLegacy}
               saveStatus={notesSaveStatus}
               onRetrySave={onRetryNotesSave}
+              simulated={simulated}
             />
           </div>
         </ScrollArea>
