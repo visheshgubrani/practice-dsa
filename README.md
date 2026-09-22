@@ -102,6 +102,7 @@ See `.env.example`.
 | `PISTON_URL` | The execution engine. **This is what turns real judging on**; unset, Run and Submit are answered by the mock and the console says `simulated`. Defaults to `http://127.0.0.1:2001`. |
 | `RUNNER_KIND` | `mock` forces simulated verdicts even with an engine configured; anything else defers to `PISTON_URL`. |
 | `PISTON_RUN_TIMEOUT_MS` / `PISTON_RUN_MEMORY_MB` / `PISTON_MAX_CONCURRENCY` | Per-case limits (defaults 2000 ms, 256 MB, 4 at a time). The compose service advertises a higher ceiling than the runner asks for. |
+| `PISTON_TRACE_MAX_STEPS` / `PISTON_TRACE_MAX_BYTES` / `PISTON_TRACE_RUN_TIMEOUT_MS` | The visualizer's budget (defaults 500 steps, 3.5 MB, 4000 ms). A bigger byte budget also needs `PISTON_OUTPUT_MAX_SIZE` raised in `docker-compose.dev.yml` and the piston service recreated. |
 | `DATABASE_URL` | Where `pnpm db:*` points. Defaults to the compose database above. |
 | `NEXT_PUBLIC_MONACO_VS_URL` | Load Monaco from elsewhere (e.g. a CDN) instead of the self-hosted copy. |
 
@@ -140,6 +141,44 @@ Python is currently the only language with a harness and the only one the picker
 offers. The other three remain in the database enum, and a row written for one of
 them is still readable — adding a language back means writing its harness and one
 entry in `lib/languages.ts`.
+
+## Dry runs you can step through
+
+The **Visualize** tab in the workspace runs the selected visible case and draws
+it: call stack, every list, dict and object as a box, arrows between them, and
+prev / next / slider to move through the steps. It is the answer to "I read the
+explanation and I still cannot see what the loop does".
+
+```bash
+pnpm visualizer:sync     # copy the vendored browser assets into public/vendor
+pnpm visualizer:check    # trace every seeded problem's visible cases for real
+```
+
+Five things about it are worth knowing:
+
+- **Nothing is submitted.** Visualizing writes no submission, no progress row and
+  no draft, and it never marks a problem solved. `pnpm visualizer:check` asserts
+  the row counts are unchanged.
+- **One visible case only.** The case index is resolved against public problem
+  content on the server, so the hidden suite is not reachable from the tab.
+- **It runs where judging runs** — the same Piston sandbox and the same pinned
+  Python 3.12.0, calling `Solution().<name>(*_args)` with the same JSON
+  arguments. The traced program is exactly what the frame displays, so the
+  highlighted line is never a lie; the only difference from Run is that the
+  prelude's `from typing import *` is replaced by an inert annotation shim,
+  because the tracer re-encodes every global at every step (48 KB per step
+  against 2 KB — measured, and the reason the step budget exists).
+- **It is [Python Tutor](https://pythontutor.com), vendored.** The tracer
+  (`pg_logger.py`, `pg_encoder.py`) and the visualizer (`pytutor-embed.bundle.js`,
+  `pytutor.css`) are MIT, © Philip J. Guo, kept verbatim under
+  `vendor/python-tutor/` with their provenance and hashes. The upstream repository
+  no longer resolves and its logger cannot run on Python 3.12 (`import imp`), so
+  the vendored copy comes from a maintained mirror — see that directory's README.
+- **A trace is megabytes, and the engine buffers stdout.** `PISTON_OUTPUT_MAX_SIZE`
+  is therefore raised to 4 MiB in `docker-compose.dev.yml`, and the tracer budgets
+  its own payload so an oversized trace shortens itself (or reports the step
+  limit) rather than being killed. A stale compose file is reported in the panel
+  with the exact fix.
 
 ## Authoring a problem
 
@@ -233,15 +272,19 @@ lib/ai/              tutor prompts and disclosed workspace context
 lib/chat/            client-safe chat types and the server turn handler
 lib/practice/        load/save recovery, import scan, serial write queues
 lib/submissions/     client-safe history types and fetch helpers
+lib/visualizer/      the dry run: trace program, driver, engine call, panel client
+vendor/python-tutor/ the vendored Python Tutor tracer + visualizer (MIT), with its provenance
 lib/harness/         the generated Python program: argument parsing, comparison, wrapping
 lib/piston/          the engine client: runtimes, execute, caching, verdict mapping
 lib/runner/          the seam: Piston runner, the deterministic mock, shared result types
 lib/db/              drizzle schema, relations, client, queries, migrate + seed scripts
 drizzle/             generated migrations (one folder each, with its snapshot)
 scripts/sync-monaco.mjs    Monaco's AMD build into public/monaco/vs
+scripts/sync-visualizer.mjs  the vendored visualizer's browser assets into public/vendor
 scripts/piston-runtimes.mjs  install/verify the engine's language runtimes
 scripts/piston-check.mts     reference solutions through the whole judging path
 scripts/piston-latency.mts   Submit wall-time checkpoint (largest suite, cache bypassed)
+scripts/visualizer-check.mts every seeded problem's visible cases, traced for real
 scripts/chat-smoke.mts       disclosed tutor payload; live DeepSeek when a key is set
 docker-compose.dev.yml
 ```
@@ -256,6 +299,7 @@ pnpm problems:check   # catalog conformance, no Docker
 pnpm build            # production build
 pnpm piston:check     # needs the engine: reference + broken solutions, seeded catalog
 pnpm piston:latency   # Phase 4 Submit wall-time checkpoint (cache bypassed)
+pnpm visualizer:check # needs the engine: a trace per visible case, and no rows written
 pnpm chat:smoke       # disclosed tutor payload; live DeepSeek when a key is set
 ```
 

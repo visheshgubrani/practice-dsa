@@ -33,17 +33,27 @@ export type Program = {
 };
 
 /**
- * What the starter templates expect to exist.
+ * The modules every solution may use without importing them.
  *
  * LeetCode injects these; a terminal does not. Without them the untouched
  * starter for `two-sum` fails on `List[int]` rather than on the missing
  * implementation, which is a confusing first error.
+ *
+ * Exported because the visualizer's trace prelude must import *exactly* these —
+ * a trace that rejects code the judge accepts would be worse than no trace. The
+ * trace then replaces the `from typing import *` line below with an annotation
+ * shim; see `lib/visualizer/program.ts` for why that line cannot be traced.
  */
+export const PRELUDE_IMPORTS = [
+  "import sys, json, math, bisect, heapq, itertools, functools, collections, re, string",
+  "from collections import defaultdict, Counter, deque, OrderedDict",
+] as const;
+
 export const PYTHON_PRELUDE = [
   "# ---- runner prelude (added by the app; your code is below, unchanged) ----",
-  "import sys, json, math, bisect, heapq, itertools, functools, collections, re, string",
+  PRELUDE_IMPORTS[0],
   "from typing import *",
-  "from collections import defaultdict, Counter, deque, OrderedDict",
+  PRELUDE_IMPORTS[1],
   "",
 ].join("\n");
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { usePanelRef } from "react-resizable-panels";
 
 import {
@@ -36,7 +36,7 @@ import {
 } from "./code-column";
 import { CodeEditorPane } from "./code-editor";
 import { ConsolePanel, type ConsoleTab } from "./console-panel";
-import { ProblemPanel } from "./problem-panel";
+import { ProblemPanel, type ProblemTab } from "./problem-panel";
 import {
   ImportPracticeAlert,
   LoadErrorAlert,
@@ -46,6 +46,16 @@ import type { RunState } from "./verdict-strip";
 import { WorkspaceHeader } from "./workspace-header";
 
 type Neighbour = Pick<ProblemSummary, "slug" | "title" | "number">;
+
+/**
+ * The left panel's widest allowance, and the width the dry run asks for.
+ *
+ * It stays a **string** because this API reads a bare number as pixels: passing
+ * `maxSize={64}` caps the panel at 64 px, which starves it and leaves the
+ * divider nothing to drag. Only the comparison below needs a number.
+ */
+const PROBLEM_PANEL_WIDE = "64";
+const PROBLEM_PANEL_WIDE_PERCENT = Number(PROBLEM_PANEL_WIDE);
 
 function persistFields(payload: unknown): {
   persisted: boolean;
@@ -95,7 +105,11 @@ export function Workspace({
   const [historyEpoch, setHistoryEpoch] = useState(0);
   const [testcaseIndex, setTestcaseIndex] = useState(0);
   const [consoleMinimized, setConsoleMinimized] = useState(false);
+  const [problemTab, setProblemTab] = useState<ProblemTab>("description");
   const consolePanelRef = usePanelRef();
+  const problemPanelRef = usePanelRef();
+  /** The left panel's width before a trace widened it, as a percentage string. */
+  const panelSizeBeforeTrace = useRef<string | null>(null);
 
   const runSummary =
     runState.status === "done" ? summarizeRun(runState.result) : undefined;
@@ -226,6 +240,34 @@ export function Workspace({
     [consolePanelRef],
   );
 
+  /** The panel keeps owning which tab is active; this only mirrors it. */
+  const handleProblemTabChange = useCallback((tab: ProblemTab) => {
+    setProblemTab(tab);
+  }, []);
+
+  /**
+   * A dry run wants width — Python Tutor draws code beside data — so the left
+   * panel takes its full allowance while the Visualize tab is showing, and goes
+   * back to whatever it was when you leave.
+   */
+  useEffect(() => {
+    const panel = problemPanelRef.current;
+    if (!panel || !isWide) return;
+
+    if (problemTab === "visualize") {
+      const current = panel.getSize().asPercentage;
+      if (current >= PROBLEM_PANEL_WIDE_PERCENT) return;
+      panelSizeBeforeTrace.current = `${current}%`;
+      panel.resize(PROBLEM_PANEL_WIDE);
+      return;
+    }
+
+    const previous = panelSizeBeforeTrace.current;
+    if (previous === null) return;
+    panelSizeBeforeTrace.current = null;
+    panel.resize(previous);
+  }, [isWide, problemTab, problemPanelRef]);
+
   const loadSource = useCallback(
     (source: string, languageId: string) => {
       const language = toLanguageId(languageId);
@@ -331,6 +373,11 @@ export function Workspace({
           aiMode={aiMode}
         />
       }
+      language={practice.language}
+      source={practice.source}
+      testcaseIndex={testcaseIndex}
+      onTestcaseChange={setTestcaseIndex}
+      onTabChange={handleProblemTabChange}
     />
   );
 
@@ -408,7 +455,8 @@ export function Workspace({
           <ResizablePanel
             defaultSize="44"
             minSize="26"
-            maxSize="64"
+            maxSize={PROBLEM_PANEL_WIDE}
+            panelRef={problemPanelRef}
             className="min-w-0"
           >
             {problemPanel}

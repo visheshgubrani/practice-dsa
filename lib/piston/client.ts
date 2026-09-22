@@ -33,6 +33,15 @@ type ExecuteRequest = {
   /** The whole file to run — prelude, user source and harness together. */
   source: string;
   fileName: string;
+  /**
+   * Files written beside the entry point, for a job that is more than one file.
+   *
+   * Only the visualizer uses this: it sends the vendored tracer next to its
+   * driver. Judging is one file by construction. Names must carry their
+   * extension — the engine writes exactly the name it is given, and `import
+   * pg_logger` needs `pg_logger.py`.
+   */
+  extraFiles?: readonly { name: string; content: string }[];
   stdin: string;
   runMs: number;
   compileMs: number;
@@ -154,15 +163,20 @@ const CACHE_LIMIT = 256;
 const cache = new Map<string, EngineResult>();
 
 export function cacheKey(request: ExecuteRequest): string {
-  return createHash("sha256")
+  const hash = createHash("sha256")
     .update(request.language)
     .update("\u0000")
     .update(request.source)
     .update("\u0000")
     .update(request.stdin)
     .update("\u0000")
-    .update(`${request.runMs}:${request.compileMs}:${request.memoryBytes}`)
-    .digest("hex");
+    .update(`${request.runMs}:${request.compileMs}:${request.memoryBytes}`);
+
+  for (const file of request.extraFiles ?? []) {
+    hash.update("\u0000").update(file.name).update("\u0000").update(file.content);
+  }
+
+  return hash.digest("hex");
 }
 
 function cacheGet(key: string): EngineResult | undefined {
@@ -238,11 +252,23 @@ export function engineSemaphore(concurrency: number, queueLimit: number): Semaph
 
 export async function execute(
   request: ExecuteRequest,
-  options: { timeoutMs: number; concurrency: number; queueLimit: number },
+  options: {
+    timeoutMs: number;
+    concurrency: number;
+    queueLimit: number;
+    /**
+     * Read and write the LRU. `false` for a job whose reply is megabytes: a
+     * trace would fill the cache with a handful of entries and help no one.
+     */
+    cache?: boolean;
+  },
 ): Promise<EngineResult> {
+  const useCache = options.cache !== false;
   const key = cacheKey(request);
-  const cached = cacheGet(key);
-  if (cached) return { ...cached, cached: true };
+  if (useCache) {
+    const cached = cacheGet(key);
+    if (cached) return { ...cached, cached: true };
+  }
 
   const version = await versionFor(request.language);
 
@@ -258,6 +284,11 @@ export async function execute(
             version,
             files: [
               { name: request.fileName, content: request.source, encoding: "utf8" },
+              ...(request.extraFiles ?? []).map((file) => ({
+                name: file.name,
+                content: file.content,
+                encoding: "utf8",
+              })),
             ],
             stdin: request.stdin,
             run_timeout: request.runMs,
@@ -302,6 +333,6 @@ export async function execute(
     },
   );
 
-  cacheSet(key, result);
+  if (useCache) cacheSet(key, result);
   return result;
 }

@@ -69,9 +69,13 @@ services:
       - piston_data:/piston
     environment:
       # Piston caps every stdio buffer at 1024 bytes by default, which is small
-      # enough to truncate a legitimate stdout. The runner caps what it reports
-      # for display separately.
-      PISTON_OUTPUT_MAX_SIZE: '65536'
+      # enough to truncate a legitimate stdout — and far too small for a
+      # visualizer trace, which is megabytes of JSON. A job that prints past
+      # this is killed by the sandbox, so the tracer measures its own payload
+      # (TRACE_LIMITS.maxBytes) and shortens the trace instead of dying.
+      # Mirrored in lib/piston/map.ts (the message judging shows) and in
+      # lib/piston/config.ts (TRACE_LIMITS).
+      PISTON_OUTPUT_MAX_SIZE: '4194304'
       # Ceilings the API is allowed to request. The runner asks for less
       # (PISTON_RUN_TIMEOUT_MS / PISTON_RUN_MEMORY_MB in .env.example); these are
       # the hard stops if a request ever asks for more.

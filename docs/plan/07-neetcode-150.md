@@ -1,6 +1,6 @@
 # Phase 7 — Import the NeetCode 150
 
-**Status:** in progress
+**Status:** paused at 59/104 — see [Phase 8 — Python visualizer](./08-python-visualizer.md), which was inserted ahead of the remaining batches because it changes how the already-seeded problems are studied and touches no catalog code. Batches 1–4 are done; batches 5–8 and close-out resume when Phase 8 closes. Phase 8 changes nothing here: not the tooling, not the manifest, not the seeded rows.
 
 Grow the catalog from 16 problems to the **104** NeetCode 150 problems this harness can judge honestly. Sourcing is data work, not new plumbing: LeetCode's public GraphQL for metadata and statement input, the MIT-licensed `neetcode-gh/leetcode` repository for reference solutions and approach notes, and a hand-written paraphrase for every statement.
 

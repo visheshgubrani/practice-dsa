@@ -40,6 +40,10 @@ yarn-error.log*
 # generated: monaco's AMD build, copied from node_modules by scripts/sync-monaco.mjs
 /public/monaco/
 
+# generated: the vendored Python Tutor assets, copied from vendor/python-tutor by
+# scripts/sync-visualizer.mjs. The committed source of truth is vendor/python-tutor.
+/public/vendor/
+
 # fetched catalog sources: LeetCode statement HTML and MIT reference solutions,
 # kept locally as authoring input by `pnpm catalog:fetch`. The authored modules
 # under lib/problems/ are what gets committed.

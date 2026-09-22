@@ -16,6 +16,7 @@
  * one problem, not on every new one.
  */
 
+import { ENGINE_OUTPUT_LIMIT } from "@/lib/piston/config";
 import type { AuthoredProblem } from "@/lib/problems/authoring";
 import { PROBLEMS } from "@/lib/problems/catalog";
 
@@ -91,9 +92,14 @@ class Solution:
     {
       label: "prints more than the output limit",
       expect: "runtime_error",
+      // Derived from the cap rather than hard-coded: the compose service's
+      // PISTON_OUTPUT_MAX_SIZE is what decides this verdict, and the visualizer
+      // raised it into the megabytes. A fixed 70 kB print stopped overflowing
+      // the moment it did — which is a wrong answer, not the runtime error this
+      // fixture exists to prove.
       source: `class Solution:
     def twoSum(self, nums: List[int], target: int) -> List[int]:
-        print("x" * 70_000)
+        print("x" * ${ENGINE_OUTPUT_LIMIT + 65_536})
         return [0, 1]`,
     },
   ],

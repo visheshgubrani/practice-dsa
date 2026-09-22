@@ -25,6 +25,10 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Generated monaco assets, copied from node_modules.
     "public/monaco/**",
+    // Generated Python Tutor assets, copied from vendor/python-tutor by
+    // scripts/sync-visualizer.mjs (the vendored sources are lint-exempt too).
+    "public/vendor/**",
+    "vendor/**",
   ]),
 ]);
 

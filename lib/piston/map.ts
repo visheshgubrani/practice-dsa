@@ -4,7 +4,7 @@ import {
   type CompareMode,
 } from "@/lib/harness/compare";
 import type { LanguageId } from "@/lib/languages";
-import { LIMITS } from "@/lib/piston/config";
+import { ENGINE_OUTPUT_LIMIT, LIMITS } from "@/lib/piston/config";
 import { stageStatus, type ExecuteResponse, type Stage } from "@/lib/piston/types";
 import type { CaseResult, Verdict } from "@/lib/runner/types";
 
@@ -15,9 +15,6 @@ import type { CaseResult, Verdict } from "@/lib/runner/types";
  * means*. That translation is here, and it is deliberately the only place that
  * knows both vocabularies.
  */
-
-/** The engine's stdout cap, mirrored for the message we show when it trips. */
-const OUTPUT_LIMIT = 65_536;
 
 const TRUNCATE = 8_000;
 
@@ -86,7 +83,7 @@ function describeFailure(stage: Stage, kind: Verdict): string | undefined {
     return `Exceeded the ${LIMITS.runMs} ms time limit.`;
   }
   if (kind === "runtime_error" && stageStatus(stage) === "OL") {
-    return `Printed more than the ${OUTPUT_LIMIT} byte output limit.`;
+    return `Printed more than the ${ENGINE_OUTPUT_LIMIT} byte output limit.`;
   }
   if (stage.message) return stage.message;
   if (stage.signal) return `Killed by ${stage.signal}.`;

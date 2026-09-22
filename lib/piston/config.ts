@@ -59,3 +59,48 @@ function numberFromEnv(name: string, fallback: number): number {
 
 /** How long one case's HTTP request may take, engine round trip included. */
 export const CASE_DEADLINE_MS = LIMITS.runMs + LIMITS.overheadMs;
+
+/**
+ * The engine's own ceilings, from the compose service.
+ *
+ * The app cannot ask for more than these: Piston answers 400 to a request above
+ * them, which would turn a slow machine into an unreadable error. Keep in sync
+ * with `docker-compose.dev.yml` — `PISTON_OUTPUT_MAX_SIZE` there is mirrored in
+ * `lib/piston/map.ts`.
+ */
+export const ENGINE_RUN_CEILING_MS = 5_000;
+
+/**
+ * The engine's stdout cap, from the same service (`PISTON_OUTPUT_MAX_SIZE`).
+ *
+ * Raised into the megabytes because a visualizer trace is a megabyte of JSON on
+ * stdout. A job that prints past it is killed by the sandbox, which is why the
+ * tracer budgets its own payload — and why this number appears in the message
+ * when that protection is not enough.
+ */
+export const ENGINE_OUTPUT_LIMIT = 4_194_304;
+
+/**
+ * The visualizer's budget, which is a different job from judging one case.
+ *
+ * A trace is not a verdict: nobody is waiting on milliseconds, but every step
+ * is bytes on stdout — the engine kills a job that prints past its buffer — and
+ * bytes to the browser. So a trace gets a longer wall budget than a case, and a
+ * hard ceiling on both steps and payload. 500 steps is roughly 1–1.5 MB and
+ * well under a second for a typical solution; a loop that needs more stops with
+ * a step-limit marker rather than an aborted job.
+ */
+export const TRACE_LIMITS = {
+  /** Steps to trace before stopping. Python Tutor's own limit is 1000. */
+  maxSteps: Math.floor(numberFromEnv("PISTON_TRACE_MAX_STEPS", 500)),
+  /** The trace payload, in bytes, the driver will print to stdout. */
+  maxBytes: Math.floor(numberFromEnv("PISTON_TRACE_MAX_BYTES", 3_500_000)),
+  /** Tracing is slower than running: bdb pays per line. Clamped to the engine. */
+  runMs: Math.min(
+    Math.floor(numberFromEnv("PISTON_TRACE_RUN_TIMEOUT_MS", 4_000)),
+    ENGINE_RUN_CEILING_MS,
+  ),
+} as const;
+
+/** How long one trace's HTTP request may take, engine round trip included. */
+export const TRACE_DEADLINE_MS = TRACE_LIMITS.runMs + LIMITS.overheadMs;

@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+  <!--
+    The execution-trace frame.
+
+    Same-origin by design: the workspace posts a trace in and the vendored
+    visualizer draws it. The parent owns the request to the engine; this page
+    owns nothing but the drawing. See ./README.md for provenance.
+
+    Protocol (both directions, always same-origin):
+      parent -> frame   { type: "dsa:current-step" }
+      parent -> frame   { type: "dsa:trace", code, trace, options, epoch }
+      frame  -> parent  { type: "dsa:ready", epoch }
+      frame  -> parent  { type: "dsa:rendered", epoch, steps }
+      frame  -> parent  { type: "dsa:error", epoch, message }
+      frame  -> parent  { type: "dsa:step", step }
+
+    The visualizer takes `{code, trace}` — the code pane is drawn from `code`,
+    and the trace is a bare array of steps. The parent sends both.
+  -->
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Execution trace</title>
+    <link rel="stylesheet" href="./pytutor.css" />
+    <style>
+      /* The visualizer's own palette is light; the frame stays light so the
+         vendored stylesheet reads as intended rather than as a broken card. */
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: #fff;
+        color: #111;
+      }
+      #visualizerDiv {
+        padding: 6px 10px 48px;
+      }
+      #frameError {
+        display: none;
+        margin: 10px;
+        padding: 9px 12px;
+        border: 1px solid #e3b7b7;
+        border-radius: 6px;
+        background: #fff6f6;
+        color: #7a2020;
+        font: 13px/1.5 verdana, arial, helvetica, sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="frameError"></div>
+    <div id="visualizerDiv"></div>
+    <script src="./pytutor-embed.bundle.js"></script>
+    <script>
+      (function () {
+        var current = null;
+        var epoch = null;
+
+        function post(message) {
+          if (window.parent === window) return;
+          window.parent.postMessage(message, window.location.origin);
+        }
+
+        function fail(message) {
+          var box = document.getElementById("frameError");
+          box.textContent = message;
+          box.style.display = "block";
+          post({ type: "dsa:error", epoch: epoch, message: message });
+        }
+
+        function draw(data) {
+          epoch = typeof data.epoch === "number" ? data.epoch : null;
+
+          if (typeof window.addVisualizerToPage !== "function") {
+            fail("The visualizer bundle did not load.");
+            return;
+          }
+          var trace = data.trace;
+          var code = data.code;
+          if (!Array.isArray(trace) || !trace.length || typeof code !== "string") {
+            fail("The frame was given no trace to draw.");
+            return;
+          }
+
+          try {
+            document.getElementById("frameError").style.display = "none";
+            document.getElementById("visualizerDiv").innerHTML = "";
+            var options = data.options || {};
+            options.embeddedMode = true;
+            current = window.addVisualizerToPage(
+              { code: code, trace: trace },
+              "visualizerDiv",
+              options,
+            );
+          } catch (error) {
+            current = null;
+            fail(
+              error && error.message
+                ? "The trace could not be drawn: " + error.message
+                : "The trace could not be drawn.",
+            );
+          }
+        }
+
+        window.addEventListener("message", function (event) {
+          if (event.origin !== window.location.origin) return;
+          var data = event.data;
+          if (!data || typeof data !== "object") return;
+
+          if (data.type === "dsa:current-step") {
+            post({ type: "dsa:step", step: current ? current.curInstr : 0 });
+            return;
+          }
+          if (data.type === "dsa:trace") draw(data);
+        });
+
+        // The parent answers this with the trace, so neither side has to guess
+        // whether the other's listener is attached yet.
+        post({ type: "dsa:ready" });
+      })();
+    </script>
+  </body>
+</html>
