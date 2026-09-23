@@ -11,6 +11,7 @@
  */
 
 import type { ArgValue } from "@/lib/harness/args";
+import { graphOracleAnswer } from "@/lib/problems/graph-oracles";
 
 const SMALL = 40;
 
@@ -952,7 +953,7 @@ export function oracleAnswer(
     case "find-the-duplicate-number":
       return findDuplicateOracle(args);
     default:
-      return null;
+      return graphOracleAnswer(slug, args);
   }
 }
 

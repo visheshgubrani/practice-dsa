@@ -81,6 +81,20 @@ import { validParenthesisString } from "./valid-parenthesis-string";
 import { validSudoku } from "./valid-sudoku";
 import { wordSearchIi } from "./word-search-ii";
 
+import { numberOfIslands } from "./number-of-islands";
+import { maxAreaOfIsland } from "./max-area-of-island";
+import { pacificAtlanticWaterFlow } from "./pacific-atlantic-water-flow";
+import { rottingOranges } from "./rotting-oranges";
+import { courseSchedule } from "./course-schedule";
+import { courseScheduleIi } from "./course-schedule-ii";
+import { redundantConnection } from "./redundant-connection";
+import { wordLadder } from "./word-ladder";
+import { reconstructItinerary } from "./reconstruct-itinerary";
+import { minCostToConnectAllPoints } from "./min-cost-to-connect-all-points";
+import { networkDelayTime } from "./network-delay-time";
+import { swimInRisingWater } from "./swim-in-rising-water";
+import { cheapestFlightsWithinKStops } from "./cheapest-flights-within-k-stops";
+
 export const PROBLEMS: readonly AuthoredProblem[] = [
   // Arrays & Hashing
   containsDuplicate,
@@ -154,4 +168,19 @@ export const PROBLEMS: readonly AuthoredProblem[] = [
   missingNumber,
   countingBits,
   sumOfTwoIntegers,
+  // Graphs
+  numberOfIslands,
+  maxAreaOfIsland,
+  pacificAtlanticWaterFlow,
+  rottingOranges,
+  courseSchedule,
+  courseScheduleIi,
+  redundantConnection,
+  wordLadder,
+  // Advanced Graphs
+  reconstructItinerary,
+  minCostToConnectAllPoints,
+  networkDelayTime,
+  swimInRisingWater,
+  cheapestFlightsWithinKStops,
 ];

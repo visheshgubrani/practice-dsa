@@ -4,9 +4,9 @@ Build in this order: **trustworthy judging → durable persistence → more prob
 
 Get the existing four problems working end to end before expanding the catalog.
 
-**Current phase:** [Phase 8 — Python visualizer: step-through dry runs](./08-python-visualizer.md) — in progress.
+**Current phase:** [Phase 7 — Import the NeetCode 150](./07-neetcode-150.md) — in progress at 72/104.
 
-[Phase 7 — Import the NeetCode 150](./07-neetcode-150.md) is **paused at 59/104** (batches 1–4 done; 5–8 and close-out unchecked). Phase 8 was inserted ahead of it because it changes how the already-seeded problems are studied, and it touches no catalog code. Phase 7 resumes when Phase 8 closes.
+Phase 8 is complete. Batch 5 is complete; batches 1–5 are done, and batches 6–8 plus close-out remain unchecked.
 
 Tick boxes here when a whole phase is done. Tick boxes inside the phase file when a work unit is done. Do not start the next phase until the current one is complete.
 
@@ -26,8 +26,8 @@ Invariants and the “done” scenario live in [00-scope.md](./00-scope.md).
 - [x] [Phase 4 — Expand to 16 verified problems and measure Submit latency](./04-catalog.md)
 - [x] [Phase 5 — Persist chats and deliver contextual tutoring](./05-tutor.md)
 - [x] [Follow-up — Tutor hints grounded in the current attempt](./06-tutor-hints.md)
-- [ ] [Phase 7 — Import the NeetCode 150](./07-neetcode-150.md) — paused at 59/104
-- [ ] [Phase 8 — Python visualizer: step-through dry runs](./08-python-visualizer.md) — in progress
+- [ ] [Phase 7 — Import the NeetCode 150](./07-neetcode-150.md) — in progress at 72/104
+- [x] [Phase 8 — Python visualizer: step-through dry runs](./08-python-visualizer.md)
 
 ## How to work a phase
 

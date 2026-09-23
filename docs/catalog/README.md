@@ -45,7 +45,18 @@ References are vendored verbatim unless a change is unavoidable, and every chang
 | --- | --- | --- |
 | `3sum` | the duplicate-skipping loop reads `while l < r and nums[l] == nums[l - 1]` (the upstream file tests the value first) | index-before-value reads the array only when the bound allows it. Behaviour on the authored suite is unchanged |
 | `kth-largest-element-in-an-array` | `from heapq import heapify, heappop` is prepended | the vendored file calls `heapify` and `heappop` unqualified, and the harness prelude only imports the `heapq` module |
+| `number-of-islands` | retain the first complete `Solution` implementation from the fetched file | the snapshot also contains duplicate implementations and a trailing malformed BFS experiment; Python parses the entire file, so the unrelated trailing snippet cannot remain in the reference program |
 | all | the LeetCode starter's `list[int]` spelling became `List[int]` | matches the rest of the catalog; the harness prelude provides `typing`, so both run |
+
+## Batch 5 — Graphs and Advanced Graphs
+
+The 13 ready problems in these two groups are seeded in roadmap order. Pacific Atlantic uses `unordered_outer`: each [row, column] pair stays ordered, but the outer list is a set of reachable coordinates. Course Schedule II uses exact comparison only on cases with a unique valid topological order; a general any-valid-order rule cannot be expressed by the text comparator. Course Schedule allows a self-prerequisite input, so the suite includes that cycle case; Course Schedule II explicitly excludes self-edges. Reconstruct Itinerary asks for the lexicographically smallest complete route, so exact comparison matches the contract.
+
+Independent small-input oracles live in `lib/problems/graph-oracles.ts`. They use direct downhill reachability, Kahn topological sorting, connectivity before each edge, exhaustive itinerary enumeration, Kruskal, Bellman–Ford, threshold-plus-flood-fill, and bounded flight relaxations. They return `null` outside their small bounds, so production-sized cases still use the reference and reviewed anchors.
+
+### Reference adaptation
+
+The fetched Number of Islands file contains multiple `Solution` definitions and a trailing malformed BFS experiment. The catalog keeps the first complete `Solution` implementation so Python can parse and run the reference program. This selection is recorded in the adaptation table above.
 
 ## Compare modes
 

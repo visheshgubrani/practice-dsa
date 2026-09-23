@@ -1,6 +1,6 @@
 # Phase 8 — Python visualizer: step-through dry runs
 
-**Status:** in progress
+**Status:** complete
 
 Draw the selected visible case as a step-through: call stack, every list, dict
 and object as a box, arrows between them, prev / next / slider. The picture is

@@ -1,6 +1,6 @@
 # Phase 7 — Import the NeetCode 150
 
-**Status:** paused at 59/104 — see [Phase 8 — Python visualizer](./08-python-visualizer.md), which was inserted ahead of the remaining batches because it changes how the already-seeded problems are studied and touches no catalog code. Batches 1–4 are done; batches 5–8 and close-out resume when Phase 8 closes. Phase 8 changes nothing here: not the tooling, not the manifest, not the seeded rows.
+**Status:** in progress at 72/104. Phase 8 is complete; batches 1–5 are done, and Batch 6 is next. Phase 8 changes nothing here: not the tooling, not the manifest, not the seeded rows.
 
 Grow the catalog from 16 problems to the **104** NeetCode 150 problems this harness can judge honestly. Sourcing is data work, not new plumbing: LeetCode's public GraphQL for metadata and statement input, the MIT-licensed `neetcode-gh/leetcode` repository for reference solutions and approach notes, and a hand-written paraphrase for every statement.
 
@@ -115,9 +115,18 @@ Verified: `pnpm problems:check` — 1127 checks; `pnpm test` — 187 tests, 0 fa
 
 ### 7.7 Batch 5 — Graphs and Advanced Graphs
 
-- [ ] Graphs: Number of Islands, Max Area of Island, Pacific Atlantic Water Flow (`unordered_outer`), Rotting Oranges, Course Schedule, Course Schedule II (unique-order cases only), Redundant Connection, Word Ladder
-- [ ] Advanced Graphs: Reconstruct Itinerary, Min Cost to Connect All Points, Network Delay Time, Swim in Rising Water, Cheapest Flights Within K Stops
-- [ ] Batch gate
+- [x] Graphs: Number of Islands, Max Area of Island, Pacific Atlantic Water Flow (`unordered_outer`), Rotting Oranges, Course Schedule, Course Schedule II (unique-order cases only), Redundant Connection, Word Ladder
+- [x] Advanced Graphs: Reconstruct Itinerary, Min Cost to Connect All Points, Network Delay Time, Swim in Rising Water, Cheapest Flights Within K Stops
+- [x] Batch gate
+
+Verified (Batch 5): `pnpm catalog:status` — 72/104 ready problems, no draft markers; full `pnpm problems:check` — 1297 checks; `pnpm test` — 228 tests; lint, typecheck, and build clean. `pnpm db:migrate && pnpm db:seed` used the existing volume with no reset and seeded 73 problems / 193 examples / 854 testcases / 292 starter templates. The slug upsert preserves existing problem IDs and the seed does not touch practice tables. `pnpm piston:check` — all 299 checks passed, including all 13 references and rejection fixtures. The live workspace returned 200 for Number of Islands; a one-case Piston Run passed 1/1 in 24 ms on Python 3.12.0, persisted as a Run, and left progress at attempted with no accepted solution.
+
+Notes from the batch:
+
+- Catalog order adds the eight Graphs problems followed by five Advanced Graphs problems after Bit Manipulation.
+- Pacific Atlantic uses `unordered_outer`: coordinate pairs keep row/column order, while the coordinate list order is free. Course Schedule II uses exact comparison only on unique-order acyclic cases; cyclic cases return the unique empty list. Reconstruct Itinerary returns the lexicographically smallest complete route, so its output is exact.
+- Independent small-input oracles cover all thirteen problems in `lib/problems/graph-oracles.ts`, using downhill path checks, Kahn ordering, edge-by-edge reachability, route enumeration, Kruskal, Bellman–Ford, threshold reachability, and bounded flight relaxation.
+- Reference review corrected seven hand-authored expectations: three Pacific Atlantic reachability sets, one Word Ladder path length, one lexical itinerary, two Manhattan MST totals, and one flight reachable within the stop limit. Conformance checked every correction against both the reference and its independent oracle.
 
 ### 7.8 Batch 6 — Backtracking
 
