@@ -2,6 +2,10 @@
 
 `neetcode-150.json` is the sheet: 150 entries in NeetCode roadmap order, each with its group, LeetCode number and slug, difficulty, and a verdict from `scripts/catalog-sheet.ts` about whether **this** harness can judge it.
 
+The manifest has 104 ready problems and 46 deferred problems. All 104 ready
+sheet problems are seeded. The catalog has 105 rows total because it also
+contains the out-of-sheet `search-insert-position` problem.
+
 ```bash
 pnpm catalog:status                        # what is done, what is left, what carries TODO markers
 pnpm catalog:fetch --manifest              # rebuild the manifest (network; review the diff)
@@ -58,17 +62,25 @@ Independent small-input oracles live in `lib/problems/graph-oracles.ts`. They us
 
 The fetched Number of Islands file contains multiple `Solution` definitions and a trailing malformed BFS experiment. The catalog keeps the first complete `Solution` implementation so Python can parse and run the reference program. This selection is recorded in the adaptation table above.
 
+## Batch 8 — 2-D Dynamic Programming
+
+The 11 problems are seeded in roadmap order: Regular Expression Matching, Unique Paths, Edit Distance, Interleaving String, Distinct Subsequences, Best Time to Buy and Sell Stock with Cooldown, Burst Balloons, Longest Increasing Path in a Matrix, Target Sum, Coin Change II, and Longest Common Subsequence. They all return a scalar integer or boolean, so each uses exact comparison; no output-order rule needs a relaxed comparator.
+
+The references are copied verbatim, with no Python adaptations. Unique Paths and Distinct Subsequences have no matched article, and the cooldown problem's name-only article match is for the plain Stock II problem; their approach notes were written from the problem contract and reference behavior. The independent small-input checks in lib/problems/dynamic-programming-oracles.ts enumerate subsequences, sign assignments, interleavings, coin counts, edit operations, burst orders, and short paths instead of relying on each reference's DP recurrence.
+
 ## Compare modes
 
 `compare` is a per-problem decision, not a default:
 
-| Mode | Use it when | Examples here |
+| Mode | Use it when | NeetCode 150 problems using this mode |
 | --- | --- | --- |
-| `exact` | the answer is a value, or LeetCode's own order is the required order | `sliding-window-maximum`, `merge-intervals` (with `intervals`), `spiral-matrix` |
-| `unordered` | the answer is a bag of things and their order carries no meaning | `group-anagrams`, `top-k-frequent-elements`, `word-search-ii` |
-| `unordered_outer` | the answer is a **set of ordered sequences**: the pieces may be listed in any order, but the order inside a piece is the answer | `3sum`, `permutations`, `n-queens`, `palindrome-partitioning`, `pacific-atlantic-water-flow`, `k-closest-points-to-origin` |
-| `index_pair` | exactly two indices, either order | `two-sum` |
-| `intervals` | `[start, end]` pairs, ascending, endpoints in order | `merge-intervals`, `insert-interval` |
+| `exact` | the answer is a value, or LeetCode's own order is the required order | The remaining 86 ready sheet problems use exact comparison, explicitly or by default. |
+| `unordered` | the answer is a bag of things and their order carries no meaning | `combination-sum`, `combination-sum-ii`, `generate-parentheses`, `group-anagrams`, `letter-combinations-of-a-phone-number`, `subsets`, `subsets-ii`, `top-k-frequent-elements`, `word-search-ii` (9) |
+| `unordered_outer` | the answer is a **set of ordered sequences**: the pieces may be listed in any order, but the order inside a piece is the answer | `3sum`, `k-closest-points-to-origin`, `n-queens`, `pacific-atlantic-water-flow`, `palindrome-partitioning`, `permutations` (6) |
+| `index_pair` | exactly two indices, either order | `two-sum` (1) |
+| `intervals` | `[start, end]` pairs, ascending, endpoints in order | `insert-interval`, `merge-intervals` (2) |
+
+This table accounts for all 104 ready sheet problems: 86 use `exact`, and the other 18 use one of the listed modes. The separate out-of-sheet `search-insert-position` row also uses `exact`.
 
 `unordered` canonicalises recursively, so it sorts inner arrays too: it accepts `[[1,2,3],[1,2,3],…]` as a set of permutations and `[[2,1]]` as `[[1,2]]`. That is why `unordered_outer` exists, and why the six problems above are listed explicitly.
 
@@ -76,12 +88,17 @@ Two more rules that keep judging honest:
 
 - When a mode is stricter than LeetCode's checker, the **statement says the required order**. A stricter mode must never be a hidden trap.
 - When the answer is "any valid answer" (Course Schedule II accepts any valid topological order), text comparison cannot express it: choose cases where the valid answer is unique.
+- `longest-palindromic-substring` uses `exact` comparison: when multiple longest answers exist, the statement requires the one with the earliest starting index. Its cases cover this tie rule because the text comparator cannot accept any valid longest string.
 
 `word-search-ii` is the reverse case: LeetCode's own checker accepts the found words in any order, so `unordered` matches it and the statement says the order is free. No case relies on the order the reference's DFS happens to produce.
 
 ## Where the harness narrows the input
 
-The `int` kind is int32-checked on both sides, so a problem whose *input* range can produce an out-of-range answer needs its inputs narrowed rather than its comparator relaxed. `reverse-bits` is the one problem where that bites: reversing an odd 32-bit value sets bit 31 (`1` reverses to `2³¹`), which `int` cannot hold. LeetCode's own constraints already read `0 <= n <= 2³¹ - 2` and `n is even`, so the module keeps them, says why in the statement, and authors only even inputs. Nothing else in the catalog is affected.
+The `int` kind is int32-checked on both sides, so a problem whose *input* range can produce an out-of-range answer needs its inputs narrowed rather than its comparator relaxed. The original example was `reverse-bits`: reversing an odd 32-bit value sets bit 31 (`1` reverses to `2³¹`), which `int` cannot hold. LeetCode's own constraints already read `0 <= n <= 2³¹ - 2` and `n is even`, so the module keeps them, says why in the statement, and authors only even inputs.
+
+`decode-ways` has a separate return-range limit: 45 digits in this judge, because 45 ones produce 1,836,311,903 decodings and a longer all-ones string can exceed the signed 32-bit `int` kind. The narrower limit is stated in the problem.
+
+unique-paths is limited to a 17 × 17 grid: 18 × 18 has 2,333,606,220 paths, above the int maximum. distinct-subsequences limits both strings to length 30; its maximum count is C(30, 15) = 155,117,520, within range. Both limits are stated in their problem modules.
 
 ## Deferred problems
 

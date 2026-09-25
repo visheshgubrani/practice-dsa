@@ -11,6 +11,8 @@
  */
 
 import type { ArgValue } from "@/lib/harness/args";
+import { backtrackingOracleAnswer } from "@/lib/problems/backtracking-oracles";
+import { dynamicProgrammingOracleAnswer } from "@/lib/problems/dynamic-programming-oracles";
 import { graphOracleAnswer } from "@/lib/problems/graph-oracles";
 
 const SMALL = 40;
@@ -865,6 +867,8 @@ export function oracleAnswer(
   slug: string,
   args: readonly ArgValue[],
 ): string | null {
+  const dynamicProgramming = dynamicProgrammingOracleAnswer(slug, args);
+  if (dynamicProgramming !== null) return dynamicProgramming;
   switch (slug) {
     case "two-sum":
       return twoSumOracle(args);
@@ -948,6 +952,16 @@ export function oracleAnswer(
       return spiralMatrixOracle(args);
     case "multiply-strings":
       return multiplyStringsOracle(args);
+    case "subsets":
+    case "combination-sum":
+    case "permutations":
+    case "subsets-ii":
+    case "combination-sum-ii":
+    case "word-search":
+    case "palindrome-partitioning":
+    case "letter-combinations-of-a-phone-number":
+    case "n-queens":
+      return backtrackingOracleAnswer(slug, args);
     case "word-search-ii":
       return wordSearchIiOracle(args);
     case "find-the-duplicate-number":

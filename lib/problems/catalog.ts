@@ -94,6 +94,38 @@ import { minCostToConnectAllPoints } from "./min-cost-to-connect-all-points";
 import { networkDelayTime } from "./network-delay-time";
 import { swimInRisingWater } from "./swim-in-rising-water";
 import { cheapestFlightsWithinKStops } from "./cheapest-flights-within-k-stops";
+import { letterCombinationsOfAPhoneNumber } from "./letter-combinations-of-a-phone-number";
+import { combinationSum } from "./combination-sum";
+import { combinationSumIi } from "./combination-sum-ii";
+import { permutations } from "./permutations";
+import { nQueens } from "./n-queens";
+import { subsets } from "./subsets";
+import { wordSearch } from "./word-search";
+import { subsetsIi } from "./subsets-ii";
+import { palindromePartitioning } from "./palindrome-partitioning";
+import { climbingStairs } from "./climbing-stairs";
+import { minCostClimbingStairs } from "./min-cost-climbing-stairs";
+import { houseRobber } from "./house-robber";
+import { houseRobberIi } from "./house-robber-ii";
+import { longestPalindromicSubstring } from "./longest-palindromic-substring";
+import { palindromicSubstrings } from "./palindromic-substrings";
+import { decodeWays } from "./decode-ways";
+import { coinChange } from "./coin-change";
+import { maximumProductSubarray } from "./maximum-product-subarray";
+import { wordBreak } from "./word-break";
+import { longestIncreasingSubsequence } from "./longest-increasing-subsequence";
+import { partitionEqualSubsetSum } from "./partition-equal-subset-sum";
+import { uniquePaths } from "./unique-paths";
+import { longestCommonSubsequence } from "./longest-common-subsequence";
+import { bestTimeToBuyAndSellStockWithCooldown } from "./best-time-to-buy-and-sell-stock-with-cooldown";
+import { coinChangeIi } from "./coin-change-ii";
+import { targetSum } from "./target-sum";
+import { interleavingString } from "./interleaving-string";
+import { longestIncreasingPathInAMatrix } from "./longest-increasing-path-in-a-matrix";
+import { distinctSubsequences } from "./distinct-subsequences";
+import { editDistance } from "./edit-distance";
+import { burstBalloons } from "./burst-balloons";
+import { regularExpressionMatching } from "./regular-expression-matching";
 
 export const PROBLEMS: readonly AuthoredProblem[] = [
   // Arrays & Hashing
@@ -168,6 +200,16 @@ export const PROBLEMS: readonly AuthoredProblem[] = [
   missingNumber,
   countingBits,
   sumOfTwoIntegers,
+  // Backtracking
+  letterCombinationsOfAPhoneNumber,
+  combinationSum,
+  combinationSumIi,
+  permutations,
+  nQueens,
+  subsets,
+  wordSearch,
+  subsetsIi,
+  palindromePartitioning,
   // Graphs
   numberOfIslands,
   maxAreaOfIsland,
@@ -183,4 +225,29 @@ export const PROBLEMS: readonly AuthoredProblem[] = [
   networkDelayTime,
   swimInRisingWater,
   cheapestFlightsWithinKStops,
+  // 1-D Dynamic Programming
+  longestPalindromicSubstring,
+  climbingStairs,
+  decodeWays,
+  wordBreak,
+  maximumProductSubarray,
+  houseRobber,
+  houseRobberIi,
+  longestIncreasingSubsequence,
+  coinChange,
+  partitionEqualSubsetSum,
+  palindromicSubstrings,
+  minCostClimbingStairs,
+  // 2-D Dynamic Programming
+  regularExpressionMatching,
+  uniquePaths,
+  editDistance,
+  interleavingString,
+  distinctSubsequences,
+  bestTimeToBuyAndSellStockWithCooldown,
+  burstBalloons,
+  longestIncreasingPathInAMatrix,
+  targetSum,
+  coinChangeIi,
+  longestCommonSubsequence,
 ];

@@ -12,7 +12,7 @@ Local only. One user. Python only. Piston for execution. Postgres on the compose
 
 Trustworthy judging, then durable persistence, then more problems, then a better AI tutor.
 
-The catalog is seeded from `lib/problems/catalog.ts` in NeetCode 150 roadmap order. Phase 7 is importing the sheet: 104 of the 150 problems are judgeable by this harness, and the other 46 are deferred with a reason in [`docs/catalog/README.md`](../catalog/README.md). The original four problems are still seeded, plus a growing set of sheet problems.
+The catalog is seeded from `lib/problems/catalog.ts` in NeetCode 150 roadmap order. Phase 7 is complete: 104 of the 150 sheet problems are judgeable by this harness and seeded; the other 46 are deferred with a reason in [`docs/catalog/README.md`](../catalog/README.md). The catalog has 105 rows total, including the out-of-sheet `search-insert-position` problem.
 
 ## What is already here
 

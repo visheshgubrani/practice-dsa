@@ -225,12 +225,11 @@ wrong-answer fixture.
 
 ## Current plan
 
-Work is sequenced in [`docs/plan`](docs/plan/README.md). Phases 1–5 and the
-tutor-hint follow-up are complete: trustworthy judging, durable persistence,
-a durable context-aware tutor. **Phase 7** is in progress: importing the
-NeetCode 150, with 104 of the 150 importable under the current harness and the
-other 46 deferred with reasons (see
-[`docs/catalog/README.md`](docs/catalog/README.md)).
+Work is sequenced in [`docs/plan`](docs/plan/README.md). All currently planned
+phases (1–8) are complete. Phase 7 closed with 104 of the 150 NeetCode problems
+ready and seeded; 46 remain deferred with reasons. The catalog has 105 rows in
+total because it also includes the out-of-sheet `search-insert-position`
+problem. See [`docs/catalog/README.md`](docs/catalog/README.md).
 
 ## What is real and what is not
 

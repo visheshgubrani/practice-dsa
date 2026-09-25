@@ -1,6 +1,6 @@
 # Phase 7 — Import the NeetCode 150
 
-**Status:** in progress at 72/104. Phase 8 is complete; batches 1–5 are done, and Batch 6 is next. Phase 8 changes nothing here: not the tooling, not the manifest, not the seeded rows.
+**Status:** complete at 104/104 ready sheet problems; 46 remain deferred. Batches 1–8 and close-out are complete. The catalog has 105 seeded rows, including the out-of-sheet `search-insert-position` problem.
 
 Grow the catalog from 16 problems to the **104** NeetCode 150 problems this harness can judge honestly. Sourcing is data work, not new plumbing: LeetCode's public GraphQL for metadata and statement input, the MIT-licensed `neetcode-gh/leetcode` repository for reference solutions and approach notes, and a hand-written paraphrase for every statement.
 
@@ -130,24 +130,38 @@ Notes from the batch:
 
 ### 7.8 Batch 6 — Backtracking
 
-- [ ] Subsets, Combination Sum, Permutations (`unordered_outer`), Subsets II, Combination Sum II, Word Search, Palindrome Partitioning (`unordered_outer`), Letter Combinations, N-Queens (`unordered_outer`)
-- [ ] Batch gate
+- [x] Subsets, Combination Sum, Permutations (`unordered_outer`), Subsets II, Combination Sum II, Word Search, Palindrome Partitioning (`unordered_outer`), Letter Combinations, N-Queens (`unordered_outer`)
+- [x] Batch gate
+
+Verified (Batch 6): `pnpm catalog:status` — Backtracking 9/9 and 81/104 ready problems, no draft markers; `pnpm problems:check` — 1,405 checks; `pnpm test` — 228 tests; `pnpm db:migrate && pnpm db:seed` — no reset, 82 problems / 211 examples / 944 testcases / 328 starter templates; `pnpm piston:check` — all 335 checks passed; `pnpm lint`, `pnpm typecheck`, and `pnpm build` clean. The UI practice run was not repeated because the app was not running; headless Piston exercises the same judging path, consistent with the prior batch gates.
 
 ### 7.9 Batch 7 — 1-D Dynamic Programming
 
-- [ ] Climbing Stairs, Min Cost Climbing Stairs, House Robber, House Robber II, Longest Palindromic Substring, Palindromic Substrings, Decode Ways, Coin Change, Maximum Product Subarray, Word Break, Longest Increasing Subsequence, Partition Equal Subset Sum
-- [ ] Batch gate
+- [x] Climbing Stairs, Min Cost Climbing Stairs, House Robber, House Robber II, Longest Palindromic Substring, Palindromic Substrings, Decode Ways, Coin Change, Maximum Product Subarray, Word Break, Longest Increasing Subsequence, Partition Equal Subset Sum
+- [x] Batch gate
+
+Verified (Batch 7): `pnpm catalog:status` — 93/104 ready problems, no draft markers; full `pnpm problems:check` — 1,565 checks; `pnpm test` — 228 tests; `pnpm lint`, `pnpm typecheck`, and `pnpm build` clean. `pnpm db:migrate && pnpm db:seed` — no reset, 94 problems / 239 examples / 1,076 testcases / 376 starter templates; all 82 pre-existing problem IDs and the existing practice, submission, and chat row counts were unchanged. `pnpm piston:check` — all 383 checks passed across the seeded catalog, including every reference, rejection fixture, and untouched starter. The UI practice run was not repeated because the app was not running on port 3000; Piston exercised the same judging path headlessly for all 94 problems.
+
+Notes from the batch:
+
+- Independent small-input oracles cover all twelve problems. They use path/subset enumeration, substring scans, recursive decoding and segmentation, and breadth-first search for coin change.
+- `longest-palindromic-substring` states an earliest-start tie rule because the harness compares exact strings; its cases include both odd- and even-length ties.
+- `decode-ways` limits this judge’s string length to 45 so the maximum answer (all ones) fits the harness’s signed 32-bit `int`.
 
 ### 7.10 Batch 8 — 2-D Dynamic Programming
 
-- [ ] Unique Paths, Longest Common Subsequence, Best Time to Buy and Sell Stock with Cooldown, Coin Change II, Target Sum, Interleaving String, Longest Increasing Path in a Matrix, Distinct Subsequences, Edit Distance, Burst Balloons, Regular Expression Matching
-- [ ] Batch gate
+- [x] Unique Paths, Longest Common Subsequence, Best Time to Buy and Sell Stock with Cooldown, Coin Change II, Target Sum, Interleaving String, Longest Increasing Path in a Matrix, Distinct Subsequences, Edit Distance, Burst Balloons, Regular Expression Matching
+- [x] Batch gate
+
+Verified (Batch 8): catalog status reports 104/104 ready problems and no draft markers; the full `pnpm problems:check` passed 1,713 checks; `pnpm test` passed 228 tests; lint, typecheck, and build are clean. `pnpm db:migrate` and `pnpm db:seed` ran against the existing volume without a reset, seeding 105 catalog rows / 266 examples / 1,197 testcases / 420 starter templates. All 94 pre-existing problem IDs and the drafts, progress, submissions, and chat counts were unchanged by seeding. The real-engine `pnpm piston:check` passed all 427 checks, including every Batch 8 reference, rejection fixture, and untouched starter. A Unique Paths Run through the workspace API returned Piston accepted, 1/1 visible case, persisted true, and progress attempted (not solved). It added one Run history row and one progress row for the new problem (submissions 55 → 56 and progress 12 → 13; drafts stayed at 11, chat threads at 20, and chat messages at 134).
+
+The app was served temporarily on port 3010 for that workspace check and then stopped.
 
 ### 7.11 Close out
 
-- [ ] `docs/catalog/README.md` records every compare-mode decision and every reference adaptation
-- [ ] README counts, `docs/plan/00-scope.md`, and this file agree with the seeded catalog
-- [ ] Phase gate below
+- [x] `docs/catalog/README.md` records every compare-mode decision and every reference adaptation
+- [x] README counts, `docs/plan/00-scope.md`, and this file agree with the seeded catalog
+- [x] Phase gate below
 
 ## Per-problem order (every problem)
 
@@ -163,12 +177,12 @@ Rules that keep judging honest at this scale:
 
 ## Phase gate
 
-- [ ] `docs/catalog/neetcode-150.json` says 104 ready, and 104 are seeded
-- [ ] `pnpm catalog:status` reports no unfinished `TODO(` marker
-- [ ] `pnpm problems:check` passes for the whole catalog
-- [ ] `pnpm db:migrate && pnpm db:seed` ran against the existing volume with no reset, and the pre-existing problem IDs are unchanged
-- [ ] `pnpm piston:check` covers every seeded problem
-- [ ] `pnpm lint && pnpm typecheck && pnpm test && pnpm build`
+- [x] `docs/catalog/neetcode-150.json` says 104 ready, and all 104 ready sheet problems are seeded
+- [x] `pnpm catalog:status` reports no unfinished `TODO(` marker
+- [x] `pnpm problems:check` passes for the whole catalog
+- [x] `pnpm db:migrate && pnpm db:seed` ran against the existing volume with no reset, and the pre-existing problem IDs are unchanged
+- [x] `pnpm piston:check` covers every seeded problem
+- [x] `pnpm lint && pnpm typecheck && pnpm test && pnpm build`
 
 ## Out of scope
 
