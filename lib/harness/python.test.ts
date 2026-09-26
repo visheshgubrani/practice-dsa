@@ -118,6 +118,65 @@ describe("JSON-args harness", () => {
     assert.equal(result.stdout.trim(), "");
   });
 
+  it("round-trips encode and decode on two instances", () => {
+    const signature: ProblemSignature = {
+      name: "encode",
+      params: [{ name: "strs", kind: "string[]" }],
+      returns: "string[]",
+      roundTrip: { encode: "encode", decode: "decode" },
+    };
+    const source = `class Solution:
+    def __init__(self):
+        self.seen = None
+    def encode(self, strs):
+        self.seen = strs
+        return "".join(f"{len(s)}#{s}" for s in strs)
+    def decode(self, s):
+        if self.seen is not None:
+            return ["stashed"]
+        out = []
+        i = 0
+        while i < len(s):
+            j = s.find("#", i)
+            length = int(s[i:j])
+            i = j + 1
+            out.append(s[i:i + length])
+            i += length
+        return out
+`;
+    const { source: program } = buildPythonProgram(source, signature);
+    assert.match(program, /_wire = Solution\(\)\.encode\(\*_args\)/);
+    assert.match(program, /_result = Solution\(\)\.decode\(_wire\)/);
+    assert.match(program, /encode must return a str/);
+
+    const result = runLocal(source, [["Hello", "World"]], signature);
+    assert.equal(result.status, 0, result.stderr);
+    const { encoded } = splitHarnessOutput(result.stdout);
+    assert.equal(encoded, JSON.stringify(["Hello", "World"]));
+  });
+
+  it("rejects an encode result that is not a string", () => {
+    const signature: ProblemSignature = {
+      name: "encode",
+      params: [{ name: "strs", kind: "string[]" }],
+      returns: "string[]",
+      roundTrip: { encode: "encode", decode: "decode" },
+    };
+    const result = runLocal(
+      `class Solution:
+    def encode(self, strs):
+        return strs
+    def decode(self, s):
+        return s
+`,
+      [["Hello"]],
+      signature,
+    );
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /TypeError/);
+    assert.match(result.stderr, /encode must return a str/);
+  });
+
   it("passes a matrix as nested JSON arrays", () => {
     const signature: ProblemSignature = {
       name: "dims",
@@ -135,5 +194,121 @@ describe("JSON-args harness", () => {
     assert.equal(result.status, 0, result.stderr);
     const { encoded } = splitHarnessOutput(result.stdout);
     assert.equal(encoded, "4");
+  });
+
+  it("runs a call script on one instance", () => {
+    const signature: ProblemSignature = {
+      name: "MinStack",
+      params: [],
+      returns: "void",
+      calls: {
+        className: "MinStack",
+        constructorParams: [],
+        methods: {
+          push: { params: ["int"], returns: "void" },
+          pop: { params: [], returns: "void" },
+          top: { params: [], returns: "int" },
+          getMin: { params: [], returns: "int" },
+        },
+      },
+    };
+    const source = `class MinStack:
+    def __init__(self):
+        self.values = []
+        self.mins = []
+    def push(self, val):
+        self.values.append(val)
+        if not self.mins or val <= self.mins[-1]:
+            self.mins.append(val)
+    def pop(self):
+        if self.values.pop() == self.mins[-1]:
+            self.mins.pop()
+    def top(self):
+        return self.values[-1]
+    def getMin(self):
+        return self.mins[-1]
+`;
+    const script = [
+      ["MinStack", "push", "push", "push", "getMin", "pop", "top", "getMin"],
+      [[], [-2], [0], [-3], [], [], [], []],
+    ];
+    const { source: program } = buildPythonProgram(source, signature);
+    assert.match(program, /_obj = MinStack\(\*_argv\[0\]\)/);
+    assert.match(program, /_name not in _spec/);
+    assert.doesNotMatch(program, /Solution\(\)/);
+
+    const result = runLocal(source, script, signature);
+    assert.equal(result.status, 0, result.stderr);
+    const { encoded } = splitHarnessOutput(result.stdout);
+    assert.equal(encoded, "[null,null,null,null,-3,null,0,-2]");
+  });
+
+  it("records a wrong getMin after the minimum is popped", () => {
+    const signature: ProblemSignature = {
+      name: "MinStack",
+      params: [],
+      returns: "void",
+      calls: {
+        className: "MinStack",
+        constructorParams: [],
+        methods: {
+          push: { params: ["int"], returns: "void" },
+          pop: { params: [], returns: "void" },
+          getMin: { params: [], returns: "int" },
+        },
+      },
+    };
+    const result = runLocal(
+      `class MinStack:
+    def __init__(self):
+        self.values = []
+    def push(self, val):
+        self.values.append(val)
+    def pop(self):
+        self.values.pop()
+    def getMin(self):
+        return self.values[-1]
+`,
+      [
+        ["MinStack", "push", "push", "pop", "getMin"],
+        [[], [1], [0], [], []],
+      ],
+      signature,
+    );
+    assert.equal(result.status, 0, result.stderr);
+    const { encoded } = splitHarnessOutput(result.stdout);
+    assert.equal(encoded, "[null,null,null,null,1]");
+  });
+
+  it("rejects a call the signature does not allow", () => {
+    const signature: ProblemSignature = {
+      name: "MinStack",
+      params: [],
+      returns: "void",
+      calls: {
+        className: "MinStack",
+        constructorParams: [],
+        methods: {
+          push: { params: ["int"], returns: "void" },
+        },
+      },
+    };
+    const result = runLocal(
+      `class MinStack:
+    def __init__(self):
+        pass
+    def push(self, val):
+        pass
+    def peek(self):
+        return 1
+`,
+      [
+        ["MinStack", "push", "peek"],
+        [[], [1], []],
+      ],
+      signature,
+    );
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /unknown method peek/);
   });
 });

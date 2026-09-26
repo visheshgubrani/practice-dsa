@@ -53,6 +53,12 @@ export type AuthoredProblem = {
   number: number;
   title: string;
   difficulty: Difficulty;
+  /**
+   * The roadmap group. Optional because authored modules never set it:
+   * `lib/db/seed.ts` derives it from the sheet (`lib/problems/topics.ts`), so
+   * the stored topic cannot disagree with the group a problem is authored in.
+   */
+  topic?: string;
   tags: string[];
   statement: string;
   constraints: string[];
@@ -196,6 +202,7 @@ export function toPublicProblem(problem: AuthoredProblem): Problem {
     number: problem.number,
     title: problem.title,
     difficulty: problem.difficulty,
+    topic: problem.topic ?? "",
     tags: [...problem.tags],
     statement: problem.statement,
     constraints: [...problem.constraints],

@@ -79,6 +79,29 @@ describe("compareOutput", () => {
     assert.equal(compareOutput("false", "true", "exact").matches, false);
     assert.equal(compareOutput("6", "9", "exact").matches, false);
   });
+
+  it("accepts an integer against the same double", () => {
+    const comparison = compareOutput("2", "2.0", "tolerance");
+
+    assert.equal(comparison.matches, true);
+    assert.equal(comparison.detail, "within 1e-5");
+  });
+
+  it("accepts an exact half", () => {
+    assert.equal(compareOutput("2.5", "2.5", "tolerance").matches, true);
+  });
+
+  it("accepts a difference of 1e-5", () => {
+    // "1.00001" parses a hair above the band. "0.00001" is 1e-5 itself.
+    assert.equal(compareOutput("0.00001", "0", "tolerance").matches, true);
+  });
+
+  it("rejects a difference of 0.5", () => {
+    const comparison = compareOutput("2", "2.5", "tolerance");
+
+    assert.equal(comparison.matches, false);
+    assert.equal(comparison.detail, "outside 1e-5");
+  });
 });
 
 /**

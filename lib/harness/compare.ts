@@ -79,6 +79,8 @@ export function compareOutput(
       return compareIndexPair(stdout, expected);
     case "intervals":
       return compareIntervals(stdout, expected);
+    case "tolerance":
+      return compareTolerance(stdout, expected);
     case "exact": {
       const actual = stdout.trim();
       const wanted = expected.trim();
@@ -179,6 +181,37 @@ export function compareIntervals(stdout: string, expected: string): Comparison {
     matches: JSON.stringify(actualValue) === JSON.stringify(wantedValue),
     detail: "intervals (ordered endpoints, ascending order)",
   };
+}
+
+/** Absolute band for a `double` return. LeetCode accepts this on median. */
+const ABSOLUTE_TOLERANCE = 1e-5;
+
+/**
+ * Two JSON numbers within `1e-5` of each other.
+ *
+ * Exact text treats `2` and `2.0` as different, which rejects a correct integer
+ * median. A difference of `0.5` — one element off — stays outside the band.
+ */
+export function compareTolerance(stdout: string, expected: string): Comparison {
+  const actualValue = asJson(stdout.trim());
+  const wantedValue = asJson(expected.trim());
+
+  if (!isJsonNumber(actualValue) || !isJsonNumber(wantedValue)) {
+    return {
+      matches: stdout.trim() === expected.trim(),
+      detail: "tolerance (fell back to exact: a side was not a JSON number)",
+    };
+  }
+
+  const matches = Math.abs(actualValue - wantedValue) <= ABSOLUTE_TOLERANCE;
+  return {
+    matches,
+    detail: matches ? "within 1e-5" : "outside 1e-5",
+  };
+}
+
+function isJsonNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
 }
 
 function isIntervalList(value: unknown): value is [unknown, unknown][] {

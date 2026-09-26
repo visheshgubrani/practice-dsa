@@ -31,6 +31,7 @@ const problem: Problem = {
   number: 1,
   title: "Two Sum",
   difficulty: "easy",
+  topic: "Arrays & Hashing",
   tags: ["array", "hash-map"],
   statement: "Return the indices of the two numbers that add up to target.",
   examples: [
@@ -103,6 +104,8 @@ function submission(
     memoryKb: 2048,
     catalogRevision: "2026-09-21T00:00:00.000Z",
     requestId: null,
+    isRevision: false,
+    day: "2026-09-21",
     createdAt: "2026-09-21T00:00:00.000Z",
     testcaseIndex: null,
     compileOutput: null,

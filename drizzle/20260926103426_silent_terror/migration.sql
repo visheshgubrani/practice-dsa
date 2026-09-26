@@ -1,0 +1,1 @@
+ALTER TYPE "compare_mode" ADD VALUE 'tolerance';

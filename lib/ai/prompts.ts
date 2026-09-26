@@ -33,10 +33,30 @@ function caseLabel(entry: Pick<CaseResult, "index" | "hidden">): string {
   return entry.hidden ? `Hidden ${entry.index + 1}` : `Case ${entry.index + 1}`;
 }
 
+function methodLine(
+  name: string,
+  params: readonly string[],
+  returns: string,
+): string {
+  return `${name}(${params.join(", ")}) -> ${returns}`;
+}
+
 function signatureLine(problem: Problem): string {
+  const calls = problem.signature.calls;
+  if (calls) {
+    const constructor = methodLine(calls.className, [...calls.constructorParams], "void");
+    const methods = Object.entries(calls.methods)
+      .map(([name, method]) => methodLine(name, [...method.params], method.returns))
+      .join("; ");
+    return `${constructor}; ${methods}. Judging runs the operation script on one instance and compares the list of return values; void calls are null.`;
+  }
   const params = problem.signature.params
     .map((param) => `${param.name}: ${param.kind}`)
     .join(", ");
+  const trip = problem.signature.roundTrip;
+  if (trip) {
+    return `${trip.encode}(${params}) -> string, then ${trip.decode}(s: string) -> ${problem.signature.returns}. Judging compares the decoded value to the input; the encoded string is the only channel between the two calls.`;
+  }
   return `${problem.signature.name}(${params}) -> ${problem.signature.returns}`;
 }
 

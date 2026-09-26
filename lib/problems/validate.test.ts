@@ -51,6 +51,26 @@ describe("validateProblem", () => {
     assert.deepEqual(validateProblem(problem(), { requireExpected: true }), []);
   });
 
+  it("requires a round trip to define both methods", () => {
+    const issues = validateProblem(
+      problem({
+        signature: {
+          name: "encode",
+          params: [{ name: "strs", kind: "string[]" }],
+          returns: "string[]",
+          roundTrip: { encode: "encode", decode: "decode" },
+        },
+        examples: [{ args: [["Hello"]], output: '["Hello"]' }],
+        testcases: [{ args: [["Hello"]], expected: '["Hello"]' }],
+        compare: "exact",
+      }),
+    );
+    assert.match(issues.join("\n"), /starter does not define encode/);
+    assert.match(issues.join("\n"), /starter does not define decode/);
+    assert.match(issues.join("\n"), /reference does not define encode/);
+    assert.match(issues.join("\n"), /reference does not define decode/);
+  });
+
   it("requires argument count to match the signature", () => {
     const issues = validateProblem(
       problem({ testcases: [{ args: [[2, 7]], expected: "[0,1]" }] }),
@@ -193,6 +213,60 @@ describe("validateProblem", () => {
     assert.match(issues.join("\n"), /approach notes/);
     assert.match(issues.join("\n"), /testcase 1 note/);
     assert.match(issues.join("\n"), /rejection fixture/);
+  });
+
+  it("checks a call script against the methods the signature allows", () => {
+    const calls = {
+      className: "MinStack",
+      constructorParams: [],
+      methods: {
+        push: { params: ["int" as const], returns: "void" as const },
+        getMin: { params: [], returns: "int" as const },
+      },
+    };
+    const starter = `class MinStack:
+    def __init__(self):
+        pass
+    def push(self, val: int) -> None:
+        pass
+    def getMin(self) -> int:
+        pass
+`;
+    const issues = validateProblem(
+      problem({
+        signature: {
+          name: "MinStack",
+          params: [],
+          returns: "void",
+          calls,
+        },
+        starterCode: { python: starter },
+        reference: starter,
+        examples: [
+          {
+            args: [
+              ["MinStack", "push", "getMin"],
+              [[], [1], []],
+            ],
+            output: "[null,null,1]",
+          },
+        ],
+        testcases: [
+          {
+            args: [
+              ["MinStack", "push", "peek"],
+              [[], [1], []],
+            ],
+            expected: "[null,null,1]",
+          },
+        ],
+        compare: "exact",
+      }),
+      { requireExpected: true },
+    );
+    assert.match(issues.join("\n"), /calls peek, which the signature does not allow/);
+    assert.doesNotMatch(issues.join("\n"), /returns void/);
+    assert.doesNotMatch(issues.join("\n"), /has no parameters/);
   });
 
   it("does not trip on prose that merely says todo without a marker", () => {

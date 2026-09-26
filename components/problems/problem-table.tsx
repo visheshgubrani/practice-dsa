@@ -4,7 +4,9 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { CheckIcon, SearchIcon } from "lucide-react";
 
+import { CatalogHeader } from "@/components/problems/catalog-header";
 import { DifficultyBadge } from "@/components/problems/difficulty-badge";
+import { ReviseButton } from "@/components/problems/revise-button";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -30,9 +32,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import type { DashboardTotals } from "@/lib/db/queries/dashboard";
 import { useProgress } from "@/lib/hooks/use-progress";
 import type { ProblemSummary } from "@/lib/problems";
-import { cn } from "@/lib/utils";
+import type { DayCell } from "@/lib/progress/calendar";
+import type { ProblemStatus, ProgressSummary } from "@/lib/progress/summary";
 
 type DifficultyFilter = "all" | "easy" | "medium" | "hard";
 
@@ -43,11 +47,42 @@ const DIFFICULTY_ITEMS: Array<{ value: DifficultyFilter; label: string }> = [
   { value: "hard", label: "Hard" },
 ];
 
-export function ProblemTable({ problems }: { problems: ProblemSummary[] }) {
-  const { progress, hydrated } = useProgress();
+export function ProblemTable({
+  problems,
+  summary,
+  strip,
+  totals,
+  statuses = {},
+}: {
+  problems: ProblemSummary[];
+  summary: ProgressSummary;
+  strip: DayCell[];
+  totals: DashboardTotals;
+  /** `slug -> status`, so a solved tick is right before the browser hydrates. */
+  statuses?: Record<string, ProblemStatus>;
+}) {
+  const { progress } = useProgress();
   const [query, setQuery] = useState("");
   const [difficulty, setDifficulty] = useState<DifficultyFilter>("all");
   const [tag, setTag] = useState("all");
+  const [solvedOnly, setSolvedOnly] = useState(false);
+
+  /**
+   * Solved comes from Postgres; the browser's `dsa.progress` key only adds what
+   * this session just accepted, so a tick appears the moment Submit lands while
+   * the durable answer stays the database's. The key cannot be read on the
+   * server — see `use-progress.ts` — so both sources are merged here rather
+   * than either one being trusted alone.
+   */
+  const isSolved = useMemo(() => {
+    const accepted = new Set(Object.keys(progress));
+    const durable = new Set(
+      Object.entries(statuses)
+        .filter(([, status]) => status === "solved")
+        .map(([slug]) => slug),
+    );
+    return (slug: string) => durable.has(slug) || accepted.has(slug);
+  }, [progress, statuses]);
 
   const tags = useMemo(() => {
     const seen = new Set<string>();
@@ -68,6 +103,7 @@ export function ProblemTable({ problems }: { problems: ProblemSummary[] }) {
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return problems.filter((problem) => {
+      if (solvedOnly && !isSolved(problem.slug)) return false;
       if (difficulty !== "all" && problem.difficulty !== difficulty) return false;
       if (tag !== "all" && !problem.tags.includes(tag)) return false;
       if (needle.length === 0) return true;
@@ -77,99 +113,108 @@ export function ProblemTable({ problems }: { problems: ProblemSummary[] }) {
         problem.tags.some((problemTag) => problemTag.includes(needle))
       );
     });
-  }, [difficulty, problems, query, tag]);
+  }, [difficulty, isSolved, problems, query, solvedOnly, tag]);
 
-  const solvedCount = problems.filter((problem) => progress[problem.slug]).length;
   const filtersActive =
-    query.trim().length > 0 || difficulty !== "all" || tag !== "all";
+    query.trim().length > 0 ||
+    difficulty !== "all" ||
+    tag !== "all" ||
+    solvedOnly;
 
   function clearFilters() {
     setQuery("");
     setDifficulty("all");
     setTag("all");
+    setSolvedOnly(false);
   }
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="border-b border-border">
-        <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-5 px-6 pt-7 pb-6">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div className="flex flex-col gap-2">
-              <h1 className="font-mono text-2xl font-medium tracking-tight">
-                dsa<span className="text-primary">.</span>
-              </h1>
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-[3px]" aria-hidden>
-                  {problems.map((problem) => (
-                    <span
-                      key={problem.slug}
-                      className={cn(
-                        "h-1 w-5 rounded-full transition-colors",
-                        progress[problem.slug] ? "bg-success" : "bg-muted",
-                      )}
-                    />
-                  ))}
-                </div>
-                <p className="font-mono text-xs text-muted-foreground">
-                  {hydrated ? solvedCount : 0} of {problems.length} solved
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative w-72">
-                <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search title, number, or tag"
-                  aria-label="Search problems"
-                  className="h-8 w-full pl-8 font-mono text-xs"
-                />
-              </div>
-              <ToggleGroup
-                value={[difficulty]}
-                onValueChange={(next) => {
-                  const value = next[0] as DifficultyFilter | undefined;
-                  setDifficulty(value ?? "all");
-                }}
-                size="sm"
-                className="rounded-md border border-border p-0.5"
-              >
-                {DIFFICULTY_ITEMS.map((item) => (
-                  <ToggleGroupItem
-                    key={item.value}
-                    value={item.value}
-                    className="px-2 font-mono text-xs"
-                  >
-                    {item.label}
-                  </ToggleGroupItem>
-                ))}
-              </ToggleGroup>
-              <Select
-                items={tagItems}
-                value={tag}
-                onValueChange={(value) => setTag(value as string)}
-              >
-                <SelectTrigger size="sm" aria-label="Filter by tag">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {tagItems.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>
-                      {item.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+      <CatalogHeader
+        counted={summary.overall}
+        cells={strip}
+        activeDays={strip.filter((cell) => cell.submits > 0).length}
+      >
+        <div className="relative w-64">
+          <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search title, number, or tag"
+            aria-label="Search problems"
+            className="h-8 w-full pl-8 font-mono text-xs"
+          />
         </div>
-      </header>
+        <ToggleGroup
+          value={[difficulty]}
+          onValueChange={(next) => {
+            const value = next[0] as DifficultyFilter | undefined;
+            setDifficulty(value ?? "all");
+          }}
+          size="sm"
+          className="rounded-md border border-border p-0.5"
+        >
+          {DIFFICULTY_ITEMS.map((item) => (
+            <ToggleGroupItem
+              key={item.value}
+              value={item.value}
+              className="px-2 font-mono text-xs"
+            >
+              {item.label}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+        <Button
+          variant={solvedOnly ? "secondary" : "outline"}
+          size="sm"
+          aria-pressed={solvedOnly}
+          onClick={() => setSolvedOnly((previous) => !previous)}
+          className="font-mono text-xs"
+        >
+          <CheckIcon data-icon="inline-start" />
+          Solved
+        </Button>
+        <Select
+          items={tagItems}
+          value={tag}
+          onValueChange={(value) => setTag(value as string)}
+        >
+          <SelectTrigger size="sm" aria-label="Filter by tag">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {tagItems.map((item) => (
+              <SelectItem key={item.value} value={item.value}>
+                {item.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </CatalogHeader>
 
       <div className="min-h-0 flex-1 overflow-auto">
+        <div className="mx-auto flex w-full max-w-[1180px] items-center gap-3 px-6 py-3 font-mono text-[11px] text-muted-foreground">
+          <span>
+            {filtered.length === problems.length
+              ? `${problems.length} problems`
+              : `${filtered.length} of ${problems.length} problems`}
+          </span>
+          <span aria-hidden className="text-muted-foreground/40">
+            ·
+          </span>
+          <span>
+            {totals.submits} verified submits
+            {totals.revisions > 0
+              ? ` · ${totals.revisions} revision${totals.revisions === 1 ? "" : "s"}`
+              : ""}
+          </span>
+          <span className="ml-auto">
+            solved is read from the database, so it survives a restart
+          </span>
+        </div>
+
         {filtered.length === 0 ? (
-          <Empty className="h-full">
+          <Empty className="h-[60%]">
             <EmptyHeader>
               <EmptyTitle>No problems match those filters</EmptyTitle>
               <EmptyDescription>
@@ -195,15 +240,16 @@ export function ProblemTable({ problems }: { problems: ProblemSummary[] }) {
                   <TableHead className="w-28 font-mono text-xs">
                     Difficulty
                   </TableHead>
+                  <TableHead className="w-44 font-mono text-xs">Topic</TableHead>
                   <TableHead className="font-mono text-xs">Tags</TableHead>
-                  <TableHead className="w-20 text-right font-mono text-xs">
+                  <TableHead className="w-28 text-right font-mono text-xs">
                     Status
                   </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.map((problem) => {
-                  const solved = Boolean(progress[problem.slug]);
+                  const solved = isSolved(problem.slug);
                   return (
                     <TableRow key={problem.slug} className="group">
                       <TableCell className="font-mono text-xs text-muted-foreground">
@@ -220,6 +266,9 @@ export function ProblemTable({ problems }: { problems: ProblemSummary[] }) {
                       <TableCell>
                         <DifficultyBadge difficulty={problem.difficulty} />
                       </TableCell>
+                      <TableCell className="font-mono text-[11px] text-muted-foreground">
+                        {problem.topic}
+                      </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
                           {problem.tags.map((problemTag) => (
@@ -233,14 +282,22 @@ export function ProblemTable({ problems }: { problems: ProblemSummary[] }) {
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        {hydrated && solved ? (
-                          <span className="inline-flex items-center gap-1 font-mono text-[11px] text-success">
-                            <CheckIcon className="size-3.5" />
-                            solved
-                          </span>
+                        {solved ? (
+                          <div className="flex items-center justify-end gap-1">
+                            <span className="inline-flex items-center gap-1 font-mono text-[11px] text-success">
+                              <CheckIcon className="size-3.5" />
+                              solved
+                            </span>
+                            <ReviseButton
+                              slug={problem.slug}
+                              title={`Revise ${problem.title}`}
+                            />
+                          </div>
                         ) : (
                           <span className="font-mono text-[11px] text-muted-foreground/60">
-                            —
+                            {statuses?.[problem.slug] === "attempted"
+                              ? "attempted"
+                              : "—"}
                           </span>
                         )}
                       </TableCell>

@@ -48,6 +48,7 @@ export type SolutionNotes = {
  *   unordered_outer  — the outermost array may be in any order; inner order is kept
  *   index_pair       — a two-element array; the values may appear in either order
  *   intervals        — a list of `[start, end]` pairs, in order; endpoints stay ordered
+ *   tolerance        — two JSON numbers, accepted when they differ by at most 1e-5
  *
  * `unordered` is the LeetCode convention for "return the answer in any order",
  * and it is the only reason `group-anagrams` can be judged at all: its expected
@@ -61,6 +62,10 @@ export type SolutionNotes = {
  * Two Sum is `index_pair`, not `unordered`: the unique answer may be reversed,
  * but a longer permutation is not an answer. Merge Intervals is `intervals`,
  * not `unordered`: reversed endpoints and a shuffled interval list both fail.
+ *
+ * `tolerance` is for a `double` return. `2` and `2.0` are the same answer, and
+ * a value within `1e-5` of the expected number is accepted. An off-by-one
+ * median is at least `0.5` away, so the band does not hide a wrong index.
  */
 export const COMPARE_MODES = [
   "exact",
@@ -68,6 +73,7 @@ export const COMPARE_MODES = [
   "unordered_outer",
   "index_pair",
   "intervals",
+  "tolerance",
 ] as const;
 export type CompareMode = (typeof COMPARE_MODES)[number];
 
@@ -103,11 +109,59 @@ export type SignatureParam = {
   kind: ValueKind;
 };
 
+/**
+ * A codec judged by round trip: `decode(encode(args))` must equal the case.
+ *
+ * Each call uses a fresh `Solution`, so the encoded string is the only channel
+ * between the two methods. This is not general multi-method dispatch.
+ */
+export type RoundTrip = {
+  encode: string;
+  decode: string;
+};
+
+/** One method on a class the call script may invoke after construction. */
+export type CallMethod = {
+  params: readonly ValueKind[];
+  returns: ValueKind;
+};
+
+/**
+ * One instance, constructed once, then a script of methods on that same instance.
+ *
+ * A case is `[ops, args]`. The first operation is `className` and its argument
+ * list constructs the object. Later operations are method names. The judged
+ * value is the list of results: `null` for the constructor and for `void`
+ * methods, and the method's return value otherwise.
+ *
+ * This is the shared path for a design problem that fits that shape. A custom
+ * node class, a float return, or an in-place `void` function does not.
+ */
+export type ClassCalls = {
+  className: string;
+  constructorParams: readonly ValueKind[];
+  methods: Readonly<Record<string, CallMethod>>;
+};
+
 export type ProblemSignature = {
-  /** The function the user is expected to implement. */
+  /**
+   * The function the user implements, or the class name when `calls` is set.
+   */
   name: string;
   params: readonly SignatureParam[];
   returns: ValueKind;
+  /**
+   * When set, judging calls `encode` then `decode` on two instances and
+   * compares the decoded value. `name` is the encode method. `returns` is the
+   * decoded value the console shows.
+   */
+  roundTrip?: RoundTrip;
+  /**
+   * When set, judging constructs one instance and runs the operation script.
+   * `name` is the class. The judged value is the script's result list, not
+   * `returns`. An ordinary problem still cannot return `void`.
+   */
+  calls?: ClassCalls;
 };
 
 /**
@@ -119,6 +173,14 @@ export type Problem = {
   number: number;
   title: string;
   difficulty: Difficulty;
+  /**
+   * The roadmap group the problem is filed under ("Stack", "Graphs"), which is
+   * what the dashboard's topic sections group by.
+   *
+   * Empty means "not classified yet" — a row from before the topic backfill.
+   * The dashboard folds those into Uncategorized rather than hiding them.
+   */
+  topic: string;
   tags: string[];
   /** Markdown. */
   statement: string;
@@ -143,7 +205,7 @@ export type Problem = {
 /** The slice of a problem the list page needs — cheap to cross to a client. */
 export type ProblemSummary = Pick<
   Problem,
-  "slug" | "number" | "title" | "difficulty" | "tags"
+  "slug" | "number" | "title" | "difficulty" | "topic" | "tags"
 >;
 
 export const DIFFICULTY_LABEL: Record<Difficulty, string> = {

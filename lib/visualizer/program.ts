@@ -1,5 +1,5 @@
 import { encodeJsonArgs, type ArgValue } from "@/lib/harness/args";
-import { PRELUDE_IMPORTS } from "@/lib/harness/python";
+import { PRELUDE_IMPORTS, solutionCallLines } from "@/lib/harness/python";
 import type { ProblemSignature } from "@/lib/problems";
 
 /**
@@ -22,7 +22,7 @@ import type { ProblemSignature } from "@/lib/problems";
  * OrderedDict) are deliberately absent: shadowing them would break user code.
  *
  * Everything else is exactly what judging runs: the same prelude imports, the
- * same `Solution().<name>(*_args)` call, the same JSON arguments. A trace that
+ * same `solutionCallLines` call, the same JSON arguments. A trace that
  * rejected code the judge accepts would be worse than no trace at all, so
  * `lib/visualizer/program.test.ts` holds the two preludes in sync.
  */
@@ -192,10 +192,7 @@ export function buildTraceProgram(input: TraceProgramInput): TraceProgram {
   // `json.loads` on a JSON *string literal* rather than inlined values: JSON's
   // true/false/null are not Python's, and this keeps one encoder for both paths.
   const argsLine = `_args = json.loads(${JSON.stringify(encodeJsonArgs(args))})`;
-  const callLine =
-    signature.returns === "void"
-      ? `Solution().${signature.name}(*_args)`
-      : `_result = Solution().${signature.name}(*_args)`;
+  const callLines = solutionCallLines(signature);
 
   // The blank line before the call is load-bearing, exactly as it is in the
   // judging harness: a buffer that ends in an indented blank line would
@@ -207,7 +204,7 @@ export function buildTraceProgram(input: TraceProgramInput): TraceProgram {
     "\n" +
     argsLine +
     "\n" +
-    callLine +
+    callLines.join("\n") +
     "\n";
 
   const startLine = textLineCount(TRACE_PRELUDE) + 1;

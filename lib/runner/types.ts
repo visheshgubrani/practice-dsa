@@ -43,6 +43,21 @@ export const runRequestSchema = z.object({
   testcaseIndex: z.number().int().min(0).max(50).optional(),
   /** Idempotency key so a retry cannot insert a second history row. */
   requestId: z.string().uuid().optional(),
+  /**
+   * The viewer's offset from UTC in minutes at the moment of the request, used
+   * to stamp which local day this belongs to for the streak calendar. -840..840
+   * is the real span of civil offsets (UTC-14 to UTC+14).
+   *
+   * Optional: a request without it is stamped with the server's own offset,
+   * never assumed to be UTC.
+   */
+  utcOffsetMinutes: z.number().int().min(-840).max(840).optional(),
+  /**
+   * True when this is a revisit of an already-solved problem. The server, not
+   * the caller, decides what that means: `persistRunResult` records it on the
+   * row, and progress still cannot be written by a Run.
+   */
+  revision: z.boolean().optional(),
 });
 
 export type RunRequest = z.infer<typeof runRequestSchema>;

@@ -1,9 +1,11 @@
 # DSA Software
 
-A personal, AI-native workbench for algorithm practice: a problem list, a
-LeetCode-shaped workspace (statement / solution notes / AI chat on the left,
-Monaco on the right, a minimizeable console below), Run and Submit buttons, and
-a streaming tutor that sees the problem and your current code.
+A personal, AI-native workbench for algorithm practice: a dashboard of progress
+by topic with a practice streak, the problem list, a LeetCode-shaped workspace
+(statement / solution notes / AI chat on the left, Monaco on the right, a
+minimizeable console below), Run and Submit buttons, a revise mode for a second
+pass at a solved problem, and a streaming tutor that sees the problem and your
+current code.
 
 ## Run it
 
@@ -17,8 +19,10 @@ cp .env.example .env.local   # add PISTON_URL to turn real judging on
 pnpm dev
 ```
 
-- `/` — the problem list (search, difficulty and tag filters, solved progress)
+- `/` — the dashboard: solved totals by difficulty, the roadmap topic sections, and the streak calendar
+- `/problems` — the full list (search, difficulty, tag, and solved filters)
 - `/problems/two-sum` — the workspace
+- `/problems/two-sum?revise=1` — the same problem again, starting from your accepted code
 
 `pnpm dev` and `pnpm build` first run `scripts/sync-monaco.mjs`, which copies
 Monaco's AMD build out of `node_modules` into `public/monaco/vs` (~24 MB,
@@ -45,7 +49,16 @@ Migrations are generated from the schema, never hand-written:
 
 ```bash
 pnpm db:generate   # diff lib/db/schema/* against drizzle/ and write SQL
+pnpm db:migrate    # apply what is pending, then run the data backfills
 ```
+
+Data backfills are not migrations and do not live in `drizzle/`: they are
+modules under `lib/db/` (`backfill-arguments.ts`, `backfill-days.ts`) with a
+pure planner that is unit-tested and an executor `lib/db/migrate.ts` runs
+between migrations. Each no-ops once nothing is pending, so `db:migrate` is
+safe to re-run. Two generated migrations carry one hand-written statement each,
+with a comment saying why: a `CHECK` constraint cannot land before the column it
+guards has been filled, and `drizzle-kit` has no way to express that `UPDATE`.
 
 `DATABASE_URL` falls back to `postgresql://postgres:postgres@127.0.0.1:5441/dsa_software`
 (see `lib/db/env.ts`), so the defaults need no `.env.local`. Compose substitutes
@@ -225,25 +238,42 @@ wrong-answer fixture.
 
 ## Current plan
 
-Work is sequenced in [`docs/plan`](docs/plan/README.md). All currently planned
-phases (1–8) are complete. Phase 7 closed with 104 of the 150 NeetCode problems
-ready and seeded; 46 remain deferred with reasons. The catalog has 105 rows in
-total because it also includes the out-of-sheet `search-insert-position`
-problem. See [`docs/catalog/README.md`](docs/catalog/README.md).
+Work is sequenced in [`docs/plan`](docs/plan/README.md). Phases 1–8 are complete
+and Phase 9 (dashboard, topic sections, streaks, and revise mode) is the current
+one. Phase 7 closed with 104 of the 150 NeetCode problems ready and seeded;
+Encode and Decode Strings, Min Stack, Median of Two Sorted Arrays, and Time
+Based Key-Value Store were added afterward, so 108 are ready and seeded and 42
+remain deferred. The catalog has 109 rows in total because it also includes the
+out-of-sheet `search-insert-position` problem. See
+[`docs/catalog/README.md`](docs/catalog/README.md).
 
 ## What is real and what is not
 
-The notes below are the state after Phase 5 (persisted chats and contextual tutoring).
+The notes below are the state after Phase 9 (the dashboard, streaks, and revise mode).
 
-- **Durable (Postgres)**: the catalog, drafts, notes, preferred language,
-  verified solved status, imported legacy snapshots, every Run/Submit plus
-  its cases, and tutor conversations. Restarting the app or Postgres keeps that
+- **Durable (Postgres)**: the catalog (including each problem's roadmap topic),
+  drafts, notes, preferred language, verified solved status, imported legacy
+  snapshots, every Run/Submit plus its cases, the local day each submission
+  belongs to, and tutor conversations. Restarting the app or Postgres keeps that
   data. Only a successful **Piston Submit** marks a problem solved; a later
   failing Submit keeps the original `solvedAt`. Historical rows keep a catalog
   revision and are not rewritten on reseed. The first failing hidden case is
   revealed; hidden successes stay status-and-metrics. The tutor sees that same
   disclosed attempt, not the unrevealed hidden suite or the reference-solution
   source.
+- **The dashboard reads the database.** Solved counts, the topic sections, the
+  streak, and the calendar all come from `problem_progress` and `submissions`, so
+  they are the same after a restart and in another browser. A **practice day is a
+  verified Piston Submit** — any verdict — which is the same predicate that
+  decides solved: a Run, a mock verdict, or a visualize trace never extends a
+  streak. A day with no practice renders as an empty square, and the darkest
+  square means a busy day that also accepted something.
+- **Revise never unsolves anything.** `/problems/<slug>?revise=1` opens the
+  workspace on a copy of your accepted code. A Submit there is stored as a
+  revision (history keeps it, and the panel badges it `revise`), `status` and the
+  original `solvedAt` do not move, and the draft from your first attempt is not
+  touched. The revise buffer itself lives only for the visit: a refresh starts
+  the pass over from the accepted code again.
 - **Browser recovery only**: `dsa.*` keys are a local copy of unsaved edits and
   the source for a one-time import. Import never overwrites Postgres and never
   turns a legacy accept into verified solved. If a save fails, the console
@@ -262,21 +292,23 @@ The notes below are the state after Phase 5 (persisted chats and contextual tuto
 ## Layout of the code
 
 ```
-app/                 routes: list page, workspace page, /api/chat, /api/run, /api/practice, /api/submissions
+app/                 routes: dashboard, problem list, workspace page, /api/chat, /api/run, /api/practice, /api/submissions
 components/ui/       shadcn components (base-nova preset, Base UI primitives)
-components/problems/ problem list + difficulty badge
+components/dashboard/ streak calendar, streak card, stat cards, topic sections
+components/problems/ problem list, catalog header, revise button, difficulty badge
 components/workspace/ header, problem panel, editor, console, history, chat
 lib/                 problem types + seed data, languages, runner types, AI prompts, hooks
 lib/ai/              tutor prompts and disclosed workspace context
 lib/chat/            client-safe chat types and the server turn handler
-lib/practice/        load/save recovery, import scan, serial write queues
+lib/practice/        load/save recovery, import scan, serial write queues, local day keys
+lib/progress/        streak rules, heatmap grid, solved rollups (pure, no database)
 lib/submissions/     client-safe history types and fetch helpers
 lib/visualizer/      the dry run: trace program, driver, engine call, panel client
 vendor/python-tutor/ the vendored Python Tutor tracer + visualizer (MIT), with its provenance
 lib/harness/         the generated Python program: argument parsing, comparison, wrapping
 lib/piston/          the engine client: runtimes, execute, caching, verdict mapping
 lib/runner/          the seam: Piston runner, the deterministic mock, shared result types
-lib/db/              drizzle schema, relations, client, queries, migrate + seed scripts
+lib/db/              drizzle schema, relations, client, queries, backfills, migrate + seed scripts
 drizzle/             generated migrations (one folder each, with its snapshot)
 scripts/sync-monaco.mjs    Monaco's AMD build into public/monaco/vs
 scripts/sync-visualizer.mjs  the vendored visualizer's browser assets into public/vendor

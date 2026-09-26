@@ -2,6 +2,7 @@ import { count, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import type { StoredLanguageId } from "@/lib/languages";
+import { dayKey, utcOffsetMinutesFor } from "@/lib/practice/days";
 import type { PracticeProgress } from "@/lib/practice/types";
 import { discloseCaseResult } from "@/lib/runner/suite";
 import {
@@ -71,6 +72,8 @@ type StoredSubmission = {
   pistonVersion: string | null;
   catalogRevision: string;
   requestId: string | null;
+  isRevision: boolean;
+  day: string | null;
   createdAt: Date;
 };
 
@@ -118,6 +121,8 @@ export function toSubmissionSummary(
     memoryKb: row.memoryKb,
     catalogRevision: row.catalogRevision,
     requestId: row.requestId,
+    isRevision: row.isRevision,
+    day: row.day,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -278,6 +283,10 @@ export type PersistRunInput = {
   source: string;
   testcaseIndex?: number;
   requestId?: string;
+  /** The viewer's UTC offset when this ran; see `utcOffsetMinutesFor`. */
+  utcOffsetMinutes?: number;
+  /** A revisit of an already-solved problem. */
+  revision?: boolean;
   result: RunResult;
 };
 
@@ -299,6 +308,10 @@ export async function persistRunResult(
   const catalogRevision = problem.updatedAt.toISOString();
   const now = new Date();
   const result = input.result;
+  // The day is computed here, once, and stored: the streak then reads a plain
+  // `group by` and never has to re-derive a timezone at query time.
+  const offsetMinutes = input.utcOffsetMinutes ?? utcOffsetMinutesFor(now);
+  const day = dayKey(now, offsetMinutes);
 
   return db.transaction(async (tx) => {
     if (input.requestId) {
@@ -325,6 +338,9 @@ export async function persistRunResult(
       pistonVersion: result.pistonVersion ?? null,
       catalogRevision,
       requestId: input.requestId ?? null,
+      utcOffsetMinutes: offsetMinutes,
+      day,
+      isRevision: input.revision ?? false,
     };
 
     const insert = tx.insert(submissions).values(values);

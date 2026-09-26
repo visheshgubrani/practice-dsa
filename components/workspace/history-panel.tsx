@@ -86,6 +86,14 @@ function HistoryRow({
               simulated
             </Badge>
           ) : null}
+          {item.isRevision ? (
+            <Badge
+              variant="outline"
+              className="border-primary/40 bg-primary/10 font-mono text-[10px] text-primary"
+            >
+              revise
+            </Badge>
+          ) : null}
           <span className="ml-auto text-muted-foreground">
             {new Date(item.createdAt).toLocaleString()}
           </span>

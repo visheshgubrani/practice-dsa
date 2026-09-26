@@ -48,6 +48,8 @@ async function insertFixture(): Promise<string> {
         position: 9_100_000,
         title: "Phase 5 chat fixture",
         difficulty: "easy",
+        // A real topic: the check constraint refuses a blank one.
+        topic: "Arrays & Hashing",
         statement: "fixture — not a catalog problem",
         signature: SIGNATURE,
       });

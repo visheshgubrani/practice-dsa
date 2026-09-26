@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test lib/harness/*.test.ts lib/piston/*.test.ts lib/runner/*.test.ts lib/problems/*.test.ts lib/practice/*.test.ts lib/ai/*.test.ts lib/chat/**/*.test.ts lib/db/**/*.test.ts lib/visualizer/*.test.ts",
+    "test": "tsx --test lib/harness/*.test.ts lib/piston/*.test.ts lib/runner/*.test.ts lib/problems/*.test.ts lib/practice/*.test.ts lib/progress/*.test.ts lib/ai/*.test.ts lib/chat/**/*.test.ts lib/db/**/*.test.ts lib/visualizer/*.test.ts",
     "problems:check": "tsx scripts/problems-check.mts",
     "catalog:fetch": "tsx scripts/catalog-fetch.mts",
     "catalog:scaffold": "tsx scripts/catalog-scaffold.mts",

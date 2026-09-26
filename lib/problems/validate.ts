@@ -12,10 +12,12 @@
  */
 
 import {
+  describeKindMismatch,
   describeKindMismatches,
   matchesKind,
   type ArgValue,
 } from "@/lib/harness/args";
+import type { ClassCalls } from "@/lib/problems";
 import type { AuthoredProblem } from "@/lib/problems/authoring";
 
 export type ValidateOptions = {
@@ -48,11 +50,107 @@ function hasPythonDef(source: string, name: string): boolean {
   return new RegExp(`\\bdef\\s+${name}\\s*\\(`).test(source);
 }
 
+function hasPythonClass(source: string, name: string): boolean {
+  return new RegExp(`\\bclass\\s+${name}\\b`).test(source);
+}
+
+function checkCallScript(
+  args: readonly ArgValue[],
+  calls: ClassCalls,
+  slug: string,
+  label: string,
+): string[] {
+  if (args.length !== 2) {
+    return [at(slug, `${label} call script must be [ops, args]`)];
+  }
+
+  const [ops, argv] = args;
+  if (!Array.isArray(ops) || ops.some((op) => typeof op !== "string")) {
+    return [at(slug, `${label} ops must be a list of method names`)];
+  }
+  if (!Array.isArray(argv) || argv.some((call) => !Array.isArray(call))) {
+    return [at(slug, `${label} args must be a list of argument lists`)];
+  }
+  if (ops.length === 0 || ops.length !== argv.length) {
+    return [
+      at(slug, `${label} ops and args must be equal-length and non-empty`),
+    ];
+  }
+
+  const issues: string[] = [];
+  if (ops[0] !== calls.className) {
+    issues.push(at(slug, `${label} must start with ${calls.className}`));
+  }
+
+  const constructorArgs = argv[0] as ArgValue[];
+  if (constructorArgs.length !== calls.constructorParams.length) {
+    issues.push(
+      at(
+        slug,
+        `${label} constructor has ${constructorArgs.length} argument${constructorArgs.length === 1 ? "" : "s"}, ` +
+          `signature expects ${calls.constructorParams.length}`,
+      ),
+    );
+  } else {
+    for (const [index, kind] of calls.constructorParams.entries()) {
+      issues.push(
+        ...describeKindMismatch(
+          constructorArgs[index],
+          kind,
+          `${label} constructor argument ${index + 1}`,
+        ).map((mismatch) => at(slug, mismatch)),
+      );
+    }
+  }
+
+  for (let index = 1; index < ops.length; index += 1) {
+    const name = ops[index] as string;
+    const method = calls.methods[name];
+    const call = argv[index] as ArgValue[];
+    if (!method) {
+      issues.push(
+        at(slug, `${label} calls ${name}, which the signature does not allow`),
+      );
+      continue;
+    }
+    if (call.length !== method.params.length) {
+      issues.push(
+        at(
+          slug,
+          `${label} ${name} has ${call.length} argument${call.length === 1 ? "" : "s"}, ` +
+            `signature expects ${method.params.length}`,
+        ),
+      );
+      continue;
+    }
+    for (const [argIndex, kind] of method.params.entries()) {
+      issues.push(
+        ...describeKindMismatch(
+          call[argIndex],
+          kind,
+          `${label} ${name} argument ${argIndex + 1}`,
+        ).map((mismatch) => at(slug, mismatch)),
+      );
+    }
+  }
+
+  return issues;
+}
+
 function checkArgs(
   args: readonly ArgValue[],
   problem: AuthoredProblem,
   label: string,
 ): string[] {
+  if (problem.signature.calls) {
+    return checkCallScript(
+      args,
+      problem.signature.calls,
+      problem.slug,
+      label,
+    );
+  }
+
   const expected = problem.signature.params.length;
   if (args.length !== expected) {
     return [
@@ -103,6 +201,73 @@ function checkExpected(
   }
 
   return [];
+}
+
+function checkCallExpected(
+  raw: string | undefined,
+  args: readonly ArgValue[],
+  problem: AuthoredProblem,
+  label: string,
+  requireExpected: boolean,
+): string[] {
+  const calls = problem.signature.calls;
+  if (!calls) return [];
+
+  const trimmed = raw?.trim() ?? "";
+  if (trimmed.length === 0) {
+    return requireExpected
+      ? [at(problem.slug, `${label} has no expected value`)]
+      : [];
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    return [
+      at(
+        problem.slug,
+        `${label} expects ${JSON.stringify(raw)}, which is not JSON`,
+      ),
+    ];
+  }
+
+  const ops = args[0];
+  if (!Array.isArray(parsed) || !Array.isArray(ops) || parsed.length !== ops.length) {
+    return [
+      at(
+        problem.slug,
+        `${label} expects ${preview(parsed)}, which is not a call-result list matching the script`,
+      ),
+    ];
+  }
+
+  const issues: string[] = [];
+  if (parsed[0] !== null) {
+    issues.push(at(problem.slug, `${label} constructor result must be null`));
+  }
+
+  for (let index = 1; index < ops.length; index += 1) {
+    const name = ops[index];
+    if (typeof name !== "string") continue;
+    const method = calls.methods[name];
+    if (!method) continue;
+    const value = parsed[index];
+    if (method.returns === "void") {
+      if (value !== null) {
+        issues.push(at(problem.slug, `${label} ${name} result must be null`));
+      }
+    } else if (!matchesKind(value, method.returns)) {
+      issues.push(
+        at(
+          problem.slug,
+          `${label} ${name} result ${preview(value)} is not ${method.returns}`,
+        ),
+      );
+    }
+  }
+
+  return issues;
 }
 
 /**
@@ -184,34 +349,116 @@ export function validateProblem(
   if (!isIdentifier(method)) {
     issues.push(at(problem.slug, "signature name is not a Python identifier"));
   }
-  if (problem.signature.params.length === 0) {
-    issues.push(at(problem.slug, "signature has no parameters"));
-  }
-  if (problem.signature.returns === "void") {
+
+  const calls = problem.signature.calls;
+  const trip = problem.signature.roundTrip;
+  const methods: string[] = [];
+
+  if (calls && trip) {
     issues.push(
-      at(
-        problem.slug,
-        "returns void; in-place output contracts are deferred — use a return-value signature",
-      ),
+      at(problem.slug, "a signature cannot be both a call script and a round trip"),
     );
   }
 
+  if (calls) {
+    if (calls.className !== method) {
+      issues.push(
+        at(problem.slug, "call class name must match the signature name"),
+      );
+    }
+    if (!isIdentifier(calls.className)) {
+      issues.push(
+        at(problem.slug, "call class name is not a Python identifier"),
+      );
+    }
+    const methodNames = Object.keys(calls.methods);
+    if (methodNames.length === 0) {
+      issues.push(at(problem.slug, "call script has no methods"));
+    }
+    for (const name of methodNames) {
+      if (!isIdentifier(name)) {
+        issues.push(
+          at(problem.slug, `call method ${name} is not a Python identifier`),
+        );
+      }
+    }
+    methods.push("__init__", ...methodNames);
+  } else {
+    if (problem.signature.params.length === 0) {
+      issues.push(at(problem.slug, "signature has no parameters"));
+    }
+    if (problem.signature.returns === "void") {
+      issues.push(
+        at(
+          problem.slug,
+          "returns void; in-place output contracts are deferred — use a return-value signature",
+        ),
+      );
+    }
+    methods.push(method);
+  }
+
+  if (trip && !calls) {
+    if (problem.signature.returns === "void") {
+      issues.push(
+        at(problem.slug, "a round trip must return the decoded value"),
+      );
+    }
+    for (const [role, name] of [
+      ["encode", trip.encode],
+      ["decode", trip.decode],
+    ] as const) {
+      if (!isIdentifier(name)) {
+        issues.push(
+          at(problem.slug, `round-trip ${role} name is not a Python identifier`),
+        );
+      }
+    }
+    if (isIdentifier(trip.encode) && trip.encode !== method) {
+      issues.push(
+        at(problem.slug, "round-trip encode name must match the signature name"),
+      );
+    }
+    if (isIdentifier(trip.decode) && trip.decode !== method) {
+      methods.push(trip.decode);
+    }
+  }
+
+  const className = calls?.className ?? "";
   const starter = problem.starterCode.python ?? "";
   if (starter.trim().length === 0) {
     issues.push(at(problem.slug, "no starter code for python"));
-  } else if (isIdentifier(method) && !hasPythonDef(starter, method)) {
-    issues.push(
-      at(problem.slug, `python starter does not define ${method}`),
-    );
+  } else {
+    if (calls && isIdentifier(className) && !hasPythonClass(starter, className)) {
+      issues.push(
+        at(problem.slug, `python starter does not define class ${className}`),
+      );
+    }
+    for (const name of methods) {
+      if (isIdentifier(name) && !hasPythonDef(starter, name)) {
+        issues.push(
+          at(problem.slug, `python starter does not define ${name}`),
+        );
+      }
+    }
   }
 
   const reference = problem.reference ?? "";
   if (reference.trim().length === 0) {
     issues.push(at(problem.slug, "no python reference solution"));
-  } else if (isIdentifier(method) && !hasPythonDef(reference, method)) {
-    issues.push(
-      at(problem.slug, `python reference does not define ${method}`),
-    );
+  } else {
+    if (calls && isIdentifier(className) && !hasPythonClass(reference, className)) {
+      issues.push(
+        at(problem.slug, `python reference does not define class ${className}`),
+      );
+    }
+    for (const name of methods) {
+      if (isIdentifier(name) && !hasPythonDef(reference, name)) {
+        issues.push(
+          at(problem.slug, `python reference does not define ${name}`),
+        );
+      }
+    }
   }
 
   if (problem.testcases.length === 0) {
@@ -228,12 +475,20 @@ export function validateProblem(
     const label = `testcase ${index + 1}`;
     issues.push(...checkArgs(testcase.args, problem, label));
     issues.push(
-      ...checkExpected(
-        testcase.expected,
-        problem,
-        label,
-        requireExpected,
-      ),
+      ...(problem.signature.calls
+        ? checkCallExpected(
+            testcase.expected,
+            testcase.args,
+            problem,
+            label,
+            requireExpected,
+          )
+        : checkExpected(
+            testcase.expected,
+            problem,
+            label,
+            requireExpected,
+          )),
     );
   }
 

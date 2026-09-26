@@ -81,12 +81,78 @@ const HARNESS_HEADER = [
   "",
 ].join("\n");
 
+/**
+ * The call the judge and the visualizer both emit, unindented.
+ *
+ * A round trip uses two fresh instances. Sharing one instance would let
+ * `decode` ignore the string and return a list stashed on `self`.
+ */
+const PYTHON_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+/**
+ * One instance and a script of method calls, generated from `signature.calls`.
+ *
+ * The class and method names come from the signature. A later design problem
+ * that fits this shape adds a signature, not another copy of this loop.
+ */
+function classCallLines(signature: ProblemSignature): string[] {
+  const calls = signature.calls;
+  if (!calls) return [];
+
+  const names = [calls.className, ...Object.keys(calls.methods)];
+  if (names.some((name) => !PYTHON_IDENTIFIER.test(name))) {
+    return ['_runner_fail("call signature is not a Python identifier")'];
+  }
+
+  const spec = Object.entries(calls.methods)
+    .map(
+      ([name, method]) =>
+        `${JSON.stringify(name)}: (${method.params.length}, ${method.returns === "void" ? "False" : "True"})`,
+    )
+    .join(", ");
+
+  return [
+    "_ops, _argv = _args",
+    "if not isinstance(_ops, list) or not isinstance(_argv, list) or len(_ops) != len(_argv) or not _ops:",
+    '    _runner_fail("call script must be two equal-length non-empty arrays")',
+    `if _ops[0] != ${JSON.stringify(calls.className)}:`,
+    `    _runner_fail("call script must start with the class name")`,
+    `if not isinstance(_argv[0], list) or len(_argv[0]) != ${calls.constructorParams.length}:`,
+    '    _runner_fail("constructor argument count does not match the signature")',
+    `_obj = ${calls.className}(*_argv[0])`,
+    "_result = [None]",
+    `_spec = {${spec}}`,
+    "for _name, _call in zip(_ops[1:], _argv[1:]):",
+    "    if _name not in _spec:",
+    '        _runner_fail(f"unknown method {_name}")',
+    "    _arity, _returns = _spec[_name]",
+    "    if not isinstance(_call, list) or len(_call) != _arity:",
+    '        _runner_fail(f"{_name} expected {_arity} arguments")',
+    "    _value = getattr(_obj, _name)(*_call)",
+    "    _result.append(_value if _returns else None)",
+  ];
+}
+
+export function solutionCallLines(signature: ProblemSignature): string[] {
+  if (signature.calls) return classCallLines(signature);
+  const trip = signature.roundTrip;
+  if (!trip) {
+    const call = `Solution().${signature.name}(*_args)`;
+    return signature.returns === "void" ? [call] : [`_result = ${call}`];
+  }
+  return [
+    `_wire = Solution().${trip.encode}(*_args)`,
+    "if not isinstance(_wire, str):",
+    `    raise TypeError(f"${trip.encode} must return a str, got {type(_wire).__name__}")`,
+    `_result = Solution().${trip.decode}(_wire)`,
+  ];
+}
+
 export function buildPythonProgram(
   source: string,
   signature: ProblemSignature,
 ): Program {
-  const arity = signature.params.length;
-  const call = `Solution().${signature.name}(*_args)`;
+  const arity = signature.calls ? 2 : signature.params.length;
 
   const lines: string[] = [];
 
@@ -109,11 +175,12 @@ export function buildPythonProgram(
   lines.push("    sys.stdout = _debug_buf");
   lines.push("    try:");
   lines.push("        try:");
-  if (signature.returns === "void") {
-    lines.push(`            ${call}`);
+  for (const line of solutionCallLines(signature)) {
+    lines.push(`            ${line}`);
+  }
+  if (signature.returns === "void" && !signature.roundTrip && !signature.calls) {
     lines.push("            _encoded = 'null\\n'");
   } else {
-    lines.push(`            _result = ${call}`);
     lines.push(
       '            _encoded = json.dumps(_result, separators=(",", ":")) + "\\n"',
     );

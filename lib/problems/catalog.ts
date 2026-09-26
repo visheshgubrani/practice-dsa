@@ -7,8 +7,10 @@
  * A new problem is a module here, then an entry in `PROBLEMS`. Follow the
  * Phase 4 authoring order in `docs/plan/04-catalog.md` (statement → cases →
  * reference → `pnpm problems:check` → a plausible wrong-answer fixture →
- * seed / `pnpm piston:check`). Stay on the return-value harness; do not add
- * linked lists, trees, custom classes, or in-place (`void`) contracts.
+ * seed / `pnpm piston:check`). A design problem that is one class plus a
+ * method script uses `signature.calls` and does not grow a second harness.
+ * Do not add linked lists, trees, custom node classes, or in-place (`void`)
+ * contracts.
  *
  * The order is the NeetCode 150 roadmap order (`docs/catalog/neetcode-150.json`),
  * group by group, because `PROBLEMS` order is the `position` the list page and
@@ -28,6 +30,7 @@ import { containsDuplicate } from "./contains-duplicate";
 import { containerWithMostWater } from "./container-with-most-water";
 import { countingBits } from "./counting-bits";
 import { dailyTemperatures } from "./daily-temperatures";
+import { encodeAndDecodeStrings } from "./encode-and-decode-strings";
 import { evaluateReversePolishNotation } from "./evaluate-reverse-polish-notation";
 import { findMinimumInRotatedSortedArray } from "./find-minimum-in-rotated-sorted-array";
 import { findTheDuplicateNumber } from "./find-the-duplicate-number";
@@ -48,8 +51,10 @@ import { longestConsecutiveSequence } from "./longest-consecutive-sequence";
 import { longestRepeatingCharacterReplacement } from "./longest-repeating-character-replacement";
 import { longestSubstringWithoutRepeatingCharacters } from "./longest-substring-without-repeating-characters";
 import { maximumSubarray } from "./maximum-subarray";
+import { medianOfTwoSortedArrays } from "./median-of-two-sorted-arrays";
 import { mergeIntervals } from "./merge-intervals";
 import { mergeTripletsToFormTargetTriplet } from "./merge-triplets-to-form-target-triplet";
+import { minStack } from "./min-stack";
 import { minimumIntervalToIncludeEachQuery } from "./minimum-interval-to-include-each-query";
 import { minimumWindowSubstring } from "./minimum-window-substring";
 import { missingNumber } from "./missing-number";
@@ -70,6 +75,7 @@ import { slidingWindowMaximum } from "./sliding-window-maximum";
 import { spiralMatrix } from "./spiral-matrix";
 import { sumOfTwoIntegers } from "./sum-of-two-integers";
 import { taskScheduler } from "./task-scheduler";
+import { timeBasedKeyValueStore } from "./time-based-key-value-store";
 import { topKFrequentElements } from "./top-k-frequent-elements";
 import { trappingRainWater } from "./trapping-rain-water";
 import { twoSum } from "./two-sum";
@@ -131,6 +137,7 @@ export const PROBLEMS: readonly AuthoredProblem[] = [
   // Arrays & Hashing
   containsDuplicate,
   validAnagram,
+  encodeAndDecodeStrings,
   twoSum,
   groupAnagrams,
   topKFrequentElements,
@@ -155,14 +162,17 @@ export const PROBLEMS: readonly AuthoredProblem[] = [
   generateParentheses,
   largestRectangleInHistogram,
   evaluateReversePolishNotation,
+  minStack,
   dailyTemperatures,
   carFleet,
   // Binary Search
+  medianOfTwoSortedArrays,
   searchInRotatedSortedArray,
   searchA2dMatrix,
   findMinimumInRotatedSortedArray,
   binarySearch,
   kokoEatingBananas,
+  timeBasedKeyValueStore,
   searchInsertPosition,
   // Linked List
   findTheDuplicateNumber,

@@ -2,8 +2,8 @@
 
 `neetcode-150.json` is the sheet: 150 entries in NeetCode roadmap order, each with its group, LeetCode number and slug, difficulty, and a verdict from `scripts/catalog-sheet.ts` about whether **this** harness can judge it.
 
-The manifest has 104 ready problems and 46 deferred problems. All 104 ready
-sheet problems are seeded. The catalog has 105 rows total because it also
+The manifest has 108 ready problems and 42 deferred problems. All 108 ready
+sheet problems are seeded. The catalog has 109 rows total because it also
 contains the out-of-sheet `search-insert-position` problem.
 
 ```bash
@@ -74,13 +74,20 @@ The references are copied verbatim, with no Python adaptations. Unique Paths and
 
 | Mode | Use it when | NeetCode 150 problems using this mode |
 | --- | --- | --- |
-| `exact` | the answer is a value, or LeetCode's own order is the required order | The remaining 86 ready sheet problems use exact comparison, explicitly or by default. |
+| `exact` | the answer is a value, or LeetCode's own order is the required order | The remaining 89 ready sheet problems use exact comparison, explicitly or by default. |
 | `unordered` | the answer is a bag of things and their order carries no meaning | `combination-sum`, `combination-sum-ii`, `generate-parentheses`, `group-anagrams`, `letter-combinations-of-a-phone-number`, `subsets`, `subsets-ii`, `top-k-frequent-elements`, `word-search-ii` (9) |
 | `unordered_outer` | the answer is a **set of ordered sequences**: the pieces may be listed in any order, but the order inside a piece is the answer | `3sum`, `k-closest-points-to-origin`, `n-queens`, `pacific-atlantic-water-flow`, `palindrome-partitioning`, `permutations` (6) |
 | `index_pair` | exactly two indices, either order | `two-sum` (1) |
 | `intervals` | `[start, end]` pairs, ascending, endpoints in order | `insert-interval`, `merge-intervals` (2) |
+| `tolerance` | a `double` within `1e-5` of the expected number | `median-of-two-sorted-arrays` (1) |
 
-This table accounts for all 104 ready sheet problems: 86 use `exact`, and the other 18 use one of the listed modes. The separate out-of-sheet `search-insert-position` row also uses `exact`.
+This table accounts for all 108 ready sheet problems: 89 use `exact`, and the other 19 use one of the listed modes. The separate out-of-sheet `search-insert-position` row also uses `exact`.
+
+`encode-and-decode-strings` is one of the exact problems, and it is not a single method call. Its signature sets `roundTrip`. Judging and the visualizer call `Solution().encode` and then `Solution().decode` on two fresh instances, and compare the decoded list to the input. Any encoding is accepted when that round trip holds. A solution that stashes the list on `self` fails, because `decode` never sees the instance that encoded.
+
+`min-stack` and `time-based-key-value-store` are also exact, and they are call scripts. Each signature sets `calls`. Judging and the visualizer construct one instance and run the operation list on that instance. A later design problem that is one class plus a script of methods with existing value kinds reuses `calls`; it does not grow a second harness. Median Finder (float return), Clone Graph (custom `Node`), and the other design problems that do not fit that shape stay deferred.
+
+`median-of-two-sorted-arrays` uses `tolerance`: `2` and `2.0` are the same answer, and a value within `1e-5` is accepted.
 
 `unordered` canonicalises recursively, so it sorts inner arrays too: it accepts `[[1,2,3],[1,2,3],…]` as a set of permutations and `[[2,1]]` as `[[1,2]]`. That is why `unordered_outer` exists, and why the six problems above are listed explicitly.
 
@@ -102,16 +109,16 @@ unique-paths is limited to a 17 × 17 grid: 18 × 18 has 2,333,606,220 paths, ab
 
 ## Deferred problems
 
-46 of the 150. They are listed in the manifest with a reason and never scaffolded; each reason is a real gap, not a preference.
+42 of the 150. They are listed in the manifest with a reason and never scaffolded; each reason is a real gap, not a preference. Min Stack and Time Based Key-Value Store are no longer in this table: they use the shared call script. Median of Two Sorted Arrays is no longer in this table: it uses `tolerance`.
 
 | Reason | Count | What opening it needs |
 | --- | --- | --- |
 | `tree` | 15 | level-order array parsing into `TreeNode` and back |
-| `design` | 10 | multi-method dispatch (`MinStack`, `LRUCache`, `Trie`, `MedianFinder`, `Twitter`) and custom node classes (`Clone Graph`) |
+| `design` | 8 | a shape the call script does not cover: float returns (`MedianFinder`), custom node classes (`Clone Graph`), or argument kinds still to check (`Detect Squares`, `Twitter`). `LRUCache`, `Trie`, and `KthLargest` fit `calls` and are data when they are added |
 | `linked_list` | 9 | `ListNode` serialising in the harness |
-| `premium` | 7 | a LeetCode subscription: `isPaidOnly` problems have no public statement, starter, or examples |
+| `premium` | 6 | a LeetCode subscription: `isPaidOnly` problems have no public statement, starter, or examples |
 | `in_place_void` | 3 | a `void` return contract (`rotate-image`, `set-matrix-zeroes`, `surrounded-regions`) |
-| `float_return` | 2 | a tolerance comparator (`median-of-two-sorted-arrays`, `powx-n`) |
+| `float_return` | 1 | `powx-n` is not authored yet. The absolute `1e-5` tolerance mode already exists |
 
 All of it is out of scope for Phase 7 and belongs to a later phase that says so explicitly.
 

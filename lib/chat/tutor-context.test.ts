@@ -88,6 +88,8 @@ async function insertFixture(): Promise<string> {
           position: 9_200_000,
           title: "Phase 5.3 tutor fixture",
           difficulty: "easy",
+          // A real topic: the check constraint refuses a blank one.
+          topic: "Arrays & Hashing",
           statement: "Return two indices that add to target.",
           constraints: ["2 <= nums.length <= 10^4"],
           tags: ["array"],

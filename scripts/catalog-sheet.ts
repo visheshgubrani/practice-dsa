@@ -202,10 +202,23 @@ export function starterNodeShape(
   return null;
 }
 
+/**
+ * Design problems the shared call script already judges. A later manifest
+ * rebuild must not put them back on the deferred list.
+ */
+const CALL_SCRIPT_READY = new Set(["min-stack", "time-based-key-value-store"]);
+
+/**
+ * Ordinary `double` returns judged with the absolute `1e-5` tolerance mode.
+ * `powx-n` stays deferred until it is authored.
+ */
+const TOLERANCE_READY = new Set(["median-of-two-sorted-arrays"]);
+
 /** Whether this harness can judge the problem, and why not when it cannot. */
 export function classify(
   question: QuestionShape,
   meta: MetaData,
+  slug?: string,
 ): { status: "ready" | "deferred"; reason?: DeferReason } {
   if (question.isPaidOnly) return { status: "deferred", reason: "premium" };
 
@@ -225,9 +238,12 @@ export function classify(
   if (mentionsType(pythonStarter, meta, "ListNode")) {
     return { status: "deferred", reason: "linked_list" };
   }
-  // Multi-method classes are design problems: they need dispatch the harness
-  // does not have.
+  // Multi-method classes are design problems unless the call script already
+  // covers this slug.
   if (hasNodeShape(meta) || solutionMethods(pythonStarter) > 1) {
+    if (slug !== undefined && CALL_SCRIPT_READY.has(slug)) {
+      return { status: "ready" };
+    }
     return { status: "deferred", reason: "design" };
   }
 
@@ -244,6 +260,9 @@ export function classify(
     return { status: "deferred", reason: "unsupported_kind" };
   }
   if (kindFor(returnType) === "double") {
+    if (slug !== undefined && TOLERANCE_READY.has(slug)) {
+      return { status: "ready" };
+    }
     return { status: "deferred", reason: "float_return" };
   }
   return { status: "ready" };
@@ -255,6 +274,6 @@ export const DEFER_REASON_LABEL: Record<DeferReason, string> = {
   linked_list: "linked lists: needs serialising the harness does not have",
   tree: "trees: needs level-order parsing the harness does not have",
   in_place_void: "in-place `void` contracts are deferred",
-  float_return: "float returns: no tolerance comparator",
+  float_return: "float return not yet authored (powx-n); absolute 1e-5 tolerance exists",
   unsupported_kind: "argument or return kind outside VALUE_KINDS",
 };

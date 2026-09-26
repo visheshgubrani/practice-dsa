@@ -10,7 +10,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # DSA Software
 
-A personal LeetCode-shaped DSA workbench: problem list, statement / notes / AI chat, Monaco, Run / Submit, and a minimizeable console. The tutor gives hints and debug help when you get stuck.
+A personal LeetCode-shaped DSA workbench: a dashboard, the problem list, statement / notes / AI chat, Monaco, Run / Submit, and a minimizeable console. The tutor gives hints and debug help when you get stuck.
 
 One user. No auth, no accounts. Progress is for this local install. Package manager: **pnpm**. Stack: Next 16 + React 19, Drizzle + local Postgres, Piston for judging, AI SDK + DeepSeek for the tutor (scripted demo stream if `DEEPSEEK_API_KEY` is unset). UI: shadcn **base-nova** (Base UI) in `components/ui`.
 
@@ -18,9 +18,9 @@ Python is the only executable language today. More languages later means a harne
 
 ## Scope
 
-Do: trustworthy judging, durable local practice, catalog growth, a hint-first tutor.
+Do: trustworthy judging, durable local practice, catalog growth, a hint-first tutor, and the dashboard that shows the practice.
 
-Do not, unless the current phase file explicitly opens it: hosting, auth, Judge0, other-language harnesses, study-coach features, linked lists / trees / custom classes / in-place output contracts, AI SDK migration, or Submit batching (only if Phase 4's latency checkpoint makes it a **separate** milestone).
+Do not, unless the current phase file explicitly opens it: hosting, auth, Judge0, other-language harnesses, linked lists / trees / custom classes / in-place output contracts, AI SDK migration, or Submit batching (only if Phase 4's latency checkpoint makes it a **separate** milestone).
 
 ## How to work
 
@@ -37,20 +37,27 @@ After a unit lands, tick its boxes in the phase file. After the phase gate, tick
 - Historical submission rows are snapshots. Do not rewrite them when the catalog changes.
 - Reveal the first failing hidden case (input, expected, output, diagnostics). Successful hidden cases are status-and-metrics only. Apply the same disclosure to the console, history, and AI context.
 - Do not send the unrevealed hidden suite or reference-solution **source** to the tutor. Approach notes are fine.
-- User source is wrapped, never rewritten (`lib/harness/python.ts`). A new problem is a data/signature change, not new plumbing.
+- User source is wrapped, never rewritten (`lib/harness/python.ts`). A new problem is a data/signature change, not new plumbing. A design problem that is one class plus a script of methods is a `signature.calls` entry on that same path. Do not grow a second harness for a problem that fits it. A custom node class, a design problem whose methods return floats, or an in-place `void` function still needs its own phase. An ordinary `double` return uses the `tolerance` compare mode.
 - Catalog edits in `lib/problems*` take effect only after `pnpm db:seed`. The app reads Postgres on every page load.
 
 ## Architecture
 
 ```
-app/page.tsx                 problem list
-app/problems/[slug]          workspace
+app/page.tsx                 dashboard: stats, streak calendar, topics
+app/problems/page.tsx        problem list (table, filters)
+app/problems/[slug]          workspace; ?revise=1 is a revise session
 app/api/run                  Run / Submit
 app/api/chat                 tutor
+components/dashboard/        heatmap, streak card, stat card, topic section
+components/problems/         list table, catalog header, revise button
 components/workspace/        header, problem panel, editor, console, chat
 lib/problems                 public types (UI); authoring modules + catalog are seed-only
+lib/problems/topics.ts       roadmap groups; the topic a seeded problem gets (seed-only)
 lib/db/queries/problems.ts   catalog reads from Postgres
+lib/db/queries/dashboard.ts  activity days, progress statuses, history totals
 lib/db/schema/               Drizzle tables
+lib/practice/days.ts         local day keys and offsets (client-safe, no db import)
+lib/progress/                streak, heatmap grid, solved rollups (pure)
 lib/runner/                  Piston vs mock seam
 lib/piston/                  engine client; Python 3.12.0 pinned in lib/piston/config.ts
 lib/harness/python.ts        wraps the editor buffer into a runnable program
@@ -59,6 +66,8 @@ lib/languages.ts             executable languages (Python only) vs stored enum
 ```
 
 `PISTON_URL` turns real judging on. `RUNNER_KIND=mock` forces the deterministic mock even with an engine configured. An unreachable engine is a hard failure, not a silent fallback to mock.
+
+A practice day is a verified Piston Submit and nothing else. `submissions.day` is stamped at insert time from the client's `utcOffsetMinutes`; do not re-derive a day from a timezone at read time. A revise Submit (`revision: true`) writes history and never touches `problem_progress` or the stored draft.
 
 The tutor is a guide, not a solution printer. Full solutions only when the user explicitly asks. Do not invent constraints, official examples, or judge cases in prompts.
 

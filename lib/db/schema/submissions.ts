@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   check,
+  date,
   index,
   integer,
   pgTable,
@@ -63,11 +64,37 @@ export const submissions = pgTable(
      * sent one; unique so a retry cannot insert a second history row.
      */
     requestId: uuid("request_id"),
+    /**
+     * The viewer's offset from UTC in minutes when this ran (`+330` for IST).
+     *
+     * Stored per row rather than read from the server's clock because the streak
+     * calendar asks "which day was this for me", and that must not change when
+     * the process timezone, the machine, or the season does. Rows written before
+     * this column existed are `0` — their day was stamped in UTC.
+     */
+    utcOffsetMinutes: integer("utc_offset_minutes").notNull().default(0),
+    /**
+     * The local calendar day the submission belongs to, computed at insert time
+     * from `createdAt + utcOffsetMinutes`.
+     *
+     * Materialized so the streak and the calendar are a plain `group by`, with
+     * no timezone database and no per-row interval arithmetic at read time.
+     */
+    day: date("day"),
+    /**
+     * A practice redo of an already-solved problem. Recorded so the history
+     * distinguishes revision from a first attempt, and so the UI can say which
+     * submits were revisits. Revisions count as practice for the streak but
+     * never change `problem_progress` — a solve is set once and kept.
+     */
+    isRevision: boolean("is_revision").notNull().default(false),
     createdAt,
   },
   (t) => [
     // Console history and "what did I try on this problem".
     index("submissions_problem_created_idx").on(t.problemId, t.createdAt.desc()),
+    // The dashboard's streak and calendar: one row per practice day.
+    index("submissions_day_idx").on(t.day),
     // "Load into editor" reads the newest accepted row for a problem.
     index("submissions_accepted_idx")
       .on(t.problemId, t.createdAt.desc())
@@ -80,6 +107,10 @@ export const submissions = pgTable(
       ),
     uniqueIndex("submissions_request_id_key").on(t.requestId),
     check("submissions_passed_lte_total", sql`${t.passedCount} <= ${t.totalCount}`),
+    check(
+      "submissions_utc_offset_range",
+      sql`${t.utcOffsetMinutes} between -840 and 840`,
+    ),
   ],
 );
 

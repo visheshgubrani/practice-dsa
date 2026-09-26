@@ -25,6 +25,10 @@ export type SubmissionSummary = {
   memoryKb: number | null;
   catalogRevision: string;
   requestId: string | null;
+  /** A revisit of an already-solved problem, so history can label it. */
+  isRevision: boolean;
+  /** `YYYY-MM-DD`, the local day this was practised on. */
+  day: string | null;
   createdAt: string;
 };
 

@@ -44,6 +44,17 @@ export const problems = pgTable(
     position: integer("position").notNull(),
     title: text("title").notNull(),
     difficulty: difficultyEnum("difficulty").notNull(),
+    /**
+     * The roadmap group this problem belongs to ("Stack", "1-D Dynamic
+     * Programming"), seeded from `lib/problems/topics.ts`. Text rather than an
+     * enum: the group list is authored data that grows with the catalog, and a
+     * new group should not need a database migration.
+     *
+     * Blank means "not classified yet" — a row that predates the topic backfill
+     * or a problem authored without a group. The dashboard folds those into
+     * "Uncategorized" instead of hiding them.
+     */
+    topic: text("topic").notNull().default(""),
     /** Markdown, rendered by components/markdown.tsx. */
     statement: text("statement").notNull(),
     constraints: text("constraints").array().notNull().default(sql`'{}'::text[]`),
@@ -83,7 +94,10 @@ export const problems = pgTable(
     index("problems_position_idx").on(t.position, t.number),
     // The list page filters by tag, which is an array containment check.
     index("problems_tags_idx").using("gin", t.tags),
+    // The dashboard groups by topic and keeps the authored order inside a group.
+    index("problems_topic_position_idx").on(t.topic, t.position),
     check("problems_number_positive", sql`${t.number} > 0`),
+    check("problems_topic_not_blank", sql`${t.topic} <> ''`),
   ],
 );
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { LayoutGridIcon } from "lucide-react";
+import { LayoutGridIcon, ListTreeIcon } from "lucide-react";
 import Link from "next/link";
 
 import { buttonVariants } from "@/components/ui/button";
@@ -26,11 +26,19 @@ export function AppHeader({
     >
       <Link
         href="/"
+        aria-label="Back to the dashboard"
+        title="Dashboard"
+        className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }))}
+      >
+        <LayoutGridIcon />
+      </Link>
+      <Link
+        href="/problems"
         aria-label="Back to the problem list"
         title="Problem list"
         className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }))}
       >
-        <LayoutGridIcon />
+        <ListTreeIcon />
       </Link>
       <span
         aria-hidden

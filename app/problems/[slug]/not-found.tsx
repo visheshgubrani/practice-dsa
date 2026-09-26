@@ -14,9 +14,20 @@ export default function ProblemNotFound() {
         The workspace only knows the problems in the catalog. Check the slug, or
         seed a problem with `pnpm db:seed`.
       </p>
-      <Link href="/" className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-        Back to the problem list
-      </Link>
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        <Link
+          href="/problems"
+          className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+        >
+          Back to the problem list
+        </Link>
+        <Link
+          href="/"
+          className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+        >
+          Dashboard
+        </Link>
+      </div>
     </main>
   );
 }

@@ -43,7 +43,9 @@ export function parseArguments(
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
 
-  const expected = signature.params.map((param) => param.name);
+  const expected = signature.calls
+    ? ["ops", "args"]
+    : signature.params.map((param) => param.name);
 
   for (const [index, line] of lines.entries()) {
     const match = LINE.exec(line);
@@ -55,9 +57,11 @@ export function parseArguments(
     }
 
     const [, name, raw] = match;
-    const param = signature.params.find((candidate) => candidate.name === name);
+    const known = signature.calls
+      ? expected.includes(name)
+      : signature.params.some((candidate) => candidate.name === name);
 
-    if (!param) {
+    if (!known) {
       return {
         ok: false,
         error:
@@ -89,13 +93,13 @@ export function parseArguments(
   }
 
   const byName: Record<string, ArgValue> = {};
-  for (const param of signature.params) {
-    byName[param.name] = values.get(param.name) as ArgValue;
+  for (const name of expected) {
+    byName[name] = values.get(name) as ArgValue;
   }
 
   return {
     ok: true,
-    values: signature.params.map((param) => byName[param.name]),
+    values: expected.map((name) => byName[name]),
     byName,
   };
 }
@@ -121,6 +125,12 @@ export function formatArguments(
   args: readonly ArgValue[],
   signature: ProblemSignature,
 ): string {
+  if (signature.calls) {
+    return [
+      `ops = ${JSON.stringify(args[0] ?? null)}`,
+      `args = ${JSON.stringify(args[1] ?? null)}`,
+    ].join("\n");
+  }
   return signature.params
     .map((param, index) => `${param.name} = ${JSON.stringify(args[index])}`)
     .join("\n");

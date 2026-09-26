@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { RotateCcwIcon } from "lucide-react";
 import { usePanelRef } from "react-resizable-panels";
 
 import {
@@ -13,6 +15,7 @@ import { usePractice } from "@/lib/hooks/use-practice";
 import { usePracticeImport } from "@/lib/hooks/use-practice-import";
 import { useProgress } from "@/lib/hooks/use-progress";
 import { toLanguageId } from "@/lib/languages";
+import { utcOffsetMinutesFor } from "@/lib/practice/days";
 import {
   codeDirtyKey,
   codeRecoveryKey,
@@ -84,6 +87,17 @@ export type WorkspaceProps = {
   aiMode: AiMode;
   /** Which executor is configured, so the console can say so before a run. */
   runner: RunnerKind;
+  /**
+   * A revisit of a solved problem: the editor works on the accepted solution
+   * rather than the stored draft, and a Submit here is recorded as a revision.
+   */
+  revision?: boolean;
+  /**
+   * Solved as of the server render, so the header's solved mark and its Revise
+   * action are there on the first paint. The practice fetch below has the
+   * authoritative answer and wins once it arrives.
+   */
+  solved?: boolean;
 };
 
 export function Workspace({
@@ -92,10 +106,12 @@ export function Workspace({
   next,
   aiMode,
   runner,
+  revision = false,
+  solved: solvedOnServer = false,
 }: WorkspaceProps) {
   const isWide = useIsWideLayout();
   const { markAccepted } = useProgress();
-  const practice = usePractice(problem);
+  const practice = usePractice(problem, { revision });
   const importer = usePracticeImport({
     onImported: practice.retryLoad,
   });
@@ -116,7 +132,7 @@ export function Workspace({
   const submissionId =
     runState.status === "done" ? runState.result.submissionId : undefined;
 
-  const solved = practice.progress.status === "solved";
+  const solved = practice.progress.status === "solved" || solvedOnServer;
 
   const run = useCallback(
     async (mode: RunMode) => {
@@ -145,6 +161,10 @@ export function Workspace({
             mode,
             testcaseIndex: selectedIndex,
             requestId,
+            // The streak is counted in the viewer's own days, so the client
+            // says where its clock is rather than leaving the server to guess.
+            utcOffsetMinutes: utcOffsetMinutesFor(),
+            revision,
           }),
         });
 
@@ -207,6 +227,7 @@ export function Workspace({
       markAccepted,
       practice,
       problem.slug,
+      revision,
       testcaseIndex,
     ],
   );
@@ -314,11 +335,39 @@ export function Workspace({
       : practice.accepted;
 
   const banners =
+    revision ||
     importer.visible ||
     practice.loadError ||
     practice.draftConflict ||
     practice.notesConflict ? (
       <div className="flex shrink-0 flex-col gap-2 border-b border-border px-3 py-2">
+        {revision ? (
+          <div className="flex flex-wrap items-center gap-2 rounded-md border border-primary/35 bg-primary/10 px-3 py-2">
+            <RotateCcwIcon className="size-3.5 shrink-0 text-primary" />
+            <p className="text-xs text-foreground/90">
+              <span className="font-mono text-[11px] text-primary">
+                revising
+              </span>{" "}
+              {/* A revise link on a problem with no accepted solution is still
+                  valid — it just has nothing to start from, so the banner says
+                  what the buffer actually is instead of promising code that is
+                  not there. */}
+              {practice.accepted
+                ? "— the editor holds a copy of your accepted solution, and the draft you wrote the first time is untouched."
+                : "— nothing has been accepted here yet, so the editor starts from your draft."}
+              {practice.progress.solvedAt
+                ? ` Solved ${new Date(practice.progress.solvedAt).toLocaleDateString()}.`
+                : ""}{" "}
+              A Submit here is recorded as a revision and never unsolves it.
+            </p>
+            <Link
+              href={`/problems/${problem.slug}`}
+              className="ml-auto shrink-0 font-mono text-[11px] text-muted-foreground underline underline-offset-4 hover:text-foreground"
+            >
+              leave revise mode
+            </Link>
+          </div>
+        ) : null}
         {importer.visible ? (
           <ImportPracticeAlert
             summary={importer.summary}
@@ -437,6 +486,7 @@ export function Workspace({
         previous={previous}
         next={next}
         solved={solved}
+        revision={revision}
         busyMode={busyMode}
         onRun={() => {
           void run("run");

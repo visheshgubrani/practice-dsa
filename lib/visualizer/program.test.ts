@@ -187,4 +187,62 @@ describe("buildTraceProgram", () => {
     assert.ok(built.displayCode.includes("Solution().fill(*_args)"));
     assert.ok(!built.displayCode.includes("_result = Solution()"));
   });
+
+  it("traces encode and decode on two instances", () => {
+    const built = buildTraceProgram({
+      source: "class Solution:\n    def encode(self, strs):\n        pass\n    def decode(self, s):\n        pass\n",
+      signature: {
+        name: "encode",
+        params: [{ name: "strs", kind: "string[]" }],
+        returns: "string[]",
+        roundTrip: { encode: "encode", decode: "decode" },
+      },
+      args: [["Hello", "World"]],
+      maxSteps: 100,
+      maxBytes: 1_000,
+      tracer: { logger: "", encoder: "" },
+    });
+
+    assert.ok(built.displayCode.includes("_wire = Solution().encode(*_args)"));
+    assert.ok(built.displayCode.includes("_result = Solution().decode(_wire)"));
+    assert.ok(!built.displayCode.includes("_result = Solution().encode"));
+  });
+
+  it("traces a call script on one instance", () => {
+    const built = buildTraceProgram({
+      source: "class MinStack:\n    def __init__(self):\n        pass\n    def push(self, val):\n        pass\n    def getMin(self):\n        return 0\n",
+      signature: {
+        name: "MinStack",
+        params: [],
+        returns: "void",
+        calls: {
+          className: "MinStack",
+          constructorParams: [],
+          methods: {
+            push: { params: ["int"], returns: "void" },
+            getMin: { params: [], returns: "int" },
+          },
+        },
+      },
+      args: [
+        ["MinStack", "push", "getMin"],
+        [[], [1], []],
+      ],
+      maxSteps: 100,
+      maxBytes: 1_000,
+      tracer: { logger: "", encoder: "" },
+    });
+
+    assert.ok(built.displayCode.includes("_obj = MinStack(*_argv[0])"));
+    assert.ok(built.displayCode.includes("getattr(_obj, _name)(*_call)"));
+    assert.ok(
+      built.displayCode.includes(
+        `_args = json.loads(${JSON.stringify(encodeJsonArgs([
+          ["MinStack", "push", "getMin"],
+          [[], [1], []],
+        ]))})`,
+      ),
+    );
+    assert.ok(!built.displayCode.includes("Solution()"));
+  });
 });

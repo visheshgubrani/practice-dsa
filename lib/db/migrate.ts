@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { readMigrationFiles } from "drizzle-orm/migrator";
 
 import { backfillTestcaseArguments } from "./backfill-arguments";
+import { backfillSubmissionDays } from "./backfill-days";
 import { loadEnv } from "./env";
 import { db, pool } from "./index";
 
@@ -12,6 +13,10 @@ import { db, pool } from "./index";
  * run after the column is added and before `stdin` is dropped. Drizzle's
  * stock migrator wraps every pending file in a single transaction, which
  * would SET NOT NULL on still-empty arguments.
+ *
+ * Data backfills live in their own module and run between migrations, not
+ * inside them: `backfillTestcaseArguments` and `backfillSubmissionDays` each
+ * no-op once nothing is pending, so both are safe to re-run.
  *
  * Run through `pnpm db:migrate`. The connection string comes from the same
  * loader the app and the seed use (`lib/db/env.ts`). Fresh-install coverage is
@@ -77,6 +82,14 @@ async function applyPending(): Promise<void> {
       console.log(
         `  backfilled arguments on ${backfill.updated} testcase` +
           `${backfill.updated === 1 ? "" : "s"}`,
+      );
+    }
+
+    const days = await backfillSubmissionDays();
+    if (days.updated > 0) {
+      console.log(
+        `  stamped the UTC day on ${days.updated} submission` +
+          `${days.updated === 1 ? "" : "s"} written before the day column`,
       );
     }
   }

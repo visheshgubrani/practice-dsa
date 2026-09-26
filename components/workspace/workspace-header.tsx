@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import { DifficultyBadge } from "@/components/problems/difficulty-badge";
+import { ReviseButton } from "@/components/problems/revise-button";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import type { Problem, ProblemSummary } from "@/lib/problems";
@@ -58,6 +59,7 @@ export function WorkspaceHeader({
   previous,
   next,
   solved,
+  revision = false,
   busyMode,
   onRun,
   onSubmit,
@@ -66,6 +68,8 @@ export function WorkspaceHeader({
   previous?: Neighbour;
   next?: Neighbour;
   solved: boolean;
+  /** True while this workspace is a revise session. */
+  revision?: boolean;
   /** Non-null while a run or submit is in flight. */
   busyMode: "run" | "submit" | null;
   onRun: () => void;
@@ -87,7 +91,7 @@ export function WorkspaceHeader({
         {solved && (
           <span className="hidden shrink-0 items-center gap-1 font-mono text-[11px] text-success sm:inline-flex">
             <CheckIcon className="size-3.5" />
-            solved
+            {revision ? "solved · revising" : "solved"}
           </span>
         )}
         <div className="hidden min-w-0 items-center gap-1 lg:flex">
@@ -103,6 +107,14 @@ export function WorkspaceHeader({
       </div>
 
       <div className="ml-auto flex shrink-0 items-center gap-1.5 pl-2">
+        {solved && !revision ? (
+          <ReviseButton
+            slug={problem.slug}
+            label="Revise"
+            title={`Revise ${problem.title} — reopen it for another pass`}
+            variant="outline"
+          />
+        ) : null}
         <Button
           variant="outline"
           size="sm"

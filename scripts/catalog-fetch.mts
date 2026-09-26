@@ -280,7 +280,7 @@ async function buildManifest(): Promise<void> {
         question.difficulty || LEVELS[mapped.level] || "medium",
       );
       const meta = JSON.parse(question.metaData ?? "{}") as MetaData;
-      const verdict = classify(question, meta);
+      const verdict = classify(question, meta, problem.slug);
       problem.status = verdict.status;
       if (verdict.reason) problem.reason = verdict.reason;
       else delete problem.reason;

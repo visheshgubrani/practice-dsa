@@ -89,6 +89,8 @@ describe("toSubmissionDetail", () => {
         pistonVersion: "3.12.0",
         catalogRevision: "2026-09-18T00:00:00.000Z",
         requestId: null,
+        isRevision: false,
+        day: "2026-09-18",
         createdAt: new Date("2026-09-18T12:00:00.000Z"),
       },
       [
@@ -215,6 +217,8 @@ describe("toRunResult", () => {
         pistonVersion: "3.12.0",
         catalogRevision: "2026-09-18T00:00:00.000Z",
         requestId: null,
+        isRevision: false,
+        day: "2026-09-18",
         createdAt: new Date("2026-09-18T12:00:00.000Z"),
       },
       [{ ...hiddenSuccess, hidden: false, caseIndex: 0 }],

@@ -56,6 +56,20 @@ export type AcceptedRecord = {
   at: string;
 } | null;
 
+export type UsePracticeOptions = {
+  /**
+   * Revise mode: the editor works on a throwaway copy of the accepted solution
+   * instead of the stored draft.
+   *
+   * The stored draft is the record of your first attempt and the accepted
+   * source is the record of what worked, so a revisit must not overwrite
+   * either. In this mode nothing is read from or written to the draft: the
+   * buffer starts as the accepted code, edits live in memory for the visit, and
+   * a refresh starts the pass over. Submits still record history.
+   */
+  revision?: boolean;
+};
+
 const TODO_PROGRESS: PracticeProgress = {
   status: "todo",
   preferredLanguage: null,
@@ -95,7 +109,10 @@ function toAccepted(state: {
  * unsaved edits, written on every keystroke, and never treated as a reason to
  * overwrite a real draft with a starter template.
  */
-export function usePractice(problem: Problem) {
+export function usePractice(
+  problem: Problem,
+  { revision = false }: UsePracticeOptions = {},
+) {
   const languageState = usePersistedState<LanguageId>(
     languageRecoveryKey(problem.slug),
     DEFAULT_LANGUAGE,
@@ -126,6 +143,14 @@ export function usePractice(problem: Problem) {
     false,
   );
 
+  /**
+   * The revise buffer. Null until the fetch that knows the accepted source
+   * resolves, because the accepted code is server state and the first paint
+   * has not seen it yet.
+   */
+  const [revisionSource, setRevisionSource] = useState<string | null>(null);
+  const revisionSeeded = useRef(false);
+
   const [loadError, setLoadError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [draftStatus, setDraftStatus] = useState<SaveStatus>("idle");
@@ -155,6 +180,7 @@ export function usePractice(problem: Problem) {
     notes: notesState.value,
     language: language.id,
     slug: problem.slug,
+    revision,
     ready: false,
     draftConflict: null as PracticeConflictState | null,
     notesConflict: null as PracticeConflictState | null,
@@ -185,6 +211,7 @@ export function usePractice(problem: Problem) {
     current.notes = notesState.value;
     current.language = language.id;
     current.slug = problem.slug;
+    current.revision = revision;
     current.ready = ready;
     current.draftConflict = draftConflict;
     current.notesConflict = notesConflict;
@@ -384,8 +411,27 @@ export function usePractice(problem: Problem) {
       setLoadError(null);
 
       const preferred = toLanguageId(state.progress.preferredLanguage);
-      if (preferred && preferred !== current.language) {
+      if (preferred && preferred !== current.language && !current.revision) {
         current.setLanguageRecovery(preferred);
+        return;
+      }
+
+      // Revise mode: the buffer is the accepted code, taken once from the first
+      // load that knows it. Re-seeding on a later load would throw away edits in
+      // progress, so this happens exactly once per visit.
+      if (current.revision) {
+        if (!revisionSeeded.current) {
+          revisionSeeded.current = true;
+          const source = toAccepted(state)?.source ?? current.source;
+          current.source = source;
+          setRevisionSource(source);
+        }
+        setLegacySnapshot(state.legacySnapshot);
+        setLoadError(null);
+        setDraftConflict(null);
+        setNotesConflict(null);
+        setReady(true);
+        current.ready = true;
         return;
       }
 
@@ -482,6 +528,9 @@ export function usePractice(problem: Problem) {
     notesState.hydrated,
     onLoadFailed,
     problem.slug,
+    // Switching into or out of a revise session changes what a load applies, so
+    // it has to reload. The workspace also remounts on the switch.
+    revision,
   ]);
 
   useEffect(() => {
@@ -514,6 +563,14 @@ export function usePractice(problem: Problem) {
       const current = live.current;
       if (value === current.source) return;
       current.source = value;
+
+      // A revise buffer is not the draft: keeping `codeDirty` false is what
+      // stops the draft queue from writing it to Postgres.
+      if (current.revision) {
+        setRevisionSource(value);
+        return;
+      }
+
       current.codeDirty = true;
       current.setCode(value);
       current.setCodeDirty(true);
@@ -566,6 +623,10 @@ export function usePractice(problem: Problem) {
   const onReset = useCallback(() => {
     const current = live.current;
     current.source = current.starter;
+    if (current.revision) {
+      setRevisionSource(current.starter);
+      return;
+    }
     current.codeDirty = true;
     current.setCode(current.starter);
     current.setCodeDirty(true);
@@ -634,7 +695,12 @@ export function usePractice(problem: Problem) {
 
   return {
     language,
-    source: codeState.value,
+    /**
+     * What the editor shows. In revise mode that is the throwaway buffer, which
+     * is seeded from the accepted code and never written back as a draft.
+     */
+    source: revision ? (revisionSource ?? codeState.value) : codeState.value,
+    revision,
     notes: notesState.value,
     accepted: serverAccepted ?? acceptedState.value,
     legacySnapshot,

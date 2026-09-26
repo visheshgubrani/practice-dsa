@@ -26,6 +26,7 @@ const SUMMARY_COLUMNS = {
   number: problems.number,
   title: problems.title,
   difficulty: problems.difficulty,
+  topic: problems.topic,
   tags: problems.tags,
 };
 
@@ -92,6 +93,7 @@ function toProblem(row: ProblemRow): Problem {
     number: row.number,
     title: row.title,
     difficulty: row.difficulty,
+    topic: row.topic,
     tags: row.tags,
     statement: row.statement,
     constraints: row.constraints,

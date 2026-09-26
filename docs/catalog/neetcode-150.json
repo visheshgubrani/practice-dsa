@@ -110,8 +110,7 @@
       "slug": "encode-and-decode-strings",
       "title": "Encode and Decode Strings",
       "difficulty": "medium",
-      "status": "deferred",
-      "reason": "premium"
+      "status": "ready"
     },
     {
       "order": 9,
@@ -298,8 +297,7 @@
       "slug": "min-stack",
       "title": "Min Stack",
       "difficulty": "medium",
-      "status": "deferred",
-      "reason": "design"
+      "status": "ready"
     },
     {
       "order": 26,
@@ -332,8 +330,7 @@
       "slug": "median-of-two-sorted-arrays",
       "title": "Median of Two Sorted Arrays",
       "difficulty": "hard",
-      "status": "deferred",
-      "reason": "float_return"
+      "status": "ready"
     },
     {
       "order": 29,
@@ -399,8 +396,7 @@
       "slug": "time-based-key-value-store",
       "title": "Time Based Key-Value Store",
       "difficulty": "medium",
-      "status": "deferred",
-      "reason": "design"
+      "status": "ready"
     },
     {
       "order": 35,

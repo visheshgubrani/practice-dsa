@@ -51,6 +51,7 @@ export const compareModeEnum = pgEnum("compare_mode", [
   "unordered_outer",
   "index_pair",
   "intervals",
+  "tolerance",
 ]);
 
 export const chatRoleEnum = pgEnum("chat_role", [
