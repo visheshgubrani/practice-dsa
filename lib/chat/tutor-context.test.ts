@@ -313,7 +313,7 @@ describe("tutor context through the stored submission path", () => {
     assert.match(lastUserText, /Give me one hint without the solution/);
     assert.match(lastUserText, /submitted-attempt/);
     assert.match(lastUserText, /later-draft/);
-    assert.match(lastUserText, /The editor has changed since this result/);
+    assert.match(lastUserText, /from an earlier version, not the current editor/);
     assert.match(lastUserText, /First failing case/);
     assert.match(lastUserText, /nums = \[3,3\]/);
     assert.match(lastUserText, /saw 3 and 3/);

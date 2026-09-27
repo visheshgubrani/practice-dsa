@@ -6,6 +6,8 @@ Get the existing four problems working end to end before expanding the catalog.
 
 **Current phase:** [Phase 9 — Dashboard, topic sections, streaks, and revise mode](./09-dashboard.md)
 
+The tutor-consistency follow-up (Phase 11) is complete. The conversational-reply follow-up (Phase 12) was tried and is not complete: on the Encode/Decode thread, two of three supplied-history replies still taught the next pointer move. Neither follow-up changes Phase 9's status or its remaining units.
+
 Phases 1–8 are complete. Phase 7 closed with 104 ready NeetCode problems seeded and 46 deferred. Encode and Decode Strings, Min Stack, Median of Two Sorted Arrays, and Time Based Key-Value Store were added afterward: 108 ready sheet problems are seeded, and 42 remain deferred. Min Stack and Time Based Key-Value Store use the shared call script. Median of Two Sorted Arrays returns a double and uses the tolerance compare mode. The other design problems, and Pow(x, n), stay deferred.
 
 Phase 9 opens two things earlier phases deferred: the dashboard and daily-activity tracking. It keeps the judging rule untouched — only a verified Piston Submit marks a problem solved, and only a verified Piston Submit makes a day count toward the streak.
@@ -28,6 +30,9 @@ Invariants and the “done” scenario live in [00-scope.md](./00-scope.md).
 - [x] [Phase 4 — Expand to 16 verified problems and measure Submit latency](./04-catalog.md)
 - [x] [Phase 5 — Persist chats and deliver contextual tutoring](./05-tutor.md)
 - [x] [Follow-up — Tutor hints grounded in the current attempt](./06-tutor-hints.md)
+- [x] [Follow-up — Tutor clarity: complete answers, plain language, one next action](./10-tutor-clarity.md)
+- [x] [Follow-up — A consistent beginner DSA tutor](./11-tutor-consistency.md)
+- [ ] [Follow-up — Tutor replies stop at the question](./12-tutor-conversation.md)
 - [x] [Phase 7 — Import the NeetCode 150](./07-neetcode-150.md) — 108 ready sheet problems seeded; 42 deferred
 - [x] [Phase 8 — Python visualizer: step-through dry runs](./08-python-visualizer.md)
 - [ ] [Phase 9 — Dashboard, topic sections, streaks, and revise mode](./09-dashboard.md)

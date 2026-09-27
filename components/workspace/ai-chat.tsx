@@ -260,7 +260,7 @@ function TutorThread({
                                   {text}
                                 </p>
                               ) : (
-                                <Markdown>{text}</Markdown>
+                                <Markdown highlightNext>{text}</Markdown>
                               )}
                             </BubbleContent>
                           </Bubble>

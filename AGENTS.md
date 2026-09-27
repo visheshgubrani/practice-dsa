@@ -62,6 +62,7 @@ lib/runner/                  Piston vs mock seam
 lib/piston/                  engine client; Python 3.12.0 pinned in lib/piston/config.ts
 lib/harness/python.ts        wraps the editor buffer into a runnable program
 lib/ai/prompts.ts            hint-first tutor instructions; bound code context
+lib/ai/attempt.ts            computed attempt state (which methods exist, bodies empty)
 lib/languages.ts             executable languages (Python only) vs stored enum
 ```
 
@@ -69,7 +70,7 @@ lib/languages.ts             executable languages (Python only) vs stored enum
 
 A practice day is a verified Piston Submit and nothing else. `submissions.day` is stamped at insert time from the client's `utcOffsetMinutes`; do not re-derive a day from a timezone at read time. A revise Submit (`revision: true`) writes history and never touches `problem_progress` or the stored draft.
 
-The tutor is a guide, not a solution printer. Full solutions only when the user explicitly asks. Do not invent constraints, official examples, or judge cases in prompts.
+The tutor is a guide, not a solution printer. Full solutions only when the user explicitly asks. Every reply answers the current question and stays with the approach already agreed. A clarification can end; the next task is given only when they ask what to do. Narrow follow-ups stay short. A tiny snippet is for a syntax snag. Prints, incomplete code, and repeated runs inform debugging when they are relevant; they do not change the lesson. The prompt carries an advisory attempt state (a non-empty body is not proof a method is done) so it does not ask for work the buffer already shows. Do not invent constraints, official examples, or judge cases in prompts.
 
 ## Conventions
 
