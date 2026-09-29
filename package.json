@@ -33,7 +33,7 @@
     "chat:smoke": "tsx scripts/chat-smoke.mts"
   },
   "dependencies": {
-    "@ai-sdk/deepseek": "^3.0.45",
+    "@ai-sdk/openai": "4.0.67",
     "@ai-sdk/react": "^4.0.105",
     "@base-ui/react": "^1.8.0",
     "@monaco-editor/react": "4.7.0",

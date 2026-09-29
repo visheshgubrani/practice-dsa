@@ -12,7 +12,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 A personal LeetCode-shaped DSA workbench: a dashboard, the problem list, statement / notes / AI chat, Monaco, Run / Submit, and a minimizeable console. The tutor gives hints and debug help when you get stuck.
 
-One user. No auth, no accounts. Progress is for this local install. Package manager: **pnpm**. Stack: Next 16 + React 19, Drizzle + local Postgres, Piston for judging, AI SDK + DeepSeek for the tutor (scripted demo stream if `DEEPSEEK_API_KEY` is unset). UI: shadcn **base-nova** (Base UI) in `components/ui`.
+One user. No auth, no accounts. Progress is for this local install. Package manager: **pnpm**. Stack: Next 16 + React 19, Drizzle + local Postgres, Piston for judging, AI SDK + OpenAI (`gpt-6-luna`) for the tutor (scripted demo stream if `OPENAI_API_KEY` is unset). UI: shadcn **base-nova** (Base UI) in `components/ui`.
 
 Python is the only executable language today. More languages later means a harness plus one entry in `lib/languages.ts` `LANGUAGES` — the Postgres `language` enum already has cpp/java/javascript. Do not offer a language in the picker until it can run.
 

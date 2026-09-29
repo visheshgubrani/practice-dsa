@@ -7,6 +7,7 @@ import { getProblemStatus } from "@/lib/db/queries/dashboard";
 import { getProblem, getProblemNeighbours } from "@/lib/db/queries/problems";
 import type { Problem } from "@/lib/problems";
 import type { ProblemStatus } from "@/lib/progress/summary";
+import { tutorIsLive } from "@/lib/ai/model";
 import { runnerKind } from "@/lib/runner";
 
 // Problems are rows, not module constants: every visit reads the current one.
@@ -67,7 +68,7 @@ export default async function Page(props: PageProps<"/problems/[slug]">) {
       problem={problem}
       previous={previous}
       next={next}
-      aiMode={process.env.DEEPSEEK_API_KEY ? "live" : "demo"}
+      aiMode={tutorIsLive() ? "live" : "demo"}
       runner={runnerKind()}
       revision={revision}
       solved={status === "solved"}

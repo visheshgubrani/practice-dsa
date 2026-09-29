@@ -5,7 +5,7 @@ import {
 } from "ai";
 
 /**
- * Demo transport used when DEEPSEEK_API_KEY is not configured.
+ * Demo transport used when OPENAI_API_KEY is not configured.
  *
  * It streams a scripted tutor answer through the same UI message protocol as
  * the real route, so the chat pane, streaming state, and Stop button all

@@ -111,7 +111,7 @@ See `.env.example`.
 
 | Variable | Effect when set |
 | --- | --- |
-| `DEEPSEEK_API_KEY` | The AI chat talks to DeepSeek. Without it, a scripted tutor streams through the same protocol and the pane shows a `demo` badge. |
+| `OPENAI_API_KEY` | The AI chat talks to OpenAI (`gpt-6-luna`). Without it, a scripted tutor streams through the same protocol and the pane shows a `demo` badge. |
 | `PISTON_URL` | The execution engine. **This is what turns real judging on**; unset, Run and Submit are answered by the mock and the console says `simulated`. Defaults to `http://127.0.0.1:2001`. |
 | `RUNNER_KIND` | `mock` forces simulated verdicts even with an engine configured; anything else defers to `PISTON_URL`. |
 | `PISTON_RUN_TIMEOUT_MS` / `PISTON_RUN_MEMORY_MB` / `PISTON_MAX_CONCURRENCY` | Per-case limits (defaults 2000 ms, 256 MB, 4 at a time). The compose service advertises a higher ceiling than the runner asks for. |
@@ -285,7 +285,7 @@ The notes below are the state after Phase 9 (the dashboard, streaks, and revise 
   runs `simulated`. Mock rows are stored as history but excluded from genuine
   progress. Mark any submission with `force:wrong-answer`,
   `force:runtime-error`, or `force:tle` inside a comment to reach a state on
-  demand. Without `DEEPSEEK_API_KEY`, the tutor streams a scripted demo answer
+  demand. Without `OPENAI_API_KEY`, the tutor streams a scripted demo answer
   through the same protocol.
 - **Not built yet**: custom test input, and a light theme.
 

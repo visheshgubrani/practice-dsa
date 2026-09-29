@@ -551,13 +551,13 @@ export const QUICK_ACTIONS: readonly QuickAction[] = [
 
 /** Shown with every scripted reply so demo mode never pretends to have read the attempt. */
 export const DEMO_MODE_DISCLAIMER =
-  "Demo mode cannot analyse the current attempt. Set `DEEPSEEK_API_KEY` in `.env.local` and restart to talk to the real tutor.";
+  "Demo mode cannot analyse the current attempt. Set `OPENAI_API_KEY` in `.env.local` and restart to talk to the real tutor.";
 
 function demoAnswer(body: string): string {
   return [body, "", DEMO_MODE_DISCLAIMER].join("\n");
 }
 
-/** The scripted tutor used when no DEEPSEEK_API_KEY is configured. */
+/** The scripted tutor used when no OPENAI_API_KEY is configured. */
 export function buildDemoAnswer(input: {
   question: string;
   problem: Problem;

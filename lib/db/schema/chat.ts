@@ -36,7 +36,7 @@ export const chatThreads = pgTable(
       .notNull()
       .references(() => problems.id, { onDelete: "cascade" }),
     title: text("title"),
-    /** e.g. "deepseek-flash"; null while the thread has no assistant turn yet. */
+    /** e.g. "gpt-6-luna"; null while the thread has no assistant turn yet. */
     model: text("model"),
     ...timestamps,
   },

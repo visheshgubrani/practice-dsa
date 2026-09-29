@@ -143,7 +143,7 @@ function TutorThread({
           <Badge
             variant="outline"
             className="border-difficulty-medium/40 bg-difficulty-medium/10 font-mono text-[10px] text-difficulty-medium"
-            title="Set DEEPSEEK_API_KEY in .env.local to talk to the real model."
+            title="Set OPENAI_API_KEY in .env.local to talk to the real model."
           >
             demo
           </Badge>
@@ -152,7 +152,7 @@ function TutorThread({
             variant="outline"
             className="border-success/40 bg-success/10 font-mono text-[10px] text-success"
           >
-            deepseek
+            gpt-6-luna
           </Badge>
         )}
         {items.length > 1 ? (

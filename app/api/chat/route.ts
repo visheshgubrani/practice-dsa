@@ -1,3 +1,4 @@
+import { tutorIsLive } from "@/lib/ai/model";
 import { executeChatTurn } from "@/lib/chat/turn";
 import {
   chatGetQuerySchema,
@@ -50,6 +51,6 @@ export async function POST(request: Request) {
   return executeChatTurn({
     body,
     signal: request.signal,
-    live: Boolean(process.env.DEEPSEEK_API_KEY),
+    live: tutorIsLive(),
   });
 }

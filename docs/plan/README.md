@@ -70,5 +70,5 @@ pnpm problems:check       # added in Phase 2; no Docker
 pnpm db:migrate && pnpm db:seed
 pnpm piston:check         # seeded catalog + real engine
 pnpm visualizer:check     # added in Phase 8; seeded catalog + real engine
-pnpm chat:smoke           # disclosed tutor payload; live DeepSeek when a key is set
+pnpm chat:smoke           # disclosed tutor payload; live OpenAI when a key is set
 ```

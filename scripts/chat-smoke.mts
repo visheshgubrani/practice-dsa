@@ -6,7 +6,7 @@
  * Persistence, restore, interrupt/retry, and unrevealed-case leakage are
  * asserted by `pnpm test` and must pass in demo mode even without a key.
  *
- * This script talks to DeepSeek when `DEEPSEEK_API_KEY` is set. Without a key
+ * This script talks to OpenAI when `OPENAI_API_KEY` is set. Without a key
  * it still builds the disclosed prompt payload (and refuses to send secrets),
  * then exits 0 — live tutoring is not declared ready until the model answers.
  *
@@ -27,6 +27,11 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
+import {
+  LIVE_MODEL,
+  tutorLanguageModel,
+  tutorProviderOptions,
+} from "@/lib/ai/model";
 import type { AssembledTutorTurn } from "@/lib/ai/prompts";
 import type { TutorUIMessage } from "@/lib/chat/types";
 import { loadEnv } from "@/lib/db/env";
@@ -42,8 +47,6 @@ const { assembleTutorTurn, tutorPayloadText, QUICK_ACTIONS } = await import(
 const { pool } = await import("@/lib/db/index");
 const { getProblem } = await import("@/lib/db/queries/problems");
 const { getLanguage } = await import("@/lib/languages");
-
-const LIVE_MODEL = "deepseek-flash";
 
 const UNREVEALED_TWO_SUM = "SECRET_UNREVEALED_HIDDEN_SUCCESS nums = [0,0] target = 0";
 const REVEALED_TWO_SUM = "nums = [3,3]\ntarget = 6";
@@ -971,16 +974,16 @@ const LIVE_CONCURRENCY = 3;
 async function askModel(
   assembled: AssembledTutorTurn,
 ): Promise<{ text: string; latencyMs: number }> {
-  const { deepseek } = await import("@ai-sdk/deepseek");
   const { convertToModelMessages, generateText } = await import("ai");
   let lastError: unknown;
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     const started = Date.now();
     try {
       const result = await generateText({
-        model: deepseek(LIVE_MODEL),
+        model: tutorLanguageModel(),
         instructions: assembled.instructions,
         messages: await convertToModelMessages(assembled.messages),
+        providerOptions: tutorProviderOptions,
       });
       return { text: result.text.trim(), latencyMs: Date.now() - started };
     } catch (error) {
@@ -1306,11 +1309,11 @@ async function main(): Promise<void> {
     !longPayload.includes("Earlier conversation turns were omitted"),
   );
 
-  const key = process.env.DEEPSEEK_API_KEY;
+  const key = process.env.OPENAI_API_KEY;
   if (!key) {
     console.log("\nLive model");
     console.log(
-      "  skip  DEEPSEEK_API_KEY is unset. Demo mode still has to pass `pnpm test`.",
+      "  skip  OPENAI_API_KEY is unset. Demo mode still has to pass `pnpm test`.",
     );
     console.log(
       "  skip  Live answer review is skipped. Live tutoring is not declared ready until this script talks to the model.",

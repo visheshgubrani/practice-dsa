@@ -1,4 +1,3 @@
-import { deepseek } from "@ai-sdk/deepseek";
 import {
   convertToModelMessages,
   createUIMessageStream,
@@ -12,6 +11,11 @@ import {
 
 import { loadTutorSubmission } from "@/lib/ai/context";
 import { writeDemoAnswer } from "@/lib/ai/demo";
+import {
+  LIVE_MODEL,
+  tutorLanguageModel,
+  tutorProviderOptions,
+} from "@/lib/ai/model";
 import { assembleTutorTurn, buildDemoAnswer } from "@/lib/ai/prompts";
 import { completionFromStream, messageText } from "@/lib/chat/messages";
 import {
@@ -24,7 +28,7 @@ import {
 import { getProblem } from "@/lib/db/queries/problems";
 import { getLanguage } from "@/lib/languages";
 
-export const LIVE_MODEL = "deepseek-flash";
+export { LIVE_MODEL };
 export const DEMO_MODEL = "demo";
 
 function lastUserMessage(messages: UIMessage[]): UIMessage | undefined {
@@ -145,9 +149,10 @@ export async function executeChatTurn(input: {
       }
 
       const result = streamText({
-        model: deepseek(LIVE_MODEL),
+        model: tutorLanguageModel(),
         instructions: assembled.instructions,
         messages: await convertToModelMessages(assembled.messages),
+        providerOptions: tutorProviderOptions,
         abortSignal: signal,
         onEnd: ({ usage: nextUsage, finishReason: nextFinish }) => {
           usage = nextUsage;
