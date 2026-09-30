@@ -1,12 +1,20 @@
-import type { SolutionNotes } from "@/lib/problems";
+import {
+  emptyPersonalNotes,
+  normalizePersonalNotes,
+  notesEqual,
+  type PersonalNotes,
+} from "@/lib/practice/notes";
 
 /**
  * Decide what the editor / notes should show after a successful GET, and
  * whether that buffer still needs to be written.
  *
- * A starter (or reference notes) sitting in recovery is not unsaved work —
- * treating it as such would overwrite a real Postgres draft on first paint.
- * Only a dirty recovery copy is allowed to win over the server.
+ * A starter sitting in recovery is not unsaved work — treating it as such
+ * would overwrite a real Postgres draft on first paint. Only a dirty recovery
+ * copy is allowed to win over the server.
+ *
+ * Personal notes start empty. The fallback is that empty record, never the
+ * catalog's approach guidance.
  */
 
 export type LoadedBuffer<T> = {
@@ -34,30 +42,30 @@ export function resolveLoadedSource(options: {
   return { value: fallback, retrySave: false };
 }
 
-export function notesEqual(a: SolutionNotes, b: SolutionNotes): boolean {
-  return (
-    a.approach === b.approach &&
-    a.timeComplexity === b.timeComplexity &&
-    a.spaceComplexity === b.spaceComplexity
-  );
-}
+export { notesEqual };
 
 export function resolveLoadedNotes(options: {
-  server: SolutionNotes | null;
-  recovery: SolutionNotes | null;
-  fallback: SolutionNotes;
+  server: PersonalNotes | null;
+  recovery: PersonalNotes | null;
+  fallback: PersonalNotes;
   dirty: boolean;
-}): LoadedBuffer<SolutionNotes> {
-  const recovery = options.recovery ?? options.fallback;
-  if (options.dirty && options.recovery != null) {
+}): LoadedBuffer<PersonalNotes> {
+  const fallback = normalizePersonalNotes(options.fallback);
+  const recovery =
+    options.recovery == null ? null : normalizePersonalNotes(options.recovery);
+  const server =
+    options.server == null ? null : normalizePersonalNotes(options.server);
+  const recovered = recovery ?? fallback;
+  if (options.dirty && recovery != null) {
     return {
-      value: options.recovery,
-      retrySave:
-        options.server == null || !notesEqual(options.recovery, options.server),
+      value: recovery,
+      retrySave: server == null || !notesEqual(recovery, server),
     };
   }
-  if (options.server != null) {
-    return { value: options.server, retrySave: false };
+  if (server != null) {
+    return { value: server, retrySave: false };
   }
-  return { value: recovery, retrySave: false };
+  return { value: recovered, retrySave: false };
 }
+
+export { emptyPersonalNotes };

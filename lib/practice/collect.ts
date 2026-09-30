@@ -16,6 +16,8 @@ const STORED_LANGUAGE_SET = new Set<string>(STORED_LANGUAGES);
 const SLUG_MAX = 200;
 const SOURCE_MAX = 200_000;
 const APPROACH_MAX = 20_000;
+const STEPS_MAX = 20_000;
+const PITFALLS_MAX = 20_000;
 const COMPLEXITY_MAX = 200;
 const ENTRIES_MAX = 200;
 
@@ -73,10 +75,14 @@ function notesEntry(
   if (typeof value !== "object" || value === null) return null;
   const notes = value as Record<string, unknown>;
   const approach = clipString(notes.approach, APPROACH_MAX);
+  const steps = clipString(notes.steps, STEPS_MAX);
+  const pitfalls = clipString(notes.pitfalls, PITFALLS_MAX);
   const timeComplexity = clipString(notes.timeComplexity, COMPLEXITY_MAX);
   const spaceComplexity = clipString(notes.spaceComplexity, COMPLEXITY_MAX);
   if (
     approach === undefined &&
+    steps === undefined &&
+    pitfalls === undefined &&
     timeComplexity === undefined &&
     spaceComplexity === undefined
   ) {
@@ -85,6 +91,8 @@ function notesEntry(
   return {
     slug,
     ...(approach !== undefined ? { approach } : {}),
+    ...(steps !== undefined ? { steps } : {}),
+    ...(pitfalls !== undefined ? { pitfalls } : {}),
     ...(timeComplexity !== undefined ? { timeComplexity } : {}),
     ...(spaceComplexity !== undefined ? { spaceComplexity } : {}),
   };

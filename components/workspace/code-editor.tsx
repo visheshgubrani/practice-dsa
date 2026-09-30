@@ -36,6 +36,8 @@ function EditorSkeleton() {
 
 export type CodeEditorPaneProps = {
   slug: string;
+  /** Keeps Monaco's in-memory model separate for practice, revise, and review. */
+  sessionKey?: string;
   value: string;
   language: LanguageId;
   monacoLanguage: string;
@@ -49,6 +51,7 @@ export type CodeEditorPaneProps = {
 
 export function CodeEditorPane({
   slug,
+  sessionKey,
   value,
   language,
   monacoLanguage,
@@ -62,6 +65,7 @@ export function CodeEditorPane({
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [attempt, setAttempt] = useState(0);
   const [confirmingReset, setConfirmingReset] = useState(false);
+  const modelPath = [slug, sessionKey, monacoLanguage].filter(Boolean).join(".");
 
   useEffect(() => {
     let cancelled = false;
@@ -122,7 +126,7 @@ export function CodeEditorPane({
           <MonacoCodeEditor
             value={value}
             language={monacoLanguage}
-            path={`${slug}.${monacoLanguage}`}
+            path={modelPath}
             onChange={onValueChange}
             onRun={onRun}
           />

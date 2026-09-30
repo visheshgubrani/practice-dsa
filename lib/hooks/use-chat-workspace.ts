@@ -11,7 +11,24 @@ import type {
 
 export type ChatWorkspaceStatus = "loading" | "ready" | "error";
 
-export function useChatWorkspace(slug: string) {
+/**
+ * One problem's conversations. The workspace owns this state so the Notes tab
+ * can ask for a draft from the thread currently open in AI Chat.
+ */
+export type ChatWorkspace = {
+  status: ChatWorkspaceStatus;
+  error: string | null;
+  /** The selected thread, or the new one that a first message will create. */
+  threadId: string | null;
+  messages: TutorUIMessage[];
+  threads: ChatThreadSummary[];
+  load: (nextThreadId?: string) => Promise<void>;
+  refreshThreads: () => Promise<void>;
+  startNewConversation: () => void;
+  selectThread: (id: string) => void;
+};
+
+export function useChatWorkspace(slug: string): ChatWorkspace {
   const [status, setStatus] = useState<ChatWorkspaceStatus>("loading");
   const [error, setError] = useState<string | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);

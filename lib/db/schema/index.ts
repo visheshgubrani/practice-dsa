@@ -2,6 +2,7 @@ import type { InferInsertModel, InferSelectModel } from "drizzle-orm";
 
 import { chatMessages, chatThreads } from "./chat";
 import { drafts, legacyAccepted, problemProgress } from "./practice";
+import { reviewCards, reviewLogs } from "./reviews";
 import {
   problemExamples,
   problemStarterCode,
@@ -14,6 +15,7 @@ export * from "./columns";
 export * from "./chat";
 export * from "./enums";
 export * from "./practice";
+export * from "./reviews";
 export * from "./problems";
 export * from "./submissions";
 
@@ -35,6 +37,9 @@ export type Draft = InferSelectModel<typeof drafts>;
 export type ProblemProgress = InferSelectModel<typeof problemProgress>;
 export type LegacyAccepted = InferSelectModel<typeof legacyAccepted>;
 
+export type ReviewCard = InferSelectModel<typeof reviewCards>;
+export type ReviewLog = InferSelectModel<typeof reviewLogs>;
+
 export type Submission = InferSelectModel<typeof submissions>;
 export type NewSubmission = InferInsertModel<typeof submissions>;
 export type SubmissionCase = InferSelectModel<typeof submissionCases>;
@@ -52,6 +57,8 @@ export const schema = {
   drafts,
   problemProgress,
   legacyAccepted,
+  reviewCards,
+  reviewLogs,
   submissions,
   submissionCases,
   chatThreads,

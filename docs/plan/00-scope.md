@@ -23,6 +23,8 @@ The catalog is seeded from `lib/problems/catalog.ts` in NeetCode 150 roadmap ord
 - `/` is a dashboard: solved totals by difficulty, the catalog grouped by roadmap topic (`problems.topic`, seeded from the sheet), and a streak with a day-per-submission calendar. `/problems` is the filterable table. A problem's topic is derived at seed time, never hand-written per module.
 - A practice day is a verified Piston Submit, any verdict — the same predicate that decides solved. A Run, a mock verdict, or a visualize trace never counts for the streak. `submissions.day` is stamped at insert time from the client's UTC offset, so a historical day cannot move when a timezone or a season does.
 - Revise mode (`/problems/<slug>?revise=1`) reopens a solved problem from its accepted code. It records a revision in history (`is_revision`), never changes `status` / `solvedAt`, and never writes the stored draft.
+- Notes has five personal fields: Key idea (`approach`), Steps, What tripped me up, Time, and Space. New notes start empty, existing text is preserved, and autosave/recovery works in practice, revise, and review. Catalog guidance remains read-only in Solution. AI drafts are editable previews; generating does not save notes or chat, and only explicit application writes notes.
+- Manually enrolled FSRS cards populate the dashboard's due/upcoming queue. Recall Review (`?review=1`, taking precedence over `?revise=1`) begins with the statement and fresh starter code; notes and saved solutions need an explicit reveal. The buffer is temporary. Finish and self-rate Again/Hard/Good/Easy without submitting; pause/resume preserves the schedule.
 - The tutor restores the latest thread (48 messages / 48,000 characters), sees the referenced attempt (submitted source and first failing case, including a revealed hidden case), and never receives the unrevealed hidden suite or reference-solution source. Editor code and execution results are separate evidence. Returned output is the function's return value; debug prints are observations. Every reply answers the current question and stays with the approach already agreed. A clarification can end; the next task is given only when they ask what to do. It gets an advisory attempt state — which expected methods exist and whether each body is empty — and a non-empty body is not proof the method is implemented. Examples are attributed to the failing case, the statement, or an illustration — not to the user unless they supplied the input.
 - `pnpm test`, `pnpm problems:check`, `pnpm piston:check`, `pnpm visualizer:check`, and `pnpm chat:smoke` pass. Live OpenAI still needs `OPENAI_API_KEY`; without it, demo mode is the tutor.
 
@@ -40,6 +42,9 @@ The catalog is seeded from `lib/problems/catalog.ts` in NeetCode 150 roadmap ord
 - A reference solution is evidence, not proof. Never silently replace a mismatching expectation.
 - **Visualizing is not Submit.** A trace writes no submission, no progress row, and no draft, and it never marks a problem solved. `lib/visualizer` imports no submissions, practice, or progress module, and `pnpm visualizer:check` asserts the row counts are unchanged.
 - **Revising is not a new solve.** A revise Submit is history (`is_revision`), never a progress write: `status` stays `solved` and `solvedAt` is the first acceptance. A revise session reads the accepted code and writes nothing to the stored draft. It does count as practice for the streak — it is a verified Piston Submit.
+- **A recall rating is not practice activity.** Enrollment and ratings write only review state. They never rewrite historical submissions, drafts, solve dates, or submission-day stamps. Ratings use the server clock, expected revisions, and an immutable request payload so retries schedule once. Neither the AI nor the judge chooses a rating.
+- **Review and Revise have different Submit semantics.** A solved Review Submit is a revision and preserves the first solve. An unsolved Review Submit can create a first solve through normal verified judging; neither saves the temporary buffer as an ordinary draft. A direct Revise visit to an unsolved problem still writes history only.
+- **AI note generation is a read.** Use bounded editor and submitted source as distinct evidence, completed conversation turns, and the tutor's disclosed first failure. Never include reference-solution source or the unrevealed hidden suite. Replacing a field changed since generation requires renewed explicit review.
 - **The day an attempt belongs to is stored, not derived.** `submissions.day` is computed once at insert from `created_at + utc_offset_minutes`. Nothing re-derives a day from a timezone at read time, and the streak never touches the server's `TZ`.
 - **Only a visible case can be traced.** The visualize route resolves its index against public problem content, so hidden cases and the hidden suite are not addressable from it — a large index is simply out of range.
 - **The trace runs where judging runs:** the same engine, the same pinned Python 3.12.0, the same `Solution().<name>(*_args)` call and the same JSON arguments. The trace prelude differs from `PYTHON_PRELUDE` in exactly one line — `from typing import *` becomes an inert annotation shim, because the tracer re-encodes every reachable global at every step and that import costs 48 KB per step against 2 KB. `lib/visualizer/program.test.ts` holds the two preludes in sync and requires the shim to cover every annotation name the seeded starters use.
@@ -49,9 +54,14 @@ The catalog is seeded from `lib/problems/catalog.ts` in NeetCode 150 roadmap ord
 
 Hosting, accounts, other language harnesses, linked lists, trees, custom classes, in-place output contracts, SDK migration, and Submit batching — unless Phase 4’s p95 Submit latency is above roughly two seconds, in which case batching is a **separate** milestone with its own first-failure, per-case state, and per-case timeout requirements.
 
-Streak reminders, notifications, goals, badges, spaced repetition, per-topic
-notes, and persisting a revise buffer: Phase 9 opened the streak and the
-dashboard, and stopped there.
+Streak reminders, notifications, goals, badges, per-topic notes, and
+persisting a revise buffer stay deferred. Phase 9 opened the streak and the
+dashboard and stopped there.
+
+Phase 13 completes personal notes and spaced repetition as a narrow extension
+of that study-coach scope. Ratings do not change solved status or streaks.
+Catalog approach notes stay read-only guidance. Notifications, automatic
+enrollment, per-topic notes, and persistent review code buffers stay deferred.
 
 ## Done looks like this
 

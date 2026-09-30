@@ -77,3 +77,11 @@ export const progressStatusEnum = pgEnum("progress_status", [
   "attempted",
   "solved",
 ]);
+
+/** Self-assessed recall. The judge and the tutor never write this. */
+export const reviewRatingEnum = pgEnum("review_rating", [
+  "again",
+  "hard",
+  "good",
+  "easy",
+]);

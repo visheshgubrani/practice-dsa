@@ -7,6 +7,7 @@ import { getProblemStatus } from "@/lib/db/queries/dashboard";
 import { getProblem, getProblemNeighbours } from "@/lib/db/queries/problems";
 import type { Problem } from "@/lib/problems";
 import type { ProblemStatus } from "@/lib/progress/summary";
+import type { WorkspaceMode } from "@/lib/runner/types";
 import { tutorIsLive } from "@/lib/ai/model";
 import { runnerKind } from "@/lib/runner";
 
@@ -33,10 +34,15 @@ export async function generateMetadata(
 export default async function Page(props: PageProps<"/problems/[slug]">) {
   const { slug } = await props.params;
   const query = await props.searchParams;
-  // `?revise=1` opens a revise session. Anything else — including a repeated
-  // parameter, which arrives as an array — is not a revise session, so an odd
-  // URL opens the ordinary workspace instead of failing.
-  const revision = query.revise === "1";
+  // Only exact scalar `1` values opt into a mode; review takes precedence
+  // over revise when both flags are present.
+  const review = query.review === "1";
+  const revision = !review && query.revise === "1";
+  const sessionMode: WorkspaceMode = review
+    ? "review"
+    : revision
+      ? "revise"
+      : "practice";
 
   let problem: Problem | null;
   let neighbours: Awaited<ReturnType<typeof getProblemNeighbours>>;
@@ -63,14 +69,14 @@ export default async function Page(props: PageProps<"/problems/[slug]">) {
     <Workspace
       // The key remounts the workspace when the session kind changes, so the
       // buffer, the console, and the history panel all start clean rather than
-      // leaking a draft into a revise pass or the reverse.
-      key={`${problem.slug}${revision ? ":revise" : ""}`}
+      // leaking a draft into a revise or review visit, or the reverse.
+      key={`${problem.slug}:${sessionMode}`}
       problem={problem}
       previous={previous}
       next={next}
       aiMode={tutorIsLive() ? "live" : "demo"}
       runner={runnerKind()}
-      revision={revision}
+      sessionMode={sessionMode}
       solved={status === "solved"}
     />
   );

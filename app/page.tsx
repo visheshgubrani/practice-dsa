@@ -4,6 +4,7 @@ import { ActivityHeatmap } from "@/components/dashboard/activity-heatmap";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { StreakCard } from "@/components/dashboard/streak-card";
 import { TopicSection } from "@/components/dashboard/topic-section";
+import { ReviewQueueSection } from "@/components/dashboard/review-queue";
 import { DatabaseUnavailable } from "@/components/database-unavailable";
 import { CatalogHeader } from "@/components/problems/catalog-header";
 import {
@@ -14,6 +15,8 @@ import {
   type DashboardTotals,
 } from "@/lib/db/queries/dashboard";
 import { listProblemSummaries } from "@/lib/db/queries/problems";
+import { listReviewQueue } from "@/lib/db/queries/reviews";
+import type { ReviewQueue } from "@/lib/reviews/types";
 import { addDays, dayRange, todayKey } from "@/lib/practice/days";
 import {
   heatmapWeeks,
@@ -48,6 +51,7 @@ type DashboardData = {
   weekAccepts: number;
   /** `slug -> status`, looked up per row by every topic section. */
   statuses: ProgressLookup;
+  reviewQueue: ReviewQueue;
 };
 
 export default async function Page() {
@@ -55,11 +59,12 @@ export default async function Page() {
   let error: unknown = null;
 
   try {
-    const [problems, statuses, bounds, totals] = await Promise.all([
+    const [problems, statuses, bounds, totals, reviewQueue] = await Promise.all([
       listProblemSummaries(),
       listProgressStatuses(),
       activityBounds(),
       dashboardTotals(),
+      listReviewQueue(),
     ]);
 
     const today = todayKey();
@@ -89,6 +94,7 @@ export default async function Page() {
       weekSubmits: thisWeek.reduce((total, entry) => total + entry.submits, 0),
       weekAccepts: thisWeek.reduce((total, entry) => total + entry.accepted, 0),
       statuses,
+      reviewQueue,
     };
   } catch (cause) {
     // A stopped database is an expected condition, not a crash: name the fix
@@ -117,6 +123,7 @@ export default async function Page() {
     weekSubmits,
     weekAccepts,
     statuses,
+    reviewQueue,
   } = data;
 
   return (
@@ -156,6 +163,8 @@ export default async function Page() {
               className="rounded-lg border border-border bg-panel-2 p-4"
             />
           </div>
+
+          <ReviewQueueSection initialQueue={reviewQueue} />
 
           <section className="flex flex-col gap-3">
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">

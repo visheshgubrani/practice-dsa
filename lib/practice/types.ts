@@ -1,5 +1,5 @@
 import type { StoredLanguageId } from "@/lib/languages";
-import type { SolutionNotes } from "@/lib/problems";
+import type { PersonalNotes } from "@/lib/practice/notes";
 
 /**
  * JSON shapes for `/api/practice/*`. Kept free of the database client so the
@@ -39,7 +39,7 @@ export type LegacySnapshot = {
 export type PracticeState = {
   slug: string;
   draft: PracticeDraft | null;
-  notes: SolutionNotes | null;
+  notes: PersonalNotes | null;
   progress: PracticeProgress;
   latestAccepted: VerifiedAccepted | null;
   legacySnapshot: LegacySnapshot | null;
@@ -57,6 +57,8 @@ export type PracticePatchBody = {
   draft?: { source: string; revision?: number };
   notes?: {
     approach?: string;
+    steps?: string;
+    pitfalls?: string;
     timeComplexity?: string;
     spaceComplexity?: string;
   };
@@ -73,6 +75,8 @@ export type PracticeImportPayload = {
   notes?: Array<{
     slug: string;
     approach?: string;
+    steps?: string;
+    pitfalls?: string;
     timeComplexity?: string;
     spaceComplexity?: string;
   }>;

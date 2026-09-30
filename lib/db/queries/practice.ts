@@ -6,7 +6,7 @@ import {
   STORED_LANGUAGES,
   type StoredLanguageId,
 } from "@/lib/languages";
-import type { SolutionNotes } from "@/lib/problems";
+import type { PersonalNotes } from "@/lib/practice/notes";
 import type {
   PracticeImportResult,
   PracticeProgress,
@@ -42,6 +42,8 @@ export const practiceGetQuerySchema = z.object({
 const notesPatchSchema = z
   .object({
     approach: z.string().max(20_000).optional(),
+    steps: z.string().max(20_000).optional(),
+    pitfalls: z.string().max(20_000).optional(),
     timeComplexity: z.string().max(200).optional(),
     spaceComplexity: z.string().max(200).optional(),
   })
@@ -49,6 +51,8 @@ const notesPatchSchema = z
   .refine(
     (notes) =>
       notes.approach !== undefined ||
+      notes.steps !== undefined ||
+      notes.pitfalls !== undefined ||
       notes.timeComplexity !== undefined ||
       notes.spaceComplexity !== undefined,
     { message: "notes must include at least one field." },
@@ -98,6 +102,8 @@ export const practiceImportSchema = z
         z.object({
           slug: slugSchema,
           approach: z.string().max(20_000).optional(),
+          steps: z.string().max(20_000).optional(),
+          pitfalls: z.string().max(20_000).optional(),
           timeComplexity: z.string().max(200).optional(),
           spaceComplexity: z.string().max(200).optional(),
         }),
@@ -160,6 +166,8 @@ export class PracticeConflictError extends Error {
 type ProgressFields = {
   preferredLanguage: StoredLanguageId | null;
   userNotesApproach: string | null;
+  userNotesSteps: string | null;
+  userNotesPitfalls: string | null;
   userNotesTimeComplexity: string | null;
   userNotesSpaceComplexity: string | null;
 };
@@ -168,6 +176,8 @@ export type ProgressImportIncoming = {
   preferredLanguage?: StoredLanguageId;
   notes?: {
     approach?: string;
+    steps?: string;
+    pitfalls?: string;
     timeComplexity?: string;
     spaceComplexity?: string;
   };
@@ -186,6 +196,9 @@ export function mergeProgressImport(
       existing?.preferredLanguage ?? incoming.preferredLanguage ?? null,
     userNotesApproach:
       existing?.userNotesApproach ?? incoming.notes?.approach ?? null,
+    userNotesSteps: existing?.userNotesSteps ?? incoming.notes?.steps ?? null,
+    userNotesPitfalls:
+      existing?.userNotesPitfalls ?? incoming.notes?.pitfalls ?? null,
     userNotesTimeComplexity:
       existing?.userNotesTimeComplexity ??
       incoming.notes?.timeComplexity ??
@@ -202,6 +215,8 @@ export function mergeProgressImport(
       writes:
         fields.preferredLanguage != null ||
         fields.userNotesApproach != null ||
+        fields.userNotesSteps != null ||
+        fields.userNotesPitfalls != null ||
         fields.userNotesTimeComplexity != null ||
         fields.userNotesSpaceComplexity != null,
     };
@@ -212,6 +227,8 @@ export function mergeProgressImport(
     writes:
       existing.preferredLanguage !== fields.preferredLanguage ||
       existing.userNotesApproach !== fields.userNotesApproach ||
+      existing.userNotesSteps !== fields.userNotesSteps ||
+      existing.userNotesPitfalls !== fields.userNotesPitfalls ||
       existing.userNotesTimeComplexity !== fields.userNotesTimeComplexity ||
       existing.userNotesSpaceComplexity !== fields.userNotesSpaceComplexity,
   };
@@ -232,11 +249,15 @@ async function problemIdBySlug(slug: string) {
 
 function toNotes(row: {
   userNotesApproach: string | null;
+  userNotesSteps: string | null;
+  userNotesPitfalls: string | null;
   userNotesTimeComplexity: string | null;
   userNotesSpaceComplexity: string | null;
-}): SolutionNotes | null {
+}): PersonalNotes | null {
   if (
     row.userNotesApproach == null &&
+    row.userNotesSteps == null &&
+    row.userNotesPitfalls == null &&
     row.userNotesTimeComplexity == null &&
     row.userNotesSpaceComplexity == null
   ) {
@@ -244,6 +265,8 @@ function toNotes(row: {
   }
   return {
     approach: row.userNotesApproach ?? "",
+    steps: row.userNotesSteps ?? "",
+    pitfalls: row.userNotesPitfalls ?? "",
     timeComplexity: row.userNotesTimeComplexity ?? "",
     spaceComplexity: row.userNotesSpaceComplexity ?? "",
   };
@@ -386,19 +409,40 @@ async function saveDraft(
   }
 
   if (!existing) {
-    await tx.insert(drafts).values({
-      problemId,
-      language,
-      source,
-      revision: 1,
-    });
+    // Two tabs can both observe "no row". The loser must conflict instead of
+    // reporting a write that the unique key discarded.
+    const inserted = await tx
+      .insert(drafts)
+      .values({
+        problemId,
+        language,
+        source,
+        revision: 1,
+      })
+      .onConflictDoNothing({
+        target: [drafts.problemId, drafts.language],
+      })
+      .returning({ id: drafts.id });
+    if (inserted.length === 0) {
+      const latest = await tx.query.drafts.findFirst({
+        where: { problemId, language },
+      });
+      throw conflictFrom("draft", latest ?? null);
+    }
     return;
   }
 
-  await tx
+  const updated = await tx
     .update(drafts)
     .set({ source, revision: sql`${drafts.revision} + 1` })
-    .where(and(eq(drafts.id, existing.id), eq(drafts.revision, existing.revision)));
+    .where(and(eq(drafts.id, existing.id), eq(drafts.revision, existing.revision)))
+    .returning({ id: drafts.id });
+  if (updated.length === 0) {
+    const latest = await tx.query.drafts.findFirst({
+      where: { problemId, language },
+    });
+    throw conflictFrom("draft", latest ?? null);
+  }
 }
 
 async function saveProgress(
@@ -419,18 +463,30 @@ async function saveProgress(
 
   const notes = patch.notes;
   if (!existing) {
-    await tx.insert(problemProgress).values({
-      problemId,
-      preferredLanguage: patch.preferredLanguage ?? null,
-      userNotesApproach: notes?.approach ?? null,
-      userNotesTimeComplexity: notes?.timeComplexity ?? null,
-      userNotesSpaceComplexity: notes?.spaceComplexity ?? null,
-      revision: 1,
-    });
+    const inserted = await tx
+      .insert(problemProgress)
+      .values({
+        problemId,
+        preferredLanguage: patch.preferredLanguage ?? null,
+        userNotesApproach: notes?.approach ?? null,
+        userNotesSteps: notes?.steps ?? null,
+        userNotesPitfalls: notes?.pitfalls ?? null,
+        userNotesTimeComplexity: notes?.timeComplexity ?? null,
+        userNotesSpaceComplexity: notes?.spaceComplexity ?? null,
+        revision: 1,
+      })
+      .onConflictDoNothing({ target: problemProgress.problemId })
+      .returning({ id: problemProgress.id });
+    if (inserted.length === 0) {
+      const latest = await tx.query.problemProgress.findFirst({
+        where: { problemId },
+      });
+      throw conflictFrom("progress", latest ?? null);
+    }
     return;
   }
 
-  await tx
+  const updated = await tx
     .update(problemProgress)
     .set({
       ...(patch.preferredLanguage !== undefined
@@ -438,6 +494,10 @@ async function saveProgress(
         : {}),
       ...(notes?.approach !== undefined
         ? { userNotesApproach: notes.approach }
+        : {}),
+      ...(notes?.steps !== undefined ? { userNotesSteps: notes.steps } : {}),
+      ...(notes?.pitfalls !== undefined
+        ? { userNotesPitfalls: notes.pitfalls }
         : {}),
       ...(notes?.timeComplexity !== undefined
         ? { userNotesTimeComplexity: notes.timeComplexity }
@@ -452,7 +512,14 @@ async function saveProgress(
         eq(problemProgress.id, existing.id),
         eq(problemProgress.revision, existing.revision),
       ),
-    );
+    )
+    .returning({ id: problemProgress.id });
+  if (updated.length === 0) {
+    const latest = await tx.query.problemProgress.findFirst({
+      where: { problemId },
+    });
+    throw conflictFrom("progress", latest ?? null);
+  }
 }
 
 export async function patchPractice(
@@ -550,6 +617,8 @@ export async function importPractice(
         ...current,
         notes: {
           approach: entry.approach,
+          steps: entry.steps,
+          pitfalls: entry.pitfalls,
           timeComplexity: entry.timeComplexity,
           spaceComplexity: entry.spaceComplexity,
         },
@@ -577,6 +646,8 @@ export async function importPractice(
           ? {
               preferredLanguage: existing.preferredLanguage,
               userNotesApproach: existing.userNotesApproach,
+              userNotesSteps: existing.userNotesSteps,
+              userNotesPitfalls: existing.userNotesPitfalls,
               userNotesTimeComplexity: existing.userNotesTimeComplexity,
               userNotesSpaceComplexity: existing.userNotesSpaceComplexity,
             }
@@ -592,6 +663,8 @@ export async function importPractice(
           problemId,
           preferredLanguage: merged.fields.preferredLanguage,
           userNotesApproach: merged.fields.userNotesApproach,
+          userNotesSteps: merged.fields.userNotesSteps,
+          userNotesPitfalls: merged.fields.userNotesPitfalls,
           userNotesTimeComplexity: merged.fields.userNotesTimeComplexity,
           userNotesSpaceComplexity: merged.fields.userNotesSpaceComplexity,
           revision: 1,
@@ -602,6 +675,8 @@ export async function importPractice(
           .set({
             preferredLanguage: merged.fields.preferredLanguage,
             userNotesApproach: merged.fields.userNotesApproach,
+            userNotesSteps: merged.fields.userNotesSteps,
+            userNotesPitfalls: merged.fields.userNotesPitfalls,
             userNotesTimeComplexity: merged.fields.userNotesTimeComplexity,
             userNotesSpaceComplexity: merged.fields.userNotesSpaceComplexity,
             revision: sql`${problemProgress.revision} + 1`,

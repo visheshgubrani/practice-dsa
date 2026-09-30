@@ -22,9 +22,11 @@ type Neighbour = Pick<ProblemSummary, "slug" | "title" | "number">;
 function NeighbourLink({
   target,
   direction,
+  review = false,
 }: {
   target?: Neighbour;
   direction: "previous" | "next";
+  review?: boolean;
 }) {
   const Icon = direction === "previous" ? ChevronLeftIcon : ChevronRightIcon;
 
@@ -44,7 +46,7 @@ function NeighbourLink({
 
   return (
     <Link
-      href={`/problems/${target.slug}`}
+      href={`/problems/${target.slug}${review ? "?review=1" : ""}`}
       aria-label={`${direction === "previous" ? "Previous" : "Next"} problem: ${target.title}`}
       title={`${target.number}. ${target.title}`}
       className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }))}
@@ -60,6 +62,7 @@ export function WorkspaceHeader({
   next,
   solved,
   revision = false,
+  review = false,
   busyMode,
   onRun,
   onSubmit,
@@ -70,6 +73,8 @@ export function WorkspaceHeader({
   solved: boolean;
   /** True while this workspace is a revise session. */
   revision?: boolean;
+  /** True while this workspace is a recall-first review. */
+  review?: boolean;
   /** Non-null while a run or submit is in flight. */
   busyMode: "run" | "submit" | null;
   onRun: () => void;
@@ -79,8 +84,8 @@ export function WorkspaceHeader({
 
   return (
     <AppHeader>
-      <NeighbourLink target={previous} direction="previous" />
-      <NeighbourLink target={next} direction="next" />
+      <NeighbourLink target={previous} direction="previous" review={review} />
+      <NeighbourLink target={next} direction="next" review={review} />
 
       <div className="ml-1 flex min-w-0 items-center gap-2.5">
         <span className="shrink-0 font-mono text-xs text-muted-foreground">
@@ -91,7 +96,11 @@ export function WorkspaceHeader({
         {solved && (
           <span className="hidden shrink-0 items-center gap-1 font-mono text-[11px] text-success sm:inline-flex">
             <CheckIcon className="size-3.5" />
-            {revision ? "solved · revising" : "solved"}
+            {revision
+              ? "solved · revising"
+              : review
+                ? "solved · reviewing"
+                : "solved"}
           </span>
         )}
         <div className="hidden min-w-0 items-center gap-1 lg:flex">
@@ -107,7 +116,7 @@ export function WorkspaceHeader({
       </div>
 
       <div className="ml-auto flex shrink-0 items-center gap-1.5 pl-2">
-        {solved && !revision ? (
+        {solved && !revision && !review ? (
           <ReviseButton
             slug={problem.slug}
             label="Revise"

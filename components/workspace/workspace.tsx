@@ -11,7 +11,10 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { useIsWideLayout } from "@/lib/hooks/use-media-query";
+import { useChatWorkspace } from "@/lib/hooks/use-chat-workspace";
+import { useNotesDraft } from "@/lib/hooks/use-notes-draft";
 import { usePractice } from "@/lib/hooks/use-practice";
+import { useReviewCard } from "@/lib/hooks/use-review-card";
 import { usePracticeImport } from "@/lib/hooks/use-practice-import";
 import { useProgress } from "@/lib/hooks/use-progress";
 import { toLanguageId } from "@/lib/languages";
@@ -28,6 +31,7 @@ import {
   type RunMode,
   type RunResult,
   type RunnerKind,
+  type WorkspaceMode,
 } from "@/lib/runner/types";
 import type { Problem, ProblemSummary } from "@/lib/problems";
 
@@ -47,6 +51,11 @@ import {
 } from "./save-status";
 import type { RunState } from "./verdict-strip";
 import { WorkspaceHeader } from "./workspace-header";
+import { ReviewSession } from "./review-session";
+import {
+  AcceptedReviewOffer,
+  ReviewNotesControls,
+} from "./review-controls";
 
 type Neighbour = Pick<ProblemSummary, "slug" | "title" | "number">;
 
@@ -87,11 +96,8 @@ export type WorkspaceProps = {
   aiMode: AiMode;
   /** Which executor is configured, so the console can say so before a run. */
   runner: RunnerKind;
-  /**
-   * A revisit of a solved problem: the editor works on the accepted solution
-   * rather than the stored draft, and a Submit here is recorded as a revision.
-   */
-  revision?: boolean;
+  /** Practice, accepted-code revise, or recall-first review session. */
+  sessionMode: WorkspaceMode;
   /**
    * Solved as of the server render, so the header's solved mark and its Revise
    * action are there on the first paint. The practice fetch below has the
@@ -106,12 +112,28 @@ export function Workspace({
   next,
   aiMode,
   runner,
-  revision = false,
+  sessionMode,
   solved: solvedOnServer = false,
 }: WorkspaceProps) {
+  const revision = sessionMode === "revise";
+  const review = sessionMode === "review";
   const isWide = useIsWideLayout();
   const { markAccepted } = useProgress();
-  const practice = usePractice(problem, { revision });
+  const practice = usePractice(problem, {
+    bufferMode: sessionMode === "practice" ? "persistent" : "temporary",
+    temporarySeed: review ? "starter" : "accepted",
+  });
+  const chat = useChatWorkspace(problem.slug);
+  /**
+   * The AI notes preview. It lives here, not in the Notes tab, for two reasons:
+   * a tab switch must not throw a preview away, and leaving the problem must
+   * cancel a generation in flight. Both are this component's lifecycle.
+   */
+  const notesDraft = useNotesDraft({
+    slug: problem.slug,
+    notes: practice.notes,
+    onNotesChange: practice.onNotesChange,
+  });
   const importer = usePracticeImport({
     onImported: practice.retryLoad,
   });
@@ -121,7 +143,9 @@ export function Workspace({
   const [historyEpoch, setHistoryEpoch] = useState(0);
   const [testcaseIndex, setTestcaseIndex] = useState(0);
   const [consoleMinimized, setConsoleMinimized] = useState(false);
+  const [acceptedReviewOffer, setAcceptedReviewOffer] = useState(false);
   const [problemTab, setProblemTab] = useState<ProblemTab>("description");
+  const reviewSchedule = useReviewCard(problem.slug);
   const consolePanelRef = usePanelRef();
   const problemPanelRef = usePanelRef();
   /** The left panel's width before a trace widened it, as a percentage string. */
@@ -131,6 +155,32 @@ export function Workspace({
     runState.status === "done" ? summarizeRun(runState.result) : undefined;
   const submissionId =
     runState.status === "done" ? runState.result.submissionId : undefined;
+
+  /**
+   * One request, assembled from what is on screen right now.
+   *
+   * The conversation is only attached once it has messages: a fresh chat holds
+   * a client-generated id that no row matches yet, and there is nothing in it to
+   * summarize. The run is attached only when this session persisted one. The
+   * server omits whichever is absent and rejects one that belongs to another
+   * problem.
+   */
+  const generateNotesDraft = useCallback(() => {
+    notesDraft.generate({
+      language: practice.language.id,
+      source: practice.source,
+      threadId:
+        chat.messages.length > 0 ? (chat.threadId ?? undefined) : undefined,
+      submissionId,
+    });
+  }, [
+    chat.messages.length,
+    chat.threadId,
+    notesDraft,
+    practice.language.id,
+    practice.source,
+    submissionId,
+  ]);
 
   const solved = practice.progress.status === "solved" || solvedOnServer;
 
@@ -164,7 +214,7 @@ export function Workspace({
             // The streak is counted in the viewer's own days, so the client
             // says where its clock is rather than leaving the server to guess.
             utcOffsetMinutes: utcOffsetMinutesFor(),
-            revision,
+            sessionMode,
           }),
         });
 
@@ -209,6 +259,7 @@ export function Workspace({
             language: languageId,
             at: result.at,
           });
+          setAcceptedReviewOffer(true);
           markAccepted(problem.slug, languageId);
         }
       } catch (error) {
@@ -227,7 +278,8 @@ export function Workspace({
       markAccepted,
       practice,
       problem.slug,
-      revision,
+      setAcceptedReviewOffer,
+      sessionMode,
       testcaseIndex,
     ],
   );
@@ -297,6 +349,11 @@ export function Workspace({
         return;
       }
 
+      if (practice.bufferMode === "temporary") {
+        practice.onLanguageChange(language, source);
+        return;
+      }
+
       try {
         window.localStorage.setItem(
           codeRecoveryKey(problem.slug, language),
@@ -334,13 +391,37 @@ export function Workspace({
       ? null
       : practice.accepted;
 
+  const showAcceptedReviewOffer =
+    acceptedReviewOffer &&
+    (reviewSchedule.status !== "ready" || !reviewSchedule.card.enrolled);
+
   const banners =
+    review ||
     revision ||
+    showAcceptedReviewOffer ||
     importer.visible ||
     practice.loadError ||
     practice.draftConflict ||
     practice.notesConflict ? (
       <div className="flex shrink-0 flex-col gap-2 border-b border-border px-3 py-2">
+      {review ? (
+          <div className="flex flex-wrap items-center gap-2 rounded-md border border-primary/35 bg-primary/10 px-3 py-2">
+            <p className="text-xs text-foreground/90">
+              <span className="font-mono text-[11px] text-primary">review</span>{" "}
+              Recall the key idea, outline the steps, then try coding. The code
+              buffer restarts on refresh.
+            </p>
+            <Link
+              href={`/problems/${problem.slug}`}
+              className="ml-auto shrink-0 font-mono text-[11px] text-muted-foreground underline underline-offset-4 hover:text-foreground"
+            >
+              leave review mode
+            </Link>
+          </div>
+      ) : null}
+        {showAcceptedReviewOffer ? (
+          <AcceptedReviewOffer schedule={reviewSchedule} />
+        ) : null}
         {revision ? (
           <div className="flex flex-wrap items-center gap-2 rounded-md border border-primary/35 bg-primary/10 px-3 py-2">
             <RotateCcwIcon className="size-3.5 shrink-0 text-primary" />
@@ -411,7 +492,18 @@ export function Workspace({
       onLoadLegacy={loadLegacyCode}
       notesSaveStatus={practice.notesStatus}
       onRetryNotesSave={practice.retryNotesSave}
+      notesDraft={notesDraft}
+      onGenerateNotesDraft={generateNotesDraft}
+      reviewControls={
+        <ReviewNotesControls slug={problem.slug} schedule={reviewSchedule} />
+      }
       simulated={runner === "mock"}
+      review={review}
+      reviewContent={
+        review ? (
+          <ReviewSession slug={problem.slug} submissionId={submissionId} />
+        ) : undefined
+      }
       chat={
         <AiChatPane
           problem={problem}
@@ -420,6 +512,7 @@ export function Workspace({
           runSummary={runSummary}
           submissionId={submissionId}
           aiMode={aiMode}
+          workspace={chat}
         />
       }
       language={practice.language}
@@ -433,6 +526,7 @@ export function Workspace({
   const editorPane = (
     <CodeEditorPane
       slug={problem.slug}
+      sessionKey={sessionMode}
       value={practice.source}
       language={practice.language.id}
       monacoLanguage={practice.language.monacoId}
@@ -442,8 +536,12 @@ export function Workspace({
       onRun={() => {
         void run("run");
       }}
-      saveStatus={practice.draftStatus}
-      onRetrySave={practice.retryDraftSave}
+      saveStatus={
+        practice.bufferMode === "temporary" ? "idle" : practice.draftStatus
+      }
+      onRetrySave={
+        practice.bufferMode === "temporary" ? undefined : practice.retryDraftSave
+      }
     />
   );
 
@@ -487,6 +585,7 @@ export function Workspace({
         next={next}
         solved={solved}
         revision={revision}
+        review={review}
         busyMode={busyMode}
         onRun={() => {
           void run("run");

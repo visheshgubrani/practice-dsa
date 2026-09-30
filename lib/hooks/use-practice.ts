@@ -18,6 +18,12 @@ import {
   notesRecoveryKey,
 } from "@/lib/practice/keys";
 import { resolveLoadedNotes, resolveLoadedSource } from "@/lib/practice/load";
+import {
+  EMPTY_PERSONAL_NOTES,
+  normalizePersonalNotes,
+  shouldClearNotesDirty,
+  type PersonalNotes,
+} from "@/lib/practice/notes";
 import { createSerialQueue } from "@/lib/practice/serial";
 import {
   SAVE_DEBOUNCE_MS,
@@ -33,7 +39,7 @@ import {
   toLanguageId,
   type LanguageId,
 } from "@/lib/languages";
-import type { Problem, SolutionNotes } from "@/lib/problems";
+import type { Problem } from "@/lib/problems";
 
 export type SaveStatus = "idle" | "saving" | "saved" | "error";
 
@@ -57,17 +63,10 @@ export type AcceptedRecord = {
 } | null;
 
 export type UsePracticeOptions = {
-  /**
-   * Revise mode: the editor works on a throwaway copy of the accepted solution
-   * instead of the stored draft.
-   *
-   * The stored draft is the record of your first attempt and the accepted
-   * source is the record of what worked, so a revisit must not overwrite
-   * either. In this mode nothing is read from or written to the draft: the
-   * buffer starts as the accepted code, edits live in memory for the visit, and
-   * a refresh starts the pass over. Submits still record history.
-   */
-  revision?: boolean;
+  /** Whether editor changes use the durable draft or a throwaway visit buffer. */
+  bufferMode?: "persistent" | "temporary";
+  /** How a fresh temporary buffer begins; review starts from the problem starter. */
+  temporarySeed?: "accepted" | "starter";
 };
 
 const TODO_PROGRESS: PracticeProgress = {
@@ -111,7 +110,10 @@ function toAccepted(state: {
  */
 export function usePractice(
   problem: Problem,
-  { revision = false }: UsePracticeOptions = {},
+  {
+    bufferMode = "persistent",
+    temporarySeed = "accepted",
+  }: UsePracticeOptions = {},
 ) {
   const languageState = usePersistedState<LanguageId>(
     languageRecoveryKey(problem.slug),
@@ -126,9 +128,9 @@ export function usePractice(
     codeRecoveryKey(problem.slug, language.id),
     starter,
   );
-  const notesState = usePersistedState<SolutionNotes>(
+  const notesState = usePersistedState<PersonalNotes>(
     notesRecoveryKey(problem.slug),
-    problem.notes,
+    EMPTY_PERSONAL_NOTES,
   );
   const acceptedState = usePersistedState<AcceptedRecord>(
     acceptedRecoveryKey(problem.slug),
@@ -143,13 +145,15 @@ export function usePractice(
     false,
   );
 
-  /**
-   * The revise buffer. Null until the fetch that knows the accepted source
-   * resolves, because the accepted code is server state and the first paint
-   * has not seen it yet.
-   */
-  const [revisionSource, setRevisionSource] = useState<string | null>(null);
-  const revisionSeeded = useRef(false);
+  /** Temporary edits exist for this visit only; the starter never reads a draft. */
+  const [temporarySource, setTemporarySource] = useState<string | null>(
+    temporarySeed === "starter" ? starter : null,
+  );
+  const temporarySeeded = useRef(temporarySeed === "starter");
+  const visibleSource =
+    bufferMode === "temporary"
+      ? (temporarySource ?? (temporarySeed === "starter" ? starter : codeState.value))
+      : codeState.value;
 
   const [loadError, setLoadError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -175,12 +179,14 @@ export function usePractice(
 
   const live = useRef({
     starter,
-    notesFallback: problem.notes,
-    source: codeState.value,
-    notes: notesState.value,
+    notesFallback: EMPTY_PERSONAL_NOTES,
+    source: visibleSource,
+    notes: normalizePersonalNotes(notesState.value),
     language: language.id,
     slug: problem.slug,
-    revision,
+    bufferMode,
+    temporarySeed,
+    setTemporarySource,
     ready: false,
     draftConflict: null as PracticeConflictState | null,
     notesConflict: null as PracticeConflictState | null,
@@ -206,12 +212,14 @@ export function usePractice(
   useLayoutEffect(() => {
     const current = live.current;
     current.starter = starter;
-    current.notesFallback = problem.notes;
-    current.source = codeState.value;
-    current.notes = notesState.value;
+    current.notesFallback = EMPTY_PERSONAL_NOTES;
+    current.source = visibleSource;
+    current.notes = normalizePersonalNotes(notesState.value);
     current.language = language.id;
     current.slug = problem.slug;
-    current.revision = revision;
+    current.bufferMode = bufferMode;
+    current.temporarySeed = temporarySeed;
+    current.setTemporarySource = setTemporarySource;
     current.ready = ready;
     current.draftConflict = draftConflict;
     current.notesConflict = notesConflict;
@@ -222,10 +230,31 @@ export function usePractice(
     current.setCode = setCode;
     current.setNotes = setNotes;
     current.setLanguageRecovery = setLanguageRecovery;
-  });
+  }, [
+    starter,
+    visibleSource,
+    notesState.value,
+    language.id,
+    problem.slug,
+    bufferMode,
+    temporarySeed,
+    ready,
+    draftConflict,
+    notesConflict,
+    codeDirty.value,
+    notesDirty.value,
+    setCodeDirty,
+    setNotesDirty,
+    setCode,
+    setNotes,
+    setLanguageRecovery,
+  ]);
 
   const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const progressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleProgressRef = useRef<
+    (job: ProgressJob, immediate?: boolean) => void
+  >(() => {});
   const draftQueueRef = useRef<ReturnType<
     typeof createSerialQueue<DraftJob>
   > | null>(null);
@@ -236,6 +265,9 @@ export function usePractice(
   const getDraftQueue = useCallback(() => {
     draftQueueRef.current ??= createSerialQueue(async (job: DraftJob) => {
       const current = live.current;
+      // A temporary buffer is never the stored draft, even when an old dirty
+      // flag from the ordinary session is still set.
+      if (current.bufferMode === "temporary") return;
       if (!current.ready && !job.overwrite) return;
       if (current.draftConflict && !job.overwrite) return;
       if (!job.overwrite && !current.codeDirty) return;
@@ -283,21 +315,15 @@ export function usePractice(
       if (!job.overwrite && !job.includeLanguage && !current.notesDirty) {
         return;
       }
+      const sent = job.includeNotes
+        ? normalizePersonalNotes(current.notes)
+        : null;
       current.setNotesStatus("saving");
       try {
-        const notes = current.notes;
         const next = await patchPractice(
           current.slug,
           {
-            ...(job.includeNotes
-              ? {
-                  notes: {
-                    approach: notes.approach,
-                    timeComplexity: notes.timeComplexity,
-                    spaceComplexity: notes.spaceComplexity,
-                  },
-                }
-              : {}),
+            ...(sent ? { notes: sent } : {}),
             ...(job.includeLanguage
               ? { preferredLanguage: current.language }
               : {}),
@@ -309,10 +335,25 @@ export function usePractice(
         );
         current.progressRevision = next.progress.revision;
         if (next.draft) current.draftRevision = next.draft.revision;
-        current.setNotesDirty(false);
-        current.notesDirty = false;
+        const notesLanded =
+          sent != null &&
+          shouldClearNotesDirty(sent, normalizePersonalNotes(current.notes));
+        if (notesLanded) {
+          current.setNotesDirty(false);
+          current.notesDirty = false;
+        } else if (sent) {
+          // A keystroke landed after this request was built. Leave the dirty
+          // flag set and send the newer text; clearing it would drop that edit.
+          current.notesDirty = true;
+          current.setNotesDirty(true);
+          scheduleProgressRef.current({
+            overwrite: false,
+            includeNotes: true,
+            includeLanguage: false,
+          });
+        }
         current.setNotesConflict(null);
-        current.setNotesStatus("saved");
+        current.setNotesStatus(notesLanded || sent == null ? "saved" : "saving");
         current.setServerAccepted(toAccepted(next));
       } catch (error) {
         if (error instanceof PracticeConflict) {
@@ -354,6 +395,10 @@ export function usePractice(
     [getProgressQueue],
   );
 
+  useEffect(() => {
+    scheduleProgressRef.current = scheduleProgress;
+  }, [scheduleProgress]);
+
   const flush = useCallback(async () => {
     if (draftTimer.current) {
       clearTimeout(draftTimer.current);
@@ -365,7 +410,7 @@ export function usePractice(
     }
     const current = live.current;
     const tasks: Promise<void>[] = [];
-    if (current.codeDirty) {
+    if (current.codeDirty && current.bufferMode === "persistent") {
       tasks.push(getDraftQueue().enqueue({ overwrite: false }));
     }
     if (current.notesDirty) {
@@ -411,20 +456,39 @@ export function usePractice(
       setLoadError(null);
 
       const preferred = toLanguageId(state.progress.preferredLanguage);
-      if (preferred && preferred !== current.language && !current.revision) {
+      if (
+        preferred &&
+        preferred !== current.language &&
+        current.bufferMode === "persistent"
+      ) {
         current.setLanguageRecovery(preferred);
         return;
       }
 
-      // Revise mode: the buffer is the accepted code, taken once from the first
-      // load that knows it. Re-seeding on a later load would throw away edits in
-      // progress, so this happens exactly once per visit.
-      if (current.revision) {
-        if (!revisionSeeded.current) {
-          revisionSeeded.current = true;
-          const source = toAccepted(state)?.source ?? current.source;
+      const loadedNotes = resolveLoadedNotes({
+        server: state.notes,
+        recovery: current.notes,
+        fallback: current.notesFallback,
+        dirty: current.notesDirty,
+      });
+      current.notes = loadedNotes.value;
+      current.setNotes(loadedNotes.value);
+      if (!loadedNotes.retrySave) {
+        current.notesDirty = false;
+        current.setNotesDirty(false);
+      }
+
+      // Temporary buffers seed once per visit. Revise uses accepted code when
+      // available; recall review keeps the starter seeded on the first paint.
+      if (current.bufferMode === "temporary") {
+        if (!temporarySeeded.current) {
+          temporarySeeded.current = true;
+          const source =
+            current.temporarySeed === "accepted"
+              ? (toAccepted(state)?.source ?? current.source)
+              : current.starter;
           current.source = source;
-          setRevisionSource(source);
+          current.setTemporarySource(source);
         }
         setLegacySnapshot(state.legacySnapshot);
         setLoadError(null);
@@ -432,6 +496,7 @@ export function usePractice(
         setNotesConflict(null);
         setReady(true);
         current.ready = true;
+        applyServer(false, loadedNotes.retrySave);
         return;
       }
 
@@ -441,24 +506,12 @@ export function usePractice(
         starter: current.starter,
         dirty: current.codeDirty,
       });
-      const loadedNotes = resolveLoadedNotes({
-        server: state.notes,
-        recovery: current.notes,
-        fallback: current.notesFallback,
-        dirty: current.notesDirty,
-      });
 
       current.source = loadedSource.value;
-      current.notes = loadedNotes.value;
       current.setCode(loadedSource.value);
-      current.setNotes(loadedNotes.value);
       if (!loadedSource.retrySave) {
         current.codeDirty = false;
         current.setCodeDirty(false);
-      }
-      if (!loadedNotes.retrySave) {
-        current.notesDirty = false;
-        current.setNotesDirty(false);
       }
       setDraftConflict(null);
       setNotesConflict(null);
@@ -528,9 +581,10 @@ export function usePractice(
     notesState.hydrated,
     onLoadFailed,
     problem.slug,
-    // Switching into or out of a revise session changes what a load applies, so
-    // it has to reload. The workspace also remounts on the switch.
-    revision,
+    // The workspace remounts for each session mode, so this load applies only
+    // to the buffer policy selected for this visit.
+    bufferMode,
+    temporarySeed,
   ]);
 
   useEffect(() => {
@@ -564,10 +618,9 @@ export function usePractice(
       if (value === current.source) return;
       current.source = value;
 
-      // A revise buffer is not the draft: keeping `codeDirty` false is what
-      // stops the draft queue from writing it to Postgres.
-      if (current.revision) {
-        setRevisionSource(value);
+      // Temporary edits stay in memory and never touch draft or recovery keys.
+      if (current.bufferMode === "temporary") {
+        current.setTemporarySource(value);
         return;
       }
 
@@ -582,11 +635,11 @@ export function usePractice(
   );
 
   const onNotesChange = useCallback(
-    (value: SolutionNotes) => {
+    (value: PersonalNotes) => {
       const current = live.current;
-      current.notes = value;
+      current.notes = normalizePersonalNotes(value);
       current.notesDirty = true;
-      current.setNotes(value);
+      current.setNotes(current.notes);
       current.setNotesDirty(true);
       if (current.ready && !current.notesConflict) {
         scheduleProgress({
@@ -600,11 +653,17 @@ export function usePractice(
   );
 
   const onLanguageChange = useCallback(
-    (next: LanguageId) => {
+    (next: LanguageId, temporarySourceOverride?: string) => {
       if (next === live.current.language) return;
       void flush().then(() => {
         live.current.setLanguageRecovery(next);
         live.current.language = next;
+        if (live.current.bufferMode === "temporary") {
+          const freshStarter =
+            temporarySourceOverride ?? problem.starterCode[next];
+          live.current.source = freshStarter;
+          live.current.setTemporarySource(freshStarter);
+        }
         if (live.current.ready && !live.current.notesConflict) {
           scheduleProgress(
             {
@@ -617,14 +676,14 @@ export function usePractice(
         }
       });
     },
-    [flush, scheduleProgress],
+    [flush, problem.starterCode, scheduleProgress],
   );
 
   const onReset = useCallback(() => {
     const current = live.current;
     current.source = current.starter;
-    if (current.revision) {
-      setRevisionSource(current.starter);
+    if (current.bufferMode === "temporary") {
+      current.setTemporarySource(current.starter);
       return;
     }
     current.codeDirty = true;
@@ -695,13 +754,10 @@ export function usePractice(
 
   return {
     language,
-    /**
-     * What the editor shows. In revise mode that is the throwaway buffer, which
-     * is seeded from the accepted code and never written back as a draft.
-     */
-    source: revision ? (revisionSource ?? codeState.value) : codeState.value,
-    revision,
-    notes: notesState.value,
+    /** What the editor shows; temporary buffers are local to this visit. */
+    source: visibleSource,
+    bufferMode,
+    notes: normalizePersonalNotes(notesState.value),
     accepted: serverAccepted ?? acceptedState.value,
     legacySnapshot,
     hasVerifiedAccepted: serverAccepted !== null,

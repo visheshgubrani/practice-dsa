@@ -20,6 +20,10 @@ export type Verdict = (typeof VERDICTS)[number];
 export const RUN_MODES = ["run", "submit"] as const;
 export type RunMode = (typeof RUN_MODES)[number];
 
+/** A workspace session is separate from whether its code buffer is persisted. */
+export const WORKSPACE_MODES = ["practice", "revise", "review"] as const;
+export type WorkspaceMode = (typeof WORKSPACE_MODES)[number];
+
 /**
  * Which executor produced a run.
  *
@@ -39,6 +43,8 @@ export const runRequestSchema = z.object({
   language: z.enum(["python"]),
   source: z.string().max(200_000),
   mode: z.enum(RUN_MODES),
+  /** Controls history semantics; it never controls client-side code persistence. */
+  sessionMode: z.enum(WORKSPACE_MODES).optional(),
   /** Only meaningful for `mode: "run"` — the case selected in the console. */
   testcaseIndex: z.number().int().min(0).max(50).optional(),
   /** Idempotency key so a retry cannot insert a second history row. */
@@ -52,11 +58,7 @@ export const runRequestSchema = z.object({
    * never assumed to be UTC.
    */
   utcOffsetMinutes: z.number().int().min(-840).max(840).optional(),
-  /**
-   * True when this is a revisit of an already-solved problem. The server, not
-   * the caller, decides what that means: `persistRunResult` records it on the
-   * row, and progress still cannot be written by a Run.
-   */
+  /** Legacy request field retained for already-open clients. */
   revision: z.boolean().optional(),
 });
 

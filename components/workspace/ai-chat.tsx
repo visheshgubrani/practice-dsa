@@ -37,7 +37,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { messageText } from "@/lib/chat/messages";
 import type { ChatThreadSummary, TutorUIMessage } from "@/lib/chat/types";
-import { useChatWorkspace } from "@/lib/hooks/use-chat-workspace";
+import type { ChatWorkspace } from "@/lib/hooks/use-chat-workspace";
 import type { Language } from "@/lib/languages";
 import type { Problem } from "@/lib/problems";
 
@@ -341,6 +341,7 @@ export function AiChatPane({
   runSummary,
   submissionId,
   aiMode,
+  workspace,
 }: {
   problem: Problem;
   language: Language;
@@ -351,9 +352,12 @@ export function AiChatPane({
   /** Stored run this question is about, when the last Run/Submit persisted. */
   submissionId?: string;
   aiMode: AiMode;
+  /**
+   * The conversation state. Owned by the workspace rather than this pane so the
+   * Notes tab can name the thread a draft should summarize.
+   */
+  workspace: ChatWorkspace;
 }) {
-  const workspace = useChatWorkspace(problem.slug);
-
   if (workspace.status === "loading" || workspace.threadId == null) {
     return (
       <div className="flex h-full min-h-0 flex-col bg-panel">

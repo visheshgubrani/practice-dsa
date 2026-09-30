@@ -15,7 +15,7 @@ import {
   listSubmissions,
   persistRunResult,
 } from "@/lib/db/queries/submissions";
-import { problems } from "@/lib/db/schema";
+import { problemProgress, problems } from "@/lib/db/schema";
 import { dayKey, utcOffsetMinutesFor } from "@/lib/practice/days";
 import type { RunResult } from "@/lib/runner/types";
 
@@ -442,6 +442,224 @@ describe("revision sessions", () => {
       row?.day,
       dayKey(new Date(row!.createdAt), utcOffsetMinutesFor(new Date(row!.createdAt))),
     );
+  });
+});
+
+describe("review submissions", () => {
+  let unsolvedSlug = "";
+  let solvedSlug = "";
+  const savedDraft = "# saved practice draft\n";
+  const reviewSource = "class Solution:\n    def twoSum(self, nums, target):\n        return [0, 1]\n";
+
+  before(async () => {
+    unsolvedSlug = await insertFixture();
+    solvedSlug = await insertFixture();
+  });
+
+  after(async () => {
+    if (unsolvedSlug) {
+      await db.delete(problems).where(eq(problems.slug, unsolvedSlug));
+    }
+    if (solvedSlug) {
+      await db.delete(problems).where(eq(problems.slug, solvedSlug));
+    }
+  });
+
+  it("lets an unsolved review Submit create the first solve without saving its buffer", async () => {
+    const revise = await persistRunResult({
+      slug: unsolvedSlug,
+      language: "python",
+      source: reviewSource,
+      requestId: crypto.randomUUID(),
+      sessionMode: "revise",
+      result: result({ mode: "submit", runner: "piston", verdict: "accepted" }),
+    });
+    assert.equal((await getSubmission(revise.id))?.isRevision, true);
+    assert.equal((await getPractice(unsolvedSlug, "python"))?.progress.status, "todo");
+    assert.equal((await getPractice(unsolvedSlug, "python"))?.progress.revision, 0);
+
+    await patchPractice(unsolvedSlug, {
+      draft: { source: savedDraft, revision: 0 },
+    });
+
+    const accepted = await persistRunResult({
+      slug: unsolvedSlug,
+      language: "python",
+      source: reviewSource,
+      requestId: crypto.randomUUID(),
+      sessionMode: "review",
+      result: result({
+        mode: "submit",
+        runner: "piston",
+        verdict: "accepted",
+        pistonVersion: "3.12.0",
+      }),
+    });
+
+    const submission = await getSubmission(accepted.id);
+    const state = await getPractice(unsolvedSlug, "python");
+    assert.equal(submission?.isRevision, false);
+    assert.equal(state?.progress.status, "solved");
+    assert.ok(state?.progress.solvedAt);
+    assert.equal(state?.latestAccepted?.source, reviewSource);
+    assert.equal(state?.draft?.source, savedDraft);
+  });
+
+  it("records a solved review Submit as a revision and preserves solve date and draft", async () => {
+    await patchPractice(solvedSlug, {
+      draft: { source: savedDraft, revision: 0 },
+    });
+    await persistRunResult({
+      slug: solvedSlug,
+      language: "python",
+      source: SOURCE,
+      requestId: crypto.randomUUID(),
+      sessionMode: "practice",
+      result: result({
+        mode: "submit",
+        runner: "piston",
+        verdict: "accepted",
+        pistonVersion: "3.12.0",
+      }),
+    });
+    const before = await getPractice(solvedSlug, "python");
+    assert.ok(before?.progress.solvedAt);
+
+    const revision = await persistRunResult({
+      slug: solvedSlug,
+      language: "python",
+      source: reviewSource,
+      requestId: crypto.randomUUID(),
+      sessionMode: "review",
+      result: result({
+        mode: "submit",
+        runner: "piston",
+        verdict: "accepted",
+        pistonVersion: "3.12.0",
+      }),
+    });
+
+    const submission = await getSubmission(revision.id);
+    const after = await getPractice(solvedSlug, "python");
+    assert.equal(submission?.isRevision, true);
+    assert.equal(after?.progress.solvedAt, before?.progress.solvedAt);
+    assert.equal(after?.draft?.source, savedDraft);
+  });
+});
+
+describe("personal note fields", () => {
+  let slug = "";
+
+  before(async () => {
+    slug = await insertFixture();
+  });
+
+  after(async () => {
+    if (slug) {
+      await db.delete(problems).where(eq(problems.slug, slug));
+    }
+  });
+
+  it("reads null steps and pitfalls as empty strings", async () => {
+    const problem = await db.query.problems.findFirst({
+      where: { slug },
+      columns: { id: true },
+    });
+    assert.ok(problem);
+    await db.insert(problemProgress).values({
+      problemId: problem.id,
+      userNotesApproach: "kept",
+      userNotesTimeComplexity: "O(1)",
+      userNotesSpaceComplexity: "O(1)",
+    });
+
+    const state = await getPractice(slug, "python");
+    assert.equal(state?.notes?.approach, "kept");
+    assert.equal(state?.notes?.steps, "");
+    assert.equal(state?.notes?.pitfalls, "");
+    assert.equal(state?.notes?.timeComplexity, "O(1)");
+  });
+
+  it("round-trips the new fields and keeps an emptied approach", async () => {
+    const current = await getPractice(slug, "python");
+    const saved = await patchPractice(slug, {
+      notes: {
+        steps: "store complements",
+        pitfalls: "same index twice",
+      },
+      progressRevision: current?.progress.revision,
+    });
+    assert.equal(saved?.notes?.approach, "kept");
+    assert.equal(saved?.notes?.steps, "store complements");
+    assert.equal(saved?.notes?.pitfalls, "same index twice");
+
+    const cleared = await patchPractice(slug, {
+      notes: { approach: "" },
+      progressRevision: saved?.progress.revision,
+    });
+    assert.equal(cleared?.notes?.approach, "");
+    assert.equal(cleared?.notes?.steps, "store complements");
+    assert.equal(cleared?.notes?.pitfalls, "same index twice");
+    assert.equal(cleared?.progress.status, "todo");
+    assert.equal(cleared?.progress.solvedAt, null);
+  });
+
+  it("rejects a stale notes write and keeps the newer text", async () => {
+    const current = await getPractice(slug, "python");
+    const revision = current?.progress.revision;
+    assert.equal(typeof revision, "number");
+
+    await patchPractice(slug, {
+      notes: { approach: "newer tab" },
+      progressRevision: revision,
+    });
+
+    await assert.rejects(
+      () =>
+        patchPractice(slug, {
+          notes: { approach: "stale overwrite", steps: "lost" },
+          progressRevision: revision,
+        }),
+      (error: unknown) =>
+        error instanceof PracticeConflictError && error.resource === "progress",
+    );
+
+    const kept = await getPractice(slug, "python");
+    assert.equal(kept?.notes?.approach, "newer tab");
+    assert.equal(kept?.notes?.steps, "store complements");
+    assert.notEqual(kept?.notes?.steps, "lost");
+  });
+
+  it("treats a concurrent first notes insert as a conflict", async () => {
+    const fresh = await insertFixture();
+    try {
+      const results = await Promise.allSettled([
+        patchPractice(fresh, {
+          notes: { approach: "one", steps: "alpha" },
+          progressRevision: 0,
+        }),
+        patchPractice(fresh, {
+          notes: { approach: "two", steps: "beta" },
+          progressRevision: 0,
+        }),
+      ]);
+
+      const fulfilled = results.filter((result) => result.status === "fulfilled");
+      const rejected = results.filter((result) => result.status === "rejected");
+      assert.equal(fulfilled.length, 1);
+      assert.equal(rejected.length, 1);
+      assert.ok(rejected[0]?.status === "rejected");
+      assert.ok(rejected[0].reason instanceof PracticeConflictError);
+      assert.equal(rejected[0].reason.resource, "progress");
+
+      const state = await getPractice(fresh, "python");
+      const approach = state?.notes?.approach;
+      assert.ok(approach === "one" || approach === "two");
+      assert.equal(state?.notes?.steps, approach === "one" ? "alpha" : "beta");
+      assert.equal(state?.progress.status, "todo");
+    } finally {
+      await db.delete(problems).where(eq(problems.slug, fresh));
+    }
   });
 });
 

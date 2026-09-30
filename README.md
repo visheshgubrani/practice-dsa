@@ -2,10 +2,11 @@
 
 A personal, AI-native workbench for algorithm practice: a dashboard of progress
 by topic with a practice streak, the problem list, a LeetCode-shaped workspace
-(statement / solution notes / AI chat on the left, Monaco on the right, a
+(statement / solution / personal notes / AI chat on the left, Monaco on the right, a
 minimizeable console below), Run and Submit buttons, a revise mode for a second
 pass at a solved problem, and a streaming tutor that sees the problem and your
-current code.
+current code. Personal notes and manually enrolled FSRS reviews help you recall
+the approach later.
 
 ## Run it
 
@@ -23,6 +24,7 @@ pnpm dev
 - `/problems` — the full list (search, difficulty, tag, and solved filters)
 - `/problems/two-sum` — the workspace
 - `/problems/two-sum?revise=1` — the same problem again, starting from your accepted code
+- `/problems/two-sum?review=1` — recall from fresh starter code, with saved notes and solutions hidden until revealed
 
 `pnpm dev` and `pnpm build` first run `scripts/sync-monaco.mjs`, which copies
 Monaco's AMD build out of `node_modules` into `public/monaco/vs` (~24 MB,
@@ -111,7 +113,7 @@ See `.env.example`.
 
 | Variable | Effect when set |
 | --- | --- |
-| `OPENAI_API_KEY` | The AI chat talks to OpenAI (`gpt-6-luna`). Without it, a scripted tutor streams through the same protocol and the pane shows a `demo` badge. |
+| `OPENAI_API_KEY` | The tutor and AI note drafts use OpenAI (`gpt-6-luna`). Without it, chat has a scripted demo; note drafting reports the missing key and manual notes remain available. |
 | `PISTON_URL` | The execution engine. **This is what turns real judging on**; unset, Run and Submit are answered by the mock and the console says `simulated`. Defaults to `http://127.0.0.1:2001`. |
 | `RUNNER_KIND` | `mock` forces simulated verdicts even with an engine configured; anything else defers to `PISTON_URL`. |
 | `PISTON_RUN_TIMEOUT_MS` / `PISTON_RUN_MEMORY_MB` / `PISTON_MAX_CONCURRENCY` | Per-case limits (defaults 2000 ms, 256 MB, 4 at a time). The compose service advertises a higher ceiling than the runner asks for. |
@@ -238,9 +240,10 @@ wrong-answer fixture.
 
 ## Current plan
 
-Work is sequenced in [`docs/plan`](docs/plan/README.md). Phases 1–8 are complete
-and Phase 9 (dashboard, topic sections, streaks, and revise mode) is the current
-one. Phase 7 closed with 104 of the 150 NeetCode problems ready and seeded;
+Work is sequenced in [`docs/plan`](docs/plan/README.md). Phase 13 (personal notes
+and spaced repetition) is reviewed and complete; no new phase is selected.
+Older Phase 9 and tutor-conversation verification follow-ups retain their
+recorded status. Phase 7 closed with 104 of the 150 NeetCode problems ready and seeded;
 Encode and Decode Strings, Min Stack, Median of Two Sorted Arrays, and Time
 Based Key-Value Store were added afterward, so 108 are ready and seeded and 42
 remain deferred. The catalog has 109 rows in total because it also includes the
@@ -249,7 +252,7 @@ out-of-sheet `search-insert-position` problem. See
 
 ## What is real and what is not
 
-The notes below are the state after Phase 9 (the dashboard, streaks, and revise mode).
+The notes below describe the implementation through Phase 13.
 
 - **Durable (Postgres)**: the catalog (including each problem's roadmap topic),
   drafts, notes, preferred language, verified solved status, imported legacy
@@ -261,6 +264,25 @@ The notes below are the state after Phase 9 (the dashboard, streaks, and revise 
   revealed; hidden successes stay status-and-metrics. The tutor sees that same
   disclosed attempt, not the unrevealed hidden suite or the reference-solution
   source.
+- **Personal Notes are separate from catalog guidance.** Key idea, Steps,
+  What tripped me up, Time, and Space save as you type, with browser recovery,
+  retry, and concurrent-edit conflicts. New personal notes start empty.
+  **Draft from my session** creates an editable AI preview from bounded code,
+  completed conversation, and disclosed attempts. Generation saves nothing;
+  apply individual fields or fill empty fields, then discard the rest.
+- **Review is recall-first and manually enrolled.** Use **Add to review** in
+  Notes (also offered after acceptance) to create a card due immediately.
+  The dashboard shows active due and upcoming cards. Pause/resume preserves
+  the schedule. Review starts with fresh code and requires explicit reveals
+  of notes and saved solutions; its buffer resets on refresh. Finish and rate
+  Again, Hard, Good, or Easy even without a Submit. FSRS stores the next due
+  date; retries cannot schedule the same rating twice.
+- **Ratings and practice activity are separate.** Ratings never affect solved
+  status or streaks. A verified Piston Submit still counts as practice. In
+  Review, solved problems submit revisions preserving their first solve;
+  unsolved problems can get a first solve. Both preserve the ordinary draft.
+  Review takes precedence if both review/revise flags are present. Notes
+  remain durable in all modes.
 - **The dashboard reads the database.** Solved counts, the topic sections, the
   streak, and the calendar all come from `problem_progress` and `submissions`, so
   they are the same after a restart and in another browser. A **practice day is a
@@ -292,13 +314,15 @@ The notes below are the state after Phase 9 (the dashboard, streaks, and revise 
 ## Layout of the code
 
 ```
-app/                 routes: dashboard, problem list, workspace page, /api/chat, /api/run, /api/practice, /api/submissions
+app/                 routes: dashboard, problem list, workspace, chat, run, practice, submissions, notes/generate, reviews
 components/ui/       shadcn components (base-nova preset, Base UI primitives)
-components/dashboard/ streak calendar, streak card, stat cards, topic sections
+components/dashboard/ streak calendar, streak card, stat cards, topic sections, review queue
 components/problems/ problem list, catalog header, revise button, difficulty badge
 components/workspace/ header, problem panel, editor, console, history, chat
 lib/                 problem types + seed data, languages, runner types, AI prompts, hooks
-lib/ai/              tutor prompts and disclosed workspace context
+lib/ai/              tutor/notes prompts and disclosed workspace context
+lib/notes/           client-safe AI draft types and requests
+lib/reviews/         client DTOs, browser due-boundary timer, server FSRS adapter
 lib/chat/            client-safe chat types and the server turn handler
 lib/practice/        load/save recovery, import scan, serial write queues, local day keys
 lib/progress/        streak rules, heatmap grid, solved rollups (pure, no database)
@@ -316,7 +340,7 @@ scripts/piston-runtimes.mjs  install/verify the engine's language runtimes
 scripts/piston-check.mts     reference solutions through the whole judging path
 scripts/piston-latency.mts   Submit wall-time checkpoint (largest suite, cache bypassed)
 scripts/visualizer-check.mts every seeded problem's visible cases, traced for real
-scripts/chat-smoke.mts       disclosed tutor payload; live DeepSeek when a key is set
+scripts/chat-smoke.mts       disclosed tutor payload; live OpenAI when a key is set
 docker-compose.dev.yml
 ```
 
@@ -331,7 +355,7 @@ pnpm build            # production build
 pnpm piston:check     # needs the engine: reference + broken solutions, seeded catalog
 pnpm piston:latency   # Phase 4 Submit wall-time checkpoint (cache bypassed)
 pnpm visualizer:check # needs the engine: a trace per visible case, and no rows written
-pnpm chat:smoke       # disclosed tutor payload; live DeepSeek when a key is set
+pnpm chat:smoke       # disclosed tutor payload; live OpenAI when a key is set
 ```
 
 Note: `PageProps` route types are generated by `next dev`, `next build`, or

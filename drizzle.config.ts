@@ -22,6 +22,7 @@ export default defineConfig({
     "./lib/db/schema/enums.ts",
     "./lib/db/schema/practice.ts",
     "./lib/db/schema/problems.ts",
+    "./lib/db/schema/reviews.ts",
     "./lib/db/schema/submissions.ts",
   ],
   out: "./drizzle",

@@ -90,6 +90,7 @@ export async function POST(request: Request) {
         requestId: body.requestId,
         utcOffsetMinutes: body.utcOffsetMinutes,
         revision: body.revision,
+        sessionMode: body.sessionMode,
         result,
       });
       const practice = await getPractice(body.slug, body.language);

@@ -4,7 +4,9 @@ Build in this order: **trustworthy judging → durable persistence → more prob
 
 Get the existing four problems working end to end before expanding the catalog.
 
-**Current phase:** [Phase 9 — Dashboard, topic sections, streaks, and revise mode](./09-dashboard.md)
+**Current phase:** none selected — [Phase 13 — Personal notes and spaced repetition](./13-notes-and-reviews.md) is complete (2026-09-30), with live AI and browser-tool limitations recorded in its verification section.
+
+Phase 13 is reviewed and wrapped up. Its final checks passed: 379 tests, 1,767 catalog checks, 443 real Piston checks, lint, typecheck, and build. The stateful browser acceptance run used a disposable database copy, preserving the user's database. Phase 9's remaining recorded gate and the unfinished tutor-conversation follow-up keep their existing status; this review does not close those unrelated checklists.
 
 The tutor-consistency follow-up (Phase 11) is complete. The conversational-reply follow-up (Phase 12) was tried and is not complete: on the Encode/Decode thread, two of three supplied-history replies still taught the next pointer move. Neither follow-up changes Phase 9's status or its remaining units.
 
@@ -36,6 +38,7 @@ Invariants and the “done” scenario live in [00-scope.md](./00-scope.md).
 - [x] [Phase 7 — Import the NeetCode 150](./07-neetcode-150.md) — 108 ready sheet problems seeded; 42 deferred
 - [x] [Phase 8 — Python visualizer: step-through dry runs](./08-python-visualizer.md)
 - [ ] [Phase 9 — Dashboard, topic sections, streaks, and revise mode](./09-dashboard.md)
+- [x] [Phase 13 — Personal notes and spaced repetition](./13-notes-and-reviews.md)
 
 ## How to work a phase
 

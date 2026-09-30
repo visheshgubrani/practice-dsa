@@ -25,6 +25,51 @@ describe("practicePatchSchema", () => {
     );
   });
 
+  it("accepts steps and pitfalls and enforces field lengths", () => {
+    assert.equal(
+      practicePatchSchema.safeParse({
+        notes: {
+          approach: "a".repeat(20_000),
+          steps: "s".repeat(20_000),
+          pitfalls: "p".repeat(20_000),
+          timeComplexity: "t".repeat(200),
+          spaceComplexity: "c".repeat(200),
+        },
+      }).success,
+      true,
+    );
+    assert.equal(
+      practicePatchSchema.safeParse({
+        notes: { approach: "a".repeat(20_001) },
+      }).success,
+      false,
+    );
+    assert.equal(
+      practicePatchSchema.safeParse({
+        notes: { steps: "s".repeat(20_001) },
+      }).success,
+      false,
+    );
+    assert.equal(
+      practicePatchSchema.safeParse({
+        notes: { pitfalls: "p".repeat(20_001) },
+      }).success,
+      false,
+    );
+    assert.equal(
+      practicePatchSchema.safeParse({
+        notes: { timeComplexity: "t".repeat(201) },
+      }).success,
+      false,
+    );
+    assert.equal(
+      practicePatchSchema.safeParse({
+        notes: { spaceComplexity: "c".repeat(201) },
+      }).success,
+      false,
+    );
+  });
+
   it("rejects an empty body", () => {
     const parsed = practicePatchSchema.safeParse({});
     assert.equal(parsed.success, false);
@@ -74,6 +119,8 @@ describe("mergeProgressImport", () => {
     const existing = {
       preferredLanguage: "python" as const,
       userNotesApproach: "mine",
+      userNotesSteps: null,
+      userNotesPitfalls: null,
       userNotesTimeComplexity: null,
       userNotesSpaceComplexity: "",
     };
@@ -90,6 +137,8 @@ describe("mergeProgressImport", () => {
     assert.deepEqual(merged.fields, {
       preferredLanguage: "python",
       userNotesApproach: "mine",
+      userNotesSteps: null,
+      userNotesPitfalls: null,
       userNotesTimeComplexity: "O(n)",
       userNotesSpaceComplexity: "",
     });
@@ -100,6 +149,8 @@ describe("mergeProgressImport", () => {
       {
         preferredLanguage: "python",
         userNotesApproach: "mine",
+        userNotesSteps: "outline",
+        userNotesPitfalls: "off-by-one",
         userNotesTimeComplexity: "O(n)",
         userNotesSpaceComplexity: "O(1)",
       },

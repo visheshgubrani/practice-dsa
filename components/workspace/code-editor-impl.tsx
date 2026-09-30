@@ -65,7 +65,7 @@ export type MonacoCodeEditorProps = {
   value: string;
   /** Monaco language id. */
   language: string;
-  /** Model path — one model per problem + language. */
+  /** Model path — one model per problem + session + language. */
   path: string;
   readOnly?: boolean;
   onChange?: (value: string) => void;

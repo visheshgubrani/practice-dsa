@@ -18,7 +18,7 @@ Python is the only executable language today. More languages later means a harne
 
 ## Scope
 
-Do: trustworthy judging, durable local practice, catalog growth, a hint-first tutor, and the dashboard that shows the practice.
+Do: trustworthy judging, durable local practice, catalog growth, a hint-first tutor, personal notes, manually enrolled FSRS reviews, and the dashboard that shows the practice.
 
 Do not, unless the current phase file explicitly opens it: hosting, auth, Judge0, other-language harnesses, linked lists / trees / custom classes / in-place output contracts, AI SDK migration, or Submit batching (only if Phase 4's latency checkpoint makes it a **separate** milestone).
 
@@ -39,15 +39,21 @@ After a unit lands, tick its boxes in the phase file. After the phase gate, tick
 - Do not send the unrevealed hidden suite or reference-solution **source** to the tutor. Approach notes are fine.
 - User source is wrapped, never rewritten (`lib/harness/python.ts`). A new problem is a data/signature change, not new plumbing. A design problem that is one class plus a script of methods is a `signature.calls` entry on that same path. Do not grow a second harness for a problem that fits it. A custom node class, a design problem whose methods return floats, or an in-place `void` function still needs its own phase. An ordinary `double` return uses the `tolerance` compare mode.
 - Catalog edits in `lib/problems*` take effect only after `pnpm db:seed`. The app reads Postgres on every page load.
+- Personal Notes start empty; catalog guidance stays read-only in Solution. AI drafts are previews: only explicit field application uses the normal notes autosave path. They share the tutor's hidden-case disclosure rules.
+- Review enrollment is explicit, including unsolved problems. Ratings are self-assessments and write only review cards/logs; they never mark solved or contribute a practice day. Retry the entire captured rating payload with its original request ID.
+- Review (`?review=1`) starts on Description with fresh starter code and explicit Notes/Solution reveals; it takes precedence over Revise (`?revise=1`), which starts from accepted code. Both code buffers are temporary and never write ordinary draft/recovery keys. Notes stay durable in every mode.
+- A solved Review Submit is a revision; an unsolved Review Submit can create a first solve through verified Piston judging. Revise Submits always write history only. Do not infer a rating from either the judge or the AI.
 
 ## Architecture
 
 ```
-app/page.tsx                 dashboard: stats, streak calendar, topics
+app/page.tsx                 dashboard: stats, streak calendar, topics, review queue
 app/problems/page.tsx        problem list (table, filters)
-app/problems/[slug]          workspace; ?revise=1 is a revise session
+app/problems/[slug]          workspace; ?review=1 recall, ?revise=1 accepted-code pass
 app/api/run                  Run / Submit
 app/api/chat                 tutor
+app/api/notes/generate       disclosure-safe AI note preview; no persistence writes
+app/api/reviews              enrollment, queue, pause/resume, idempotent ratings
 components/dashboard/        heatmap, streak card, stat card, topic section
 components/problems/         list table, catalog header, revise button
 components/workspace/        header, problem panel, editor, console, chat
@@ -58,6 +64,10 @@ lib/db/queries/dashboard.ts  activity days, progress statuses, history totals
 lib/db/schema/               Drizzle tables
 lib/practice/days.ts         local day keys and offsets (client-safe, no db import)
 lib/progress/                streak, heatmap grid, solved rollups (pure)
+lib/practice/notes.ts         client-safe five-field personal notes and apply guards
+lib/notes/                   AI draft request/response types and browser client
+lib/reviews/                 client DTOs, due-boundary timer, server FSRS adapter
+lib/db/queries/reviews.ts    atomic review card/log persistence; no practice writes
 lib/runner/                  Piston vs mock seam
 lib/piston/                  engine client; Python 3.12.0 pinned in lib/piston/config.ts
 lib/harness/python.ts        wraps the editor buffer into a runnable program

@@ -22,6 +22,7 @@ export const relations = defineRelations(schema, (r) => ({
     drafts: r.many.drafts(),
     progress: r.many.problemProgress(),
     legacyAccepted: r.many.legacyAccepted(),
+    reviewCards: r.many.reviewCards(),
     submissions: r.many.submissions(),
     chatThreads: r.many.chatThreads(),
   },
@@ -56,6 +57,19 @@ export const relations = defineRelations(schema, (r) => ({
     problem: r.one.problems({
       from: r.legacyAccepted.problemId,
       to: r.problems.id,
+    }),
+  },
+  reviewCards: {
+    problem: r.one.problems({
+      from: r.reviewCards.problemId,
+      to: r.problems.id,
+    }),
+    logs: r.many.reviewLogs(),
+  },
+  reviewLogs: {
+    card: r.one.reviewCards({
+      from: r.reviewLogs.cardId,
+      to: r.reviewCards.id,
     }),
   },
   submissions: {

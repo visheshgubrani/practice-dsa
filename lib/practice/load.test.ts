@@ -2,16 +2,20 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { resolveLoadedNotes, resolveLoadedSource } from "@/lib/practice/load";
-import type { SolutionNotes } from "@/lib/problems";
+import { emptyPersonalNotes, type PersonalNotes } from "@/lib/practice/notes";
 
-const NOTES: SolutionNotes = {
+const NOTES: PersonalNotes = {
   approach: "hash map",
+  steps: "store complements",
+  pitfalls: "same index twice",
   timeComplexity: "O(n)",
   spaceComplexity: "O(n)",
 };
 
-const REFERENCE: SolutionNotes = {
+const REFERENCE: PersonalNotes = {
   approach: "reference",
+  steps: "",
+  pitfalls: "",
   timeComplexity: "O(n)",
   spaceComplexity: "O(1)",
 };
@@ -95,5 +99,48 @@ describe("resolveLoadedNotes", () => {
     });
     assert.equal(loaded.retrySave, true);
     assert.equal(loaded.value.approach, "two pointers");
+  });
+
+  it("keeps an intentionally empty saved approach", () => {
+    const saved: PersonalNotes = {
+      ...emptyPersonalNotes(),
+      timeComplexity: "O(n)",
+    };
+    const loaded = resolveLoadedNotes({
+      server: saved,
+      recovery: { ...NOTES, approach: "local edit" },
+      fallback: emptyPersonalNotes(),
+      dirty: false,
+    });
+    assert.equal(loaded.value.approach, "");
+    assert.equal(loaded.value.timeComplexity, "O(n)");
+    assert.equal(loaded.retrySave, false);
+  });
+
+  it("starts from empty notes when nothing is stored", () => {
+    const loaded = resolveLoadedNotes({
+      server: null,
+      recovery: null,
+      fallback: emptyPersonalNotes(),
+      dirty: false,
+    });
+    assert.deepEqual(loaded, { value: emptyPersonalNotes(), retrySave: false });
+    assert.equal(loaded.value.approach, "");
+  });
+
+  it("fills steps and pitfalls missing from an older recovery copy", () => {
+    const loaded = resolveLoadedNotes({
+      server: null,
+      recovery: {
+        approach: "hash map",
+        timeComplexity: "O(n)",
+        spaceComplexity: "O(n)",
+      } as PersonalNotes,
+      fallback: emptyPersonalNotes(),
+      dirty: true,
+    });
+    assert.equal(loaded.value.steps, "");
+    assert.equal(loaded.value.pitfalls, "");
+    assert.equal(loaded.retrySave, true);
   });
 });

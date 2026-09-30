@@ -58,8 +58,14 @@ export const problemProgress = pgTable(
      * DEFAULT_LANGUAGE rather than the database inventing one.
      */
     preferredLanguage: languageEnum("preferred_language"),
-    /** The user's own notes, seeded in the UI from the problem's reference notes. */
+    /**
+     * The user's own notes. A new row starts empty — catalog guidance is not
+     * copied here. Null means the field was never saved; an empty string is a
+     * value the user stored.
+     */
     userNotesApproach: text("user_notes_approach"),
+    userNotesSteps: text("user_notes_steps"),
+    userNotesPitfalls: text("user_notes_pitfalls"),
     userNotesTimeComplexity: text("user_notes_time_complexity"),
     userNotesSpaceComplexity: text("user_notes_space_complexity"),
     /** Set once, when the first accepted submission flips `status` to solved. */

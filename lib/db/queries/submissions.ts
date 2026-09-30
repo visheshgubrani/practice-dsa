@@ -12,6 +12,7 @@ import {
   type RunResult,
   type RunnerKind,
   type Verdict,
+  type WorkspaceMode,
 } from "@/lib/runner/types";
 import type {
   SubmissionDetail,
@@ -287,6 +288,8 @@ export type PersistRunInput = {
   utcOffsetMinutes?: number;
   /** A revisit of an already-solved problem. */
   revision?: boolean;
+  /** Workspace mode is kept separate from the client-side code-buffer mode. */
+  sessionMode?: WorkspaceMode;
   result: RunResult;
 };
 
@@ -322,6 +325,14 @@ export async function persistRunResult(
       if (existing) return { id: existing.id, duplicate: true };
     }
 
+    const existingProgress = await tx.query.problemProgress.findFirst({
+      where: { problemId: problem.id },
+    });
+    const isRevision =
+      input.revision ??
+      (input.sessionMode === "revise" ||
+        (input.sessionMode === "review" && existingProgress?.status === "solved"));
+
     const values = {
       problemId: problem.id,
       language: input.language,
@@ -340,7 +351,7 @@ export async function persistRunResult(
       requestId: input.requestId ?? null,
       utcOffsetMinutes: offsetMinutes,
       day,
-      isRevision: input.revision ?? false,
+      isRevision,
     };
 
     const insert = tx.insert(submissions).values(values);
@@ -382,9 +393,10 @@ export async function persistRunResult(
       );
     }
 
-    const existingProgress = await tx.query.problemProgress.findFirst({
-      where: { problemId: problem.id },
-    });
+    // A revision writes history only, including a direct revise URL for an
+    // unsolved problem. Recall review can still create its first normal solve.
+    if (isRevision) return { id: submissionId, duplicate: false };
+
     const next = nextProgressFromRun(
       existingProgress
         ? {

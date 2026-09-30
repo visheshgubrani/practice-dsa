@@ -38,6 +38,8 @@ describe("collectBrowserPractice", () => {
       "dsa.code.two-sum.python": JSON.stringify("class Solution:\n    pass\n"),
       "dsa.notes.two-sum": JSON.stringify({
         approach: "hash map",
+        steps: "store complements",
+        pitfalls: "same index twice",
         timeComplexity: "O(n)",
         spaceComplexity: "O(n)",
       }),
@@ -64,6 +66,8 @@ describe("collectBrowserPractice", () => {
         {
           slug: "two-sum",
           approach: "hash map",
+          steps: "store complements",
+          pitfalls: "same index twice",
           timeComplexity: "O(n)",
           spaceComplexity: "O(n)",
         },
