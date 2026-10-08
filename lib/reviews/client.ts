@@ -3,6 +3,7 @@ import {
   REVIEW_RATINGS,
   type ReviewCardState,
   type ReviewQueue,
+  type ReviewRateResult,
   type ReviewRating,
   type ReviewSummary,
 } from "@/lib/reviews/types";
@@ -26,6 +27,33 @@ export function isReviewCardState(value: unknown): value is ReviewCardState {
       (typeof body.lastRating === "string" &&
         REVIEW_RATINGS.includes(body.lastRating as ReviewRating))) &&
     typeof body.revision === "number"
+  );
+}
+
+export function isReviewRateResult(value: unknown): value is ReviewRateResult {
+  if (typeof value !== "object" || value === null) return false;
+  const body = value as Partial<ReviewRateResult>;
+  const validInstant = (instant: unknown) => {
+    if (typeof instant !== "string") return false;
+    const date = new Date(instant);
+    return !Number.isNaN(date.getTime()) && date.toISOString() === instant;
+  };
+  return (
+    validInstant(body.dueAt) &&
+    typeof body.revision === "number" &&
+    Number.isInteger(body.revision) &&
+    body.revision >= 2 &&
+    typeof body.requestId === "string" &&
+    validInstant(body.reviewedAt) &&
+    typeof body.rating === "string" &&
+    REVIEW_RATINGS.includes(body.rating as ReviewRating) &&
+    (body.next === null ||
+      (typeof body.next === "object" &&
+        typeof body.next.slug === "string" &&
+        typeof body.next.number === "number" &&
+        Number.isInteger(body.next.number) &&
+        body.next.number > 0 &&
+        typeof body.next.title === "string"))
   );
 }
 

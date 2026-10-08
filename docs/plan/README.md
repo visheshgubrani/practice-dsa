@@ -4,9 +4,14 @@ Build in this order: **trustworthy judging → durable persistence → more prob
 
 Get the existing four problems working end to end before expanding the catalog.
 
-**Current phase:** none selected — [Phase 13 — Personal notes and spaced repetition](./13-notes-and-reviews.md) is complete (2026-09-30), with live AI and browser-tool limitations recorded in its verification section.
+**Current phase:** none selected — [Phase 14 — Rate before review enrollment](./14-rate-before-review.md) is complete (2026-10-08), including work unit 14.5 for lost-response recovery. Phase 13 remains complete (2026-09-30), with its final verification preserved in [the Phase 13 record](./13-notes-and-reviews.md).
 
 Phase 13 is reviewed and wrapped up. Its final checks passed: 379 tests, 1,767 catalog checks, 443 real Piston checks, lint, typecheck, and build. The stateful browser acceptance run used a disposable database copy, preserving the user's database. Phase 9's remaining recorded gate and the unfinished tutor-conversation follow-up keep their existing status; this review does not close those unrelated checklists.
+
+Phase 14 completed on 2026-10-08. Lint, typecheck, all 382 tests, and the
+production build passed. Browser acceptance and representative real Piston
+Submits ran against a disposable database copy; the original database was not
+mutated. Phase 9 and the tutor-conversation follow-up remain open.
 
 The tutor-consistency follow-up (Phase 11) is complete. The conversational-reply follow-up (Phase 12) was tried and is not complete: on the Encode/Decode thread, two of three supplied-history replies still taught the next pointer move. Neither follow-up changes Phase 9's status or its remaining units.
 
@@ -39,6 +44,7 @@ Invariants and the “done” scenario live in [00-scope.md](./00-scope.md).
 - [x] [Phase 8 — Python visualizer: step-through dry runs](./08-python-visualizer.md)
 - [ ] [Phase 9 — Dashboard, topic sections, streaks, and revise mode](./09-dashboard.md)
 - [x] [Phase 13 — Personal notes and spaced repetition](./13-notes-and-reviews.md)
+- [x] [Phase 14 — Rate before review enrollment](./14-rate-before-review.md)
 
 ## How to work a phase
 

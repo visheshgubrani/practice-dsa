@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
 
-import { eq, count } from "drizzle-orm";
+import { count, eq } from "drizzle-orm";
 
+import { POST as postRateReview } from "../../../app/api/reviews/[slug]/rate/route";
+import * as reviewRoute from "../../../app/api/reviews/[slug]/route";
 import { db, pool } from "@/lib/db";
 import {
-  enrollReview,
   getReviewCard,
   listReviewQueue,
   rateReview,
@@ -15,6 +16,7 @@ import {
   ReviewRequestMismatchError,
   ReviewSubmissionError,
   ReviewSubmissionNotFoundError,
+  reviewRateSchema,
   setReviewActive,
   writeReviewRating,
 } from "@/lib/db/queries/reviews";
@@ -22,9 +24,16 @@ import {
   drafts,
   problemProgress,
   problems,
+  reviewCards,
   reviewLogs,
   submissions,
 } from "@/lib/db/schema";
+import {
+  emptyCard,
+  serializeCard,
+  SCHEDULER_VERSION,
+} from "@/lib/reviews/scheduler";
+import { EMPTY_REVIEW_CARD, REVIEW_RATINGS } from "@/lib/reviews/types";
 
 const SIGNATURE = {
   name: "twoSum",
@@ -54,6 +63,26 @@ async function insertProblem(suffix: string): Promise<{ slug: string; id: string
   return { slug, id: row!.id };
 }
 
+async function insertLegacyUnratedCard(
+  problemId: string,
+  dueAt: Date,
+  active = true,
+) {
+  const card = emptyCard(dueAt);
+  const [row] = await db
+    .insert(reviewCards)
+    .values({
+      problemId,
+      active,
+      dueAt: card.due,
+      card: serializeCard(card),
+      revision: 1,
+      schedulerVersion: SCHEDULER_VERSION,
+    })
+    .returning();
+  return row!;
+}
+
 async function problemCounts(problemId: string) {
   const [progress] = await db
     .select({ count: count() })
@@ -67,6 +96,10 @@ async function problemCounts(problemId: string) {
     .select({ count: count() })
     .from(submissions)
     .where(eq(submissions.problemId, problemId));
+  const [cards] = await db
+    .select({ count: count() })
+    .from(reviewCards)
+    .where(eq(reviewCards.problemId, problemId));
   const [logs] = await db
     .select({ count: count() })
     .from(reviewLogs)
@@ -75,6 +108,7 @@ async function problemCounts(problemId: string) {
     progress: progress!.count,
     drafts: draft!.count,
     submissions: submission!.count,
+    cards: cards!.count,
     logs: logs!.count,
   };
 }
@@ -112,9 +146,25 @@ describe("review persistence", () => {
     await pool.end();
   });
 
-  it("enrolls idempotently, rates atomically, and preserves practice data", async () => {
+  it("accepts revision zero and atomically schedules all four first ratings", async () => {
     assert.equal(await getReviewCard("__missing-review-problem__"), null);
-    const firstCounts = await problemCounts(firstProblem.id);
+    assert.deepEqual(await getReviewCard(firstProblem.slug), EMPTY_REVIEW_CARD);
+    assert.equal(
+      reviewRateSchema.safeParse({
+        rating: "again",
+        requestId: crypto.randomUUID(),
+        expectedRevision: 0,
+      }).success,
+      true,
+    );
+    assert.equal(
+      reviewRateSchema.safeParse({
+        rating: "again",
+        requestId: crypto.randomUUID(),
+        expectedRevision: -1,
+      }).success,
+      false,
+    );
     await assert.rejects(
       rateReview(firstProblem.slug, {
         rating: "again",
@@ -123,19 +173,84 @@ describe("review persistence", () => {
       }, NOW),
       ReviewNotEnrolledError,
     );
-    const enrolled = await enrollReview(firstProblem.slug, NOW);
-    assert.deepEqual(enrolled, {
-      enrolled: true,
-      active: true,
-      dueAt: NOW.toISOString(),
-      lastRating: null,
-      revision: 1,
-    });
-    assert.deepEqual(await enrollReview(firstProblem.slug, new Date("2026-02-01T00:00:00.000Z")), enrolled);
 
-    const secondEnrolled = await enrollReview(secondProblem.slug, NOW);
-    assert.equal(secondEnrolled?.revision, 1);
-    const secondBefore = await getReviewCard(secondProblem.slug);
+    for (const rating of REVIEW_RATINGS) {
+      const fixture = await insertProblem("initial-" + rating);
+      try {
+        const result = await rateReview(
+          fixture.slug,
+          { rating, requestId: crypto.randomUUID(), expectedRevision: 0 },
+          NOW,
+        );
+        assert.equal(result?.revision, 2);
+        assert.equal(result?.rating, rating);
+        assert.equal(result?.reviewedAt, NOW.toISOString());
+        const state = await getReviewCard(fixture.slug);
+        assert.equal(state?.enrolled, true);
+        assert.equal(state?.active, true);
+        assert.equal(state?.lastRating, rating);
+        assert.equal(state?.revision, 2);
+        assert.ok(Date.parse(state!.dueAt!) > NOW.getTime());
+        const queue = await listReviewQueue(NOW);
+        assert.ok(queue.upcoming.some((item) => item.slug === fixture.slug));
+        assert.ok(!queue.due.some((item) => item.slug === fixture.slug));
+        assert.deepEqual(await problemCounts(fixture.id), {
+          progress: 0,
+          drafts: 0,
+          submissions: 0,
+          cards: 1,
+          logs: 1,
+        });
+      } finally {
+        await db.delete(problems).where(eq(problems.id, fixture.id));
+      }
+    }
+
+    const againFixture = await insertProblem("initial-again-interval");
+    try {
+      const result = await rateReview(
+        againFixture.slug,
+        { rating: "again", requestId: crypto.randomUUID(), expectedRevision: 0 },
+        NOW,
+      );
+      assert.equal(
+        result?.dueAt,
+        new Date(NOW.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+      );
+    } finally {
+      await db.delete(problems).where(eq(problems.id, againFixture.id));
+    }
+  });
+
+  it("validates rating API requests and no longer exports enrollment PUT", async () => {
+    assert.equal("PUT" in reviewRoute, false);
+    const invalid = await postRateReview(
+      new Request("http://localhost/api/reviews/bad/rate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rating: "good", expectedRevision: 0 }),
+      }),
+      { params: Promise.resolve({ slug: firstProblem.slug }) },
+    );
+    assert.equal(invalid.status, 400);
+
+    const unknown = await postRateReview(
+      new Request("http://localhost/api/reviews/missing/rate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rating: "good",
+          requestId: crypto.randomUUID(),
+          expectedRevision: 0,
+        }),
+      }),
+      { params: Promise.resolve({ slug: "__missing-review-problem__" }) },
+    );
+    assert.equal(unknown.status, 404);
+  });
+
+  it("rolls back first enrollment and rating together on every failure", async () => {
+    const before = await problemCounts(secondProblem.id);
     await assert.rejects(
       db.transaction(async (tx) => {
         await writeReviewRating(
@@ -144,7 +259,7 @@ describe("review persistence", () => {
           {
             rating: "good",
             requestId: crypto.randomUUID(),
-            expectedRevision: 1,
+            expectedRevision: 0,
           },
           NOW,
         );
@@ -152,38 +267,38 @@ describe("review persistence", () => {
       }),
       /force transaction rollback/,
     );
-    assert.deepEqual(await getReviewCard(secondProblem.slug), secondBefore);
-    assert.deepEqual(await problemCounts(secondProblem.id), {
-      progress: 0,
-      drafts: 0,
-      submissions: 0,
-      logs: 0,
-    });
+    assert.deepEqual(await getReviewCard(secondProblem.slug), EMPTY_REVIEW_CARD);
+    assert.deepEqual(await problemCounts(secondProblem.id), before);
 
     await assert.rejects(
       rateReview(secondProblem.slug, {
         rating: "good",
         requestId: crypto.randomUUID(),
-        expectedRevision: 1,
+        expectedRevision: 0,
         submissionId,
       }, NOW),
       ReviewSubmissionError,
     );
+    assert.deepEqual(await getReviewCard(secondProblem.slug), EMPTY_REVIEW_CARD);
     await assert.rejects(
       rateReview(secondProblem.slug, {
         rating: "good",
         requestId: crypto.randomUUID(),
-        expectedRevision: 1,
+        expectedRevision: 0,
         submissionId: crypto.randomUUID(),
       }, NOW),
       ReviewSubmissionNotFoundError,
     );
+    assert.deepEqual(await getReviewCard(secondProblem.slug), EMPTY_REVIEW_CARD);
+    assert.deepEqual(await problemCounts(secondProblem.id), before);
+  });
 
-    const requestId = crypto.randomUUID();
+  it("replays the original request across later ratings and pause/resume", async () => {
+    const firstCounts = await problemCounts(firstProblem.id);
     const firstInput = {
       rating: "good" as const,
-      requestId,
-      expectedRevision: 1,
+      requestId: crypto.randomUUID(),
+      expectedRevision: 0,
       submissionId,
     };
     const first = await rateReview(firstProblem.slug, firstInput, NOW);
@@ -202,14 +317,13 @@ describe("review persistence", () => {
       new Date("2026-01-10T03:04:05.000Z"),
     );
     assert.equal(second?.revision, 3);
-    assert.deepEqual(await rateReview(firstProblem.slug, firstInput, new Date("2026-02-01T00:00:00.000Z")), first);
+    assert.deepEqual(
+      await rateReview(firstProblem.slug, firstInput, new Date("2026-02-01T00:00:00.000Z")),
+      first,
+    );
 
     await assert.rejects(
-      rateReview(
-        firstProblem.slug,
-        { ...firstInput, rating: "easy" },
-        new Date("2026-02-01T00:00:00.000Z"),
-      ),
+      rateReview(firstProblem.slug, { ...firstInput, rating: "easy" }, NOW),
       ReviewRequestMismatchError,
     );
     await assert.rejects(
@@ -218,9 +332,9 @@ describe("review persistence", () => {
         {
           rating: "hard",
           requestId: crypto.randomUUID(),
-          expectedRevision: 1,
+          expectedRevision: 0,
         },
-        new Date("2026-02-01T00:00:00.000Z"),
+        NOW,
       ),
       (error: unknown) => error instanceof ReviewConflictError && error.revision === 3,
     );
@@ -230,9 +344,10 @@ describe("review persistence", () => {
       .from(reviewLogs)
       .where(eq(reviewLogs.problemId, firstProblem.id));
     assert.equal(savedRows.length, 2);
-    assert.deepEqual(savedRows.map((row) => row.expectedRevision).sort(), [1, 2]);
+    assert.deepEqual(savedRows.map((row) => row.expectedRevision).sort(), [0, 2]);
     assert.deepEqual(await problemCounts(firstProblem.id), {
       ...firstCounts,
+      cards: 1,
       logs: 2,
     });
 
@@ -259,52 +374,86 @@ describe("review persistence", () => {
     assert.equal(resumed?.dueAt, paused?.dueAt);
     assert.equal(resumed?.lastRating, "again");
     assert.equal(resumed?.revision, paused!.revision + 1);
-    assert.deepEqual(await enrollReview(firstProblem.slug, new Date("2026-03-01T00:00:00.000Z")), resumed);
+    assert.deepEqual(await rateReview(firstProblem.slug, firstInput, new Date("2026-03-01T00:00:00.000Z")), first);
     assert.equal((await problemCounts(firstProblem.id)).logs, 2);
   });
 
-  it("serializes concurrent retries and rejects a different stale-tab rating", async () => {
-    const fixture = await insertProblem("concurrent");
+  it("serializes retries and gives competing initial ratings one conflict", async () => {
+    const retryFixture = await insertProblem("concurrent-retry");
+    const competingFixture = await insertProblem("concurrent-initial");
     try {
-      const enrolled = await enrollReview(fixture.slug, NOW);
       const input = {
         rating: "again" as const,
         requestId: crypto.randomUUID(),
-        expectedRevision: enrolled!.revision,
+        expectedRevision: 0,
       };
       const retries = await Promise.all([
-        rateReview(fixture.slug, input, NOW),
-        rateReview(fixture.slug, input, NOW),
+        rateReview(retryFixture.slug, input, NOW),
+        rateReview(retryFixture.slug, input, NOW),
       ]);
       assert.deepEqual(retries[0], retries[1]);
-      assert.equal((await problemCounts(fixture.id)).logs, 1);
+      assert.deepEqual(await problemCounts(retryFixture.id), {
+        progress: 0,
+        drafts: 0,
+        submissions: 0,
+        cards: 1,
+        logs: 1,
+      });
 
-      const revision = retries[0]!.revision;
       const competing = await Promise.allSettled([
-        rateReview(fixture.slug, { ...input, requestId: crypto.randomUUID(), expectedRevision: revision }, NOW),
-        rateReview(fixture.slug, { ...input, rating: "easy", requestId: crypto.randomUUID(), expectedRevision: revision }, NOW),
+        rateReview(
+          competingFixture.slug,
+          { rating: "good", requestId: crypto.randomUUID(), expectedRevision: 0 },
+          NOW,
+        ),
+        rateReview(
+          competingFixture.slug,
+          { rating: "easy", requestId: crypto.randomUUID(), expectedRevision: 0 },
+          NOW,
+        ),
       ]);
       assert.equal(competing.filter((entry) => entry.status === "fulfilled").length, 1);
       const rejected = competing.find((entry) => entry.status === "rejected");
       assert.ok(rejected?.status === "rejected" && rejected.reason instanceof ReviewConflictError);
-      assert.equal((await problemCounts(fixture.id)).logs, 2);
+      assert.equal(rejected.reason.revision, 2);
+      assert.deepEqual(await problemCounts(competingFixture.id), {
+        progress: 0,
+        drafts: 0,
+        submissions: 0,
+        cards: 1,
+        logs: 1,
+      });
     } finally {
-      await db.delete(problems).where(eq(problems.id, fixture.id));
+      await db.delete(problems).where(eq(problems.id, retryFixture.id));
+      await db.delete(problems).where(eq(problems.id, competingFixture.id));
     }
   });
 
-  it("saves and replays a rating with no next due problem", async () => {
-    const fixture = await insertProblem("last-in-queue");
+  it("rates an existing unrated card without resetting its enrollment", async () => {
+    const fixture = await insertProblem("legacy-unrated");
+    const oldDueAt = new Date("2025-12-01T00:00:00.000Z");
     try {
-      // Earlier than all other fixture due dates, so this is the only due card.
-      const now = new Date("1970-01-01T00:00:00.000Z");
-      await enrollReview(fixture.slug, now);
-      const input = { rating: "again" as const, requestId: crypto.randomUUID(), expectedRevision: 1 };
-      const saved = await rateReview(fixture.slug, input, now);
-      assert.equal(saved?.next, null);
-      assert.equal(saved?.revision, 2);
-      assert.equal((await problemCounts(fixture.id)).logs, 1);
-      assert.deepEqual(await rateReview(fixture.slug, input, now), saved);
+      const before = await insertLegacyUnratedCard(fixture.id, oldDueAt);
+      const result = await rateReview(
+        fixture.slug,
+        { rating: "hard", requestId: crypto.randomUUID(), expectedRevision: 1 },
+        NOW,
+      );
+      const [after] = await db
+        .select()
+        .from(reviewCards)
+        .where(eq(reviewCards.problemId, fixture.id));
+      assert.equal(after?.id, before.id);
+      assert.equal(after?.revision, 2);
+      assert.equal(after?.dueAt.toISOString(), result?.dueAt);
+      const [log] = await db
+        .select()
+        .from(reviewLogs)
+        .where(eq(reviewLogs.problemId, fixture.id));
+      assert.equal(log?.expectedRevision, 1);
+      assert.equal((log?.beforeCard as { due: string }).due, oldDueAt.toISOString());
+      assert.equal((await getReviewCard(fixture.slug))?.lastRating, "hard");
+      assert.equal((await problemCounts(fixture.id)).cards, 1);
     } finally {
       await db.delete(problems).where(eq(problems.id, fixture.id));
     }
@@ -317,16 +466,17 @@ describe("review persistence", () => {
       await db.update(problems).set({ position: 9_700_001 }).where(eq(problems.id, first.id));
       await db.update(problems).set({ position: 9_700_002 }).where(eq(problems.id, second.id));
       const dueAt = new Date("2099-01-01T00:00:00.000Z");
-      await enrollReview(second.slug, dueAt);
-      const enrolled = await enrollReview(first.slug, dueAt);
+      const secondCard = await insertLegacyUnratedCard(second.id, dueAt);
+      const firstCard = await insertLegacyUnratedCard(first.id, dueAt);
       const relevant = (queue: Awaited<ReturnType<typeof listReviewQueue>>) =>
         [...queue.due, ...queue.upcoming].filter((item) => item.slug === first.slug || item.slug === second.slug);
       const early = await listReviewQueue(NOW);
       assert.deepEqual(relevant(early).map((item) => item.slug), [first.slug, second.slug]);
       assert.ok(early.upcoming.some((item) => item.slug === first.slug));
       assert.ok((await listReviewQueue(dueAt)).due.some((item) => item.slug === first.slug));
-      await setReviewActive(first.slug, false, enrolled!.revision);
+      await setReviewActive(first.slug, false, firstCard.revision);
       assert.deepEqual(relevant(await listReviewQueue(dueAt)).map((item) => item.slug), [second.slug]);
+      assert.equal(secondCard.active, true);
     } finally {
       await db.delete(problems).where(eq(problems.id, first.id));
       await db.delete(problems).where(eq(problems.id, second.id));

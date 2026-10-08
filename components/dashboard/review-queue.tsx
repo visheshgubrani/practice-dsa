@@ -230,7 +230,7 @@ export function ReviewQueueSection({
                 ? "The last queue could not be confirmed. Retry to check the server state."
                 : queue.nextDueAt
                   ? `Next scheduled review: ${dateTime(queue.nextDueAt)}.`
-                  : "Add a problem from its Notes tab to start a schedule, or resume paused reviews there."}
+                  : "Add and rate a problem from its Notes tab to schedule its first review, or resume paused reviews there."}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>

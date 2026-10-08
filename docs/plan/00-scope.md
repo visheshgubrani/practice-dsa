@@ -24,7 +24,7 @@ The catalog is seeded from `lib/problems/catalog.ts` in NeetCode 150 roadmap ord
 - A practice day is a verified Piston Submit, any verdict — the same predicate that decides solved. A Run, a mock verdict, or a visualize trace never counts for the streak. `submissions.day` is stamped at insert time from the client's UTC offset, so a historical day cannot move when a timezone or a season does.
 - Revise mode (`/problems/<slug>?revise=1`) reopens a solved problem from its accepted code. It records a revision in history (`is_revision`), never changes `status` / `solvedAt`, and never writes the stored draft.
 - Notes has five personal fields: Key idea (`approach`), Steps, What tripped me up, Time, and Space. New notes start empty, existing text is preserved, and autosave/recovery works in practice, revise, and review. Catalog guidance remains read-only in Solution. AI drafts are editable previews; generating does not save notes or chat, and only explicit application writes notes.
-- Manually enrolled FSRS cards populate the dashboard's due/upcoming queue. Recall Review (`?review=1`, taking precedence over `?revise=1`) begins with the statement and fresh starter code; notes and saved solutions need an explicit reveal. The buffer is temporary. Finish and self-rate Again/Hard/Good/Easy without submitting; pause/resume preserves the schedule.
+- FSRS review cards populate the dashboard's due/upcoming queue. Adding a problem commits its first self-rating and schedule atomically; an initial attempt does not create a second review due today. Recall Review (`?review=1`, taking precedence over `?revise=1`) begins with the statement and fresh starter code; notes and saved solutions need an explicit reveal. The buffer is temporary. Finish and self-rate Again/Hard/Good/Easy without submitting; pause/resume preserves the schedule. Ratings never alter solved status or practice activity.
 - The tutor restores the latest thread (48 messages / 48,000 characters), sees the referenced attempt (submitted source and first failing case, including a revealed hidden case), and never receives the unrevealed hidden suite or reference-solution source. Editor code and execution results are separate evidence. Returned output is the function's return value; debug prints are observations. Every reply answers the current question and stays with the approach already agreed. A clarification can end; the next task is given only when they ask what to do. It gets an advisory attempt state — which expected methods exist and whether each body is empty — and a non-empty body is not proof the method is implemented. Examples are attributed to the failing case, the statement, or an illustration — not to the user unless they supplied the input.
 - `pnpm test`, `pnpm problems:check`, `pnpm piston:check`, `pnpm visualizer:check`, and `pnpm chat:smoke` pass. Live OpenAI still needs `OPENAI_API_KEY`; without it, demo mode is the tutor.
 
@@ -58,10 +58,11 @@ Streak reminders, notifications, goals, badges, per-topic notes, and
 persisting a revise buffer stay deferred. Phase 9 opened the streak and the
 dashboard and stopped there.
 
-Phase 13 completes personal notes and spaced repetition as a narrow extension
-of that study-coach scope. Ratings do not change solved status or streaks.
-Catalog approach notes stay read-only guidance. Notifications, automatic
-enrollment, per-topic notes, and persistent review code buffers stay deferred.
+Phase 13 completed personal notes and spaced repetition as a narrow extension
+of that study-coach scope. Phase 14 changes enrollment to rate first and
+schedule atomically; ratings do not change solved status or streaks. Catalog
+approach notes stay read-only guidance. Notifications, per-topic notes, and
+persistent review code buffers stay deferred.
 
 ## Done looks like this
 

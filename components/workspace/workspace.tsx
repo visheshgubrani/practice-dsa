@@ -17,6 +17,7 @@ import { usePractice } from "@/lib/hooks/use-practice";
 import { useReviewCard } from "@/lib/hooks/use-review-card";
 import { usePracticeImport } from "@/lib/hooks/use-practice-import";
 import { useProgress } from "@/lib/hooks/use-progress";
+import { Dialog } from "@/components/ui/dialog";
 import { toLanguageId } from "@/lib/languages";
 import { utcOffsetMinutesFor } from "@/lib/practice/days";
 import {
@@ -56,6 +57,7 @@ import {
   AcceptedReviewOffer,
   ReviewNotesControls,
 } from "./review-controls";
+import { ReviewRatingDialog } from "./review-rating-dialog";
 
 type Neighbour = Pick<ProblemSummary, "slug" | "title" | "number">;
 
@@ -144,8 +146,11 @@ export function Workspace({
   const [testcaseIndex, setTestcaseIndex] = useState(0);
   const [consoleMinimized, setConsoleMinimized] = useState(false);
   const [acceptedReviewOffer, setAcceptedReviewOffer] = useState(false);
+  const [ratingDialogOpen, setRatingDialogOpen] = useState(false);
   const [problemTab, setProblemTab] = useState<ProblemTab>("description");
+  const ratingTriggerRef = useRef<HTMLElement | null>(null);
   const reviewSchedule = useReviewCard(problem.slug);
+  const { closeRating, openRating } = reviewSchedule;
   const consolePanelRef = usePanelRef();
   const problemPanelRef = usePanelRef();
   /** The left panel's width before a trace widened it, as a percentage string. */
@@ -155,6 +160,49 @@ export function Workspace({
     runState.status === "done" ? summarizeRun(runState.result) : undefined;
   const submissionId =
     runState.status === "done" ? runState.result.submissionId : undefined;
+  const handleRatingDialogOpenChange = useCallback(
+    (open: boolean) => {
+      if (open) {
+        setRatingDialogOpen(true);
+      } else if (closeRating()) {
+        setRatingDialogOpen(false);
+        window.requestAnimationFrame(() => {
+          const trigger = ratingTriggerRef.current;
+          if (trigger?.isConnected) {
+            trigger.focus();
+            return;
+          }
+
+          const reviewHeading = document.querySelector<HTMLElement>(
+            '[aria-labelledby="review-session-title"] h2',
+          );
+          const scheduleHeading = document.querySelector<HTMLElement>(
+            '[aria-labelledby="review-schedule-title"] h3',
+          );
+          const notesTab = Array.from(
+            document.querySelectorAll<HTMLElement>('[role="tab"]'),
+          ).find((tab) => tab.innerText.trim() === "Notes");
+          const fallback = [reviewHeading, scheduleHeading, notesTab].find(
+            (element) => element && element.getClientRects().length > 0,
+          );
+          fallback?.focus();
+        });
+      }
+    },
+    [closeRating],
+  );
+  const openInitialRating: React.MouseEventHandler<HTMLButtonElement> = (
+    event,
+  ) => {
+    ratingTriggerRef.current = event.currentTarget;
+    openRating("initial", submissionId);
+  };
+  const openRecallRating: React.MouseEventHandler<HTMLButtonElement> = (
+    event,
+  ) => {
+    ratingTriggerRef.current = event.currentTarget;
+    openRating("recall", submissionId);
+  };
 
   /**
    * One request, assembled from what is on screen right now.
@@ -392,6 +440,7 @@ export function Workspace({
       : practice.accepted;
 
   const showAcceptedReviewOffer =
+    !review &&
     acceptedReviewOffer &&
     (reviewSchedule.status !== "ready" || !reviewSchedule.card.enrolled);
 
@@ -420,7 +469,10 @@ export function Workspace({
           </div>
       ) : null}
         {showAcceptedReviewOffer ? (
-          <AcceptedReviewOffer schedule={reviewSchedule} />
+          <AcceptedReviewOffer
+            schedule={reviewSchedule}
+            onOpenRating={openInitialRating}
+          />
         ) : null}
         {revision ? (
           <div className="flex flex-wrap items-center gap-2 rounded-md border border-primary/35 bg-primary/10 px-3 py-2">
@@ -495,13 +547,20 @@ export function Workspace({
       notesDraft={notesDraft}
       onGenerateNotesDraft={generateNotesDraft}
       reviewControls={
-        <ReviewNotesControls slug={problem.slug} schedule={reviewSchedule} />
+        <ReviewNotesControls
+          slug={problem.slug}
+          schedule={reviewSchedule}
+          onOpenRating={openInitialRating}
+        />
       }
       simulated={runner === "mock"}
       review={review}
       reviewContent={
         review ? (
-          <ReviewSession slug={problem.slug} submissionId={submissionId} />
+          <ReviewSession
+            schedule={reviewSchedule}
+            onFinishReview={openRecallRating}
+          />
         ) : undefined
       }
       chat={
@@ -578,7 +637,11 @@ export function Workspace({
   );
 
   return (
-    <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-background">
+    <Dialog
+      open={ratingDialogOpen}
+      onOpenChange={handleRatingDialogOpenChange}
+    >
+      <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-background">
       <WorkspaceHeader
         problem={problem}
         previous={previous}
@@ -623,6 +686,12 @@ export function Workspace({
           <div className="h-[86vh] min-h-[520px]">{codeColumn}</div>
         </div>
       )}
-    </div>
+      </div>
+      <ReviewRatingDialog
+        problem={{ number: problem.number, title: problem.title }}
+        schedule={reviewSchedule}
+        onOpenChange={handleRatingDialogOpenChange}
+      />
+    </Dialog>
   );
 }

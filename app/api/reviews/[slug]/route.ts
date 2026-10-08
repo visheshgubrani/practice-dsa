@@ -1,5 +1,4 @@
 import {
-  enrollReview,
   getReviewCard,
   reviewActiveSchema,
   ReviewNotEnrolledError,
@@ -27,18 +26,6 @@ export async function GET(_request: Request, context: RouteContext) {
   const { slug } = await context.params;
   try {
     const state = await getReviewCard(slug);
-    if (!state) return Response.json({ error: "Unknown problem." }, { status: 404 });
-    return Response.json(state);
-  } catch (error) {
-    return reviewErrorResponse(error);
-  }
-}
-
-/** Idempotently enroll an existing problem; never resumes a paused card. */
-export async function PUT(_request: Request, context: RouteContext) {
-  const { slug } = await context.params;
-  try {
-    const state = await enrollReview(slug, new Date());
     if (!state) return Response.json({ error: "Unknown problem." }, { status: 404 });
     return Response.json(state);
   } catch (error) {

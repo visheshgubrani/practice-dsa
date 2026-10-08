@@ -40,7 +40,7 @@ export const reviewRateSchema = z
   .object({
     rating: z.enum(REVIEW_RATINGS),
     requestId: z.string().uuid().transform((value) => value.toLowerCase()),
-    expectedRevision: z.number().int().min(1),
+    expectedRevision: z.number().int().min(0),
     submissionId: z
       .string()
       .uuid()
@@ -236,38 +236,6 @@ async function nextDueLink(
   return next ? { slug: next.slug, number: next.number, title: next.title } : null;
 }
 
-export async function enrollReview(
-  slug: string,
-  now = new Date(),
-): Promise<ReviewCardState | null> {
-  const problem = await problemBySlug(slug);
-  if (!problem) return null;
-
-  const existing = await db.query.reviewCards.findFirst({
-    where: { problemId: problem.id },
-  });
-  if (existing) return cardState(existing, await lastRating(db, existing.id));
-
-  const fresh = emptyCard(now);
-  await db
-    .insert(reviewCards)
-    .values({
-      problemId: problem.id,
-      active: true,
-      dueAt: fresh.due,
-      card: serializeCard(fresh),
-      revision: 1,
-      schedulerVersion: SCHEDULER_VERSION,
-    })
-    .onConflictDoNothing({ target: reviewCards.problemId });
-
-  const row = await db.query.reviewCards.findFirst({
-    where: { problemId: problem.id },
-  });
-  if (!row) throw new Error("Could not enroll the review.");
-  return cardState(row, await lastRating(db, row.id));
-}
-
 export async function setReviewActive(
   slug: string,
   active: boolean,
@@ -341,7 +309,8 @@ function outcomeFromLog(row: {
 
 /**
  * Lock the request ID and card, append one log, and store the next FSRS state.
- * Caller owns the transaction so a later failure rolls both writes back.
+ * An expected revision of zero creates the card in this transaction. Caller
+ * owns the transaction so any later failure rolls both writes back.
  */
 export async function writeReviewRating(
   tx: Tx,
@@ -368,13 +337,42 @@ export async function writeReviewRating(
     return outcomeFromLog(prior);
   }
 
+  let createdCard = false;
+  if (input.expectedRevision === 0) {
+    const fresh = emptyCard(now);
+    const [inserted] = await tx
+      .insert(reviewCards)
+      .values({
+        problemId: problem.id,
+        active: true,
+        dueAt: fresh.due,
+        card: serializeCard(fresh),
+        revision: 1,
+        schedulerVersion: SCHEDULER_VERSION,
+      })
+      .onConflictDoNothing({ target: reviewCards.problemId })
+      .returning({ id: reviewCards.id });
+    if (!inserted) {
+      const [current] = await tx
+        .select({ revision: reviewCards.revision })
+        .from(reviewCards)
+        .where(eq(reviewCards.problemId, problem.id))
+        .for("update");
+      throw new ReviewConflictError(current?.revision ?? 0);
+    }
+    createdCard = true;
+  }
+
   const [locked] = await tx
     .select()
     .from(reviewCards)
     .where(eq(reviewCards.problemId, problem.id))
     .for("update");
   if (!locked) throw new ReviewNotEnrolledError();
-  if (locked.revision !== input.expectedRevision) {
+  const revisionMatches = createdCard
+    ? input.expectedRevision === 0 && locked.revision === 1
+    : locked.revision === input.expectedRevision;
+  if (!revisionMatches) {
     throw new ReviewConflictError(locked.revision);
   }
   if (!locked.active) throw new ReviewPausedError();

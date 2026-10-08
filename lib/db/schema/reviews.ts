@@ -19,8 +19,8 @@ import { problems } from "./problems";
 import { submissions } from "./submissions";
 
 /**
- * One FSRS card per problem. Enrollment is manual: a migration must not insert
- * rows for problems the user has already solved.
+ * One FSRS card per problem. Enrollment is explicit and begins with an atomic
+ * self-rating: a migration must not create cards for existing solved problems.
  *
  * `dueAt` is the card's due instant, duplicated out of the jsonb so the
  * dashboard can index it. Eligibility is `active && dueAt <= now` in UTC,

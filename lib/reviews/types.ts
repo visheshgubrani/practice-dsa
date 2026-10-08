@@ -56,6 +56,19 @@ export type ReviewRateResult = {
   next: ReviewLink | null;
 };
 
+export type ReviewRateRequest = Readonly<{
+  rating: ReviewRating;
+  requestId: string;
+  expectedRevision: number;
+  submissionId: string | null;
+}>;
+
+export type ReviewRatingContext = Readonly<{
+  mode: "initial" | "recall";
+  expectedRevision: number;
+  submissionId: string | null;
+}>;
+
 export const EMPTY_REVIEW_CARD: ReviewCardState = {
   enrolled: false,
   active: false,
