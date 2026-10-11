@@ -20,11 +20,20 @@ cp .env.example .env.local   # add PISTON_URL to turn real judging on
 pnpm dev
 ```
 
-- `/` — the dashboard: solved totals by difficulty, the roadmap topic sections, and the streak calendar
-- `/problems` — the full list (search, difficulty, tag, and solved filters)
+- `/` — the dashboard: one progress summary, a review reminder, the streak and its calendar, and compact topic rows
+- `/problems` — the full list (search, difficulty, topic, tag, and solved filters; `?topic=` is a shareable deep link)
+- `/reviews` — spaced repetition: **Due**, **Upcoming**, and **Paused** tabs with search, a topic filter, pause/resume, and **Start next review**
 - `/problems/two-sum` — the workspace
 - `/problems/two-sum?revise=1` — the same problem again, starting from your accepted code
 - `/problems/two-sum?review=1` — recall from fresh starter code, with saved notes and solutions hidden until revealed
+
+The three study pages share one shell: a collapsible sidebar (248px expanded,
+64px compact, remembered in a cookie, a drawer below 768px) that owns the
+navigation, and one left-aligned 1200px content column. The coding workspace
+stays outside the shell and links back to the dashboard, the list, and reviews
+from its own header. Study pages use IBM Plex Sans with a documented scale — 32px
+page titles, 22px section headings, 16px body and navigation, 14px supporting
+text — and tabular figures for counts. Code stays in Geist Mono.
 
 `pnpm dev` and `pnpm build` first run `scripts/sync-monaco.mjs`, which copies
 Monaco's AMD build out of `node_modules` into `public/monaco/vs` (~24 MB,
@@ -272,8 +281,11 @@ The notes below describe the implementation through Phase 13.
   apply individual fields or fill empty fields, then discard the rest.
 - **Review is recall-first and manually enrolled.** Use **Add to review** in
   Notes (also offered after acceptance) to create a card due immediately.
-  The dashboard shows active due and upcoming cards. Pause/resume preserves
-  the schedule. Review starts with fresh code and requires explicit reveals
+  `/reviews` is where every list lives — **Due**, **Upcoming**, and **Paused**
+  tabs with their own counts, a title/number search, and a topic filter. Pause
+  or resume a row there; a paused card keeps its schedule, stops counting as
+  due, and never sets the next-due boundary. **Start next review** opens the
+  first due problem. Review starts with fresh code and requires explicit reveals
   of notes and saved solutions; its buffer resets on refresh. Finish and rate
   Again, Hard, Good, or Easy even without a Submit. FSRS stores the next due
   date; retries cannot schedule the same rating twice.
@@ -283,7 +295,7 @@ The notes below describe the implementation through Phase 13.
   unsolved problems can get a first solve. Both preserve the ordinary draft.
   Review takes precedence if both review/revise flags are present. Notes
   remain durable in all modes.
-- **The dashboard reads the database.** Solved counts, the topic sections, the
+- **The dashboard reads the database.** The progress summary, the topic rows, the
   streak, and the calendar all come from `problem_progress` and `submissions`, so
   they are the same after a restart and in another browser. A **practice day is a
   verified Piston Submit** — any verdict — which is the same predicate that
@@ -314,15 +326,19 @@ The notes below describe the implementation through Phase 13.
 ## Layout of the code
 
 ```
-app/                 routes: dashboard, problem list, workspace, chat, run, practice, submissions, notes/generate, reviews
+app/(study)/         the shared shell: dashboard, problem list, and the /reviews hub
+app/problems/[slug]  the coding workspace, outside the study shell
 components/ui/       shadcn components (base-nova preset, Base UI primitives)
-components/dashboard/ streak calendar, streak card, stat cards, topic sections, review queue
-components/problems/ problem list, catalog header, revise button, difficulty badge
+components/shell/    sidebar navigation and the shared page header/body chrome
+components/dashboard/ progress summary, review reminder, streak calendar, heatmap, topic rows
+components/reviews/  reviews hub, review rows, per-tab pause/resume actions
+components/problems/ problem list, difficulty badge, revise button
 components/workspace/ header, problem panel, editor, console, history, chat
 lib/                 problem types + seed data, languages, runner types, AI prompts, hooks
 lib/ai/              tutor/notes prompts and disclosed workspace context
 lib/notes/           client-safe AI draft types and requests
-lib/reviews/         client DTOs, browser due-boundary timer, server FSRS adapter
+lib/reviews/         client DTOs, date labels, queue view logic, due-boundary timer, FSRS adapter
+lib/hooks/           use-review-queue (the shared queue loader), practice, progress, drafts
 lib/chat/            client-safe chat types and the server turn handler
 lib/practice/        load/save recovery, import scan, serial write queues, local day keys
 lib/progress/        streak rules, heatmap grid, solved rollups (pure, no database)

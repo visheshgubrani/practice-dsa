@@ -53,20 +53,20 @@ export function ReviewNotesControls({
           <h3
             id="review-schedule-title"
             tabIndex={-1}
-            className="font-mono text-xs font-medium"
+            className="text-base font-medium"
           >
             Review schedule
           </h3>
           {status === "loading" ? (
-            <span className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="flex items-center gap-2 text-support text-muted-foreground">
               <Spinner /> Checking review schedule…
             </span>
           ) : status === "error" ? (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-support text-muted-foreground">
               Review state could not be loaded.
             </p>
           ) : card.enrolled ? (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-support text-muted-foreground">
               {card.active
                 ? card.dueAt
                   ? dueLabel(card.dueAt)
@@ -74,7 +74,7 @@ export function ReviewNotesControls({
                 : `Reviews paused${card.dueAt ? ` · ${dueLabel(card.dueAt)}` : ""}`}
             </p>
           ) : (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-support text-muted-foreground">
               Add this problem when you want it in your recall queue.
             </p>
           )}
@@ -83,7 +83,12 @@ export function ReviewNotesControls({
         {schedule.ratingPending ? (
           <DialogTrigger
             render={
-              <Button type="button" size="sm" disabled={schedule.ratingSaving} />
+              <Button
+                type="button"
+                size="lg"
+                className="text-base"
+                disabled={schedule.ratingSaving}
+              />
             }
             onClick={onOpenRating}
           >
@@ -95,8 +100,8 @@ export function ReviewNotesControls({
               <Link
                 href={`/problems/${slug}?review=1`}
                 className={cn(
-                  buttonVariants({ variant: "outline", size: "sm" }),
-                  "font-mono text-xs",
+                  buttonVariants({ variant: "outline", size: "lg" }),
+                  "text-support",
                 )}
               >
                 Review now
@@ -150,8 +155,8 @@ export function ReviewNotesControls({
 
       {error ? (
         <Alert variant="destructive" className="py-2">
-          <AlertTitle className="text-xs">Review schedule unavailable</AlertTitle>
-          <AlertDescription className="text-xs">{error}</AlertDescription>
+          <AlertTitle className="text-base">Review schedule unavailable</AlertTitle>
+          <AlertDescription className="text-support">{error}</AlertDescription>
         </Alert>
       ) : null}
     </section>
@@ -187,7 +192,7 @@ export function AcceptedReviewOffer({
           Add to review
         </DialogTrigger>
       ) : status === "loading" ? (
-        <span className="flex items-center gap-2 text-xs text-muted-foreground">
+        <span className="flex items-center gap-2 text-support text-muted-foreground">
           <Spinner data-icon="inline-start" /> Checking…
         </span>
       ) : (

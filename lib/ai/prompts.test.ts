@@ -21,7 +21,10 @@ import {
   DEMO_MODE_DISCLAIMER,
   discloseCaseForTutor,
   firstFailingCase,
+  MORE_ACTIONS,
+  PRIMARY_ACTIONS,
   QUICK_ACTIONS,
+  quickActionById,
   tutorPayloadText,
   WORKBENCH_CONTEXT_PREAMBLE,
 } from "./prompts";
@@ -165,16 +168,13 @@ describe("buildTutorInstructions", () => {
     assert.match(text, /nums = \[2,7,11,15\], target = 9/);
     assert.match(text, /Hash each complement as you scan/);
     assert.match(text, /twoSum\(nums: int\[\], target: int\) -> int\[\]/);
-    assert.match(text, /Never paste a complete working solution unless the user explicitly asks/);
-    assert.match(text, /one valid approach, not the only acceptable solution/);
+    assert.match(text, /one valid approach, not the only acceptable one/);
+    assert.match(text, /working brute force is allowed/);
     assert.match(text, /work in progress/);
     assert.match(text, /the failing test case/);
+    assert.match(text, /the revealed hidden case/);
     assert.match(text, /the statement example/);
     assert.match(text, /consider this illustrative input/);
-    assert.match(text, /exactly right/);
-    assert.match(text, /you're close/);
-    assert.match(text, /pairing map/);
-    assert.match(text, /next unasked stage of the algorithm/);
     assert.match(text, /not the reference-solution source/);
     assert.match(text, /never ask them to paste the editor/i);
     assert.equal(text.includes("Always label them as your own examples"), false);
@@ -182,33 +182,70 @@ describe("buildTutorInstructions", () => {
     assert.equal(text.includes("VISIBLE_SUITE_ONLY"), false);
   });
 
-  it("answers the question and stops, in plain words, without a Next: line", () => {
+  it("gives concrete hints that name a tool and teach the idea behind the step", () => {
     const text = buildTutorInstructions(problem, language);
 
-    assert.match(text, /Answer the question they just asked, then stop/);
-    assert.match(text, /one or two short paragraphs/);
-    assert.match(text, /There is no word cap/);
-    assert.match(text, /tiny Python snippet/);
-    assert.match(text, /conceptual misunderstanding does not need code/);
-    assert.match(text, /large snippet or as detailed pseudocode/);
-    assert.match(text, /Write plainly/);
-    assert.match(text, /keep that example's values and casing/);
-    assert.match(text, /Tracing what the code would do/);
-    assert.match(text, /missing return/);
-    assert.match(text, /Do not end with a `Next:` line/);
-    assert.match(text, /Do we append the length\?/);
-    assert.match(text, /Like this\?/);
-    assert.match(text, /What now\?/);
-    assert.match(text, /What's the overall approach\?/);
-    assert.match(text, /What approach should I take\?/);
-    assert.match(text, /Can we do it this way\?/);
-    assert.match(text, /I'm confused\./);
-    assert.match(text, /The 5 stays out/);
+    assert.match(text, /Name the actual tool when one fits: a hashmap, a stack/);
+    assert.match(text, /Teach the idea behind the step/);
+    assert.match(text, /is a hint\. "Create a dictionary" is a chore/);
+    assert.match(text, /Ground hints in the code in front of you/);
+    assert.match(text, /Support the approach already agreed/);
+    assert.match(text, /never a reason to change the algorithm/);
+  });
+
+  it("paces replies for a short attention span without turning into a quiz", () => {
+    const text = buildTutorInstructions(problem, language);
+
+    assert.match(text, /One clear focus per reply/);
+    assert.match(text, /About 60 seconds of reading/);
+    assert.match(text, /One idea per message/);
+    assert.match(text, /A narrow clarification can be two sentences/);
+    assert.match(text, /short list, or a small table/);
+    assert.match(text, /Give a local snippet when they explicitly ask/);
+    assert.match(text, /The remaining algorithm is not a snippet/);
+    assert.match(text, /Define a term the first time you use it/);
+    assert.match(text, /At most one question per reply/);
+    assert.match(text, /do not end on a `Next:` task/);
+    assert.match(text, /clarification or validation can end as soon as it is answered/);
     assert.equal(text.includes("starts with `Next:`"), false);
-    assert.equal(text.includes("End every reply"), false);
     assert.equal(text.includes("under about 120 words"), false);
-    assert.equal(text.includes("one idea only"), false);
-    assert.equal(text.includes("three facts, give all three"), false);
+  });
+
+  it("reads the learner's state: confusion, direct requests, debug questions, and returns", () => {
+    const text = buildTutorInstructions(problem, language);
+
+    assert.match(text, /do not repeat the same sentence louder/);
+    assert.match(text, /Confusion does not change the algorithm/);
+    assert.match(text, /a direct request earns a direct answer/);
+    assert.match(text, /still not a full solution unless they ask for the full solution/);
+    assert.match(text, /validate the actual change against the current approach/);
+    assert.match(text, /a two-line recap of where they are/);
+    assert.match(text, /Trace the failing case through their code/);
+    assert.match(text, /A repeated question is not a signal of frustration/);
+    assert.match(text, /do not change the plan because a run failed/);
+  });
+
+  it("keeps the complete implementation behind an explicit full-solution request", () => {
+    const text = buildTutorInstructions(problem, language);
+
+    assert.match(text, /What you may hand over:/);
+    assert.match(text, /syntax help, one local line, an explanation of any piece/);
+    assert.match(text, /behind an explicit request for the full solution/);
+    assert.match(text, /"Be specific", "just tell me", and "I'm stuck" are not that request/);
+    assert.match(text, /does not become the rest of the method just because they asked twice/);
+  });
+
+  it("sounds like a friendly buddy instead of canned praise or a mascot", () => {
+    const text = buildTutorInstructions(problem, language);
+
+    assert.match(text, /friendly coding buddy, not a solution printer/);
+    assert.match(text, /Talk like a helpful friend sitting next to them/);
+    assert.match(text, /Canned praise such as "exactly right"/);
+    assert.match(text, /So is a forced joke or a mascot voice/);
+    assert.match(text, /tie any encouragement to something specific they did/);
+    assert.match(text, /Use their words and names where you can/);
+    assert.match(text, /Reply shapes to copy/);
+    assert.match(text, /where do i even start\?/);
   });
 
   it("forbids re-asking for a step the buffer or attempt state already shows", () => {
@@ -218,22 +255,20 @@ describe("buildTutorInstructions", () => {
     assert.match(text, /Never ask for work the buffer already shows/);
     assert.match(text, /A comment edit is not progress unless there is no code/);
     assert.match(text, /attempt-state block is advisory/);
-    assert.match(text, /does not mean the method is implemented or understood/);
+    assert.match(text, /does not mean the method is worked out/);
     assert.match(text, /Never read the block back/);
   });
 
-  it("stays on the agreed approach and on the same concept when the user is confused", () => {
+  it("keeps the editor and a result as separate evidence", () => {
     const text = buildTutorInstructions(problem, language);
 
-    assert.match(text, /Do not switch algorithms between turns/);
-    assert.match(text, /Stay on the same concept/);
-    assert.match(text, /Reusing an example is allowed when it helps/);
-    assert.match(text, /repeated runs/);
-    assert.match(text, /Debug prints are observations/);
+    assert.match(text, /the editor and a referenced result are separate evidence/i);
+    assert.match(text, /do not claim the current editor produced it/);
+    assert.match(text, /Debug prints are observations from print statements/);
     assert.match(text, /do not replace it with a value you inferred/);
     assert.match(text, /ask one focused question instead of inventing the agreement/);
-    assert.equal(text.includes("Drop one level"), false);
-    assert.equal(text.includes("change the angle, not the volume"), false);
+    assert.match(text, /That attachment IS their code/);
+    assert.equal(text.includes("Do not switch algorithms between turns"), false);
   });
 });
 
@@ -591,33 +626,78 @@ describe("boundConversation", () => {
 });
 
 describe("QUICK_ACTIONS", () => {
-  it("asks hint, simplify, review, and debug to stay on the current attempt", () => {
-    const hint = QUICK_ACTIONS.find((action) => action.id === "hint");
-    const simplify = QUICK_ACTIONS.find((action) => action.id === "simplify");
-    const review = QUICK_ACTIONS.find((action) => action.id === "review");
-    const debug = QUICK_ACTIONS.find((action) => action.id === "debug");
-    assert.ok(hint && simplify && review && debug);
+  it("puts three one-press actions above the composer and the rest behind More help", () => {
+    assert.deepEqual(
+      PRIMARY_ACTIONS.map((action) => action.label),
+      ["Give me a hint", "Make it concrete", "Show a tiny example"],
+    );
+    assert.deepEqual(
+      MORE_ACTIONS.map((action) => action.label),
+      [
+        "Explain it simply",
+        "Review my code",
+        "Why is this failing?",
+        "Explain the complexity",
+      ],
+    );
+    assert.equal(QUICK_ACTIONS.length, PRIMARY_ACTIONS.length + MORE_ACTIONS.length);
+    assert.ok(QUICK_ACTIONS.every((action) => action.placement !== undefined));
+    assert.equal(
+      quickActionById("hint")?.placement,
+      "primary",
+    );
+    assert.equal(quickActionById("complexity")?.placement, "more");
+    assert.equal(quickActionById("nope"), undefined);
+  });
+
+  it("asks each action to stay on the current attempt", () => {
+    const hint = quickActionById("hint");
+    const concrete = quickActionById("concrete");
+    const example = quickActionById("example");
+    const simplify = quickActionById("simplify");
+    const review = quickActionById("review");
+    const debug = quickActionById("debug");
+    const complexity = quickActionById("complexity");
+    assert.ok(
+      hint && concrete && example && simplify && review && debug && complexity,
+    );
 
     const hintText = hint.prompt({ problem, language });
+    const concreteText = concrete.prompt({ problem, language });
+    const exampleText = example.prompt({ problem, language });
     const simplifyText = simplify.prompt({ problem, language });
     const reviewText = review.prompt({ problem, language });
     const debugText = debug.prompt({ problem, language });
+    const complexityText = complexity.prompt({ problem, language });
 
-    assert.match(hintText, /currently in my editor/);
-    assert.match(hintText, /one immediate step/);
+    assert.match(hintText, /code in my editor/);
+    assert.match(hintText, /Name the tool, structure, or trick you mean/);
+    assert.match(hintText, /a hashmap, a stack, two pointers, a nested loop/);
+    assert.match(hintText, /explain what it buys us here/);
+    assert.equal(hintText.includes("one immediate step"), false);
     assert.equal(hintText.includes("Next:"), false);
-    assert.match(simplifyText, /Stay on that same idea/);
-    assert.match(simplifyText, /smaller example/);
-    assert.match(simplifyText, /Stop there/);
+
+    assert.match(concreteText, /Make your last explanation .* more concrete/);
+    assert.match(concreteText, /just the one or two Python 3 lines for that exact piece/);
+    assert.match(exampleText, /smallest example/);
+    assert.match(exampleText, /label it as an illustrative example/);
+    assert.match(exampleText, /not one of the problem's own examples/);
+
+    assert.match(simplifyText, /Stay on the piece of code I am on/);
+    assert.match(simplifyText, /No code and no next step/);
     assert.equal(simplifyText.includes("Next:"), false);
-    assert.equal(simplifyText.includes("one idea only"), false);
-    assert.match(reviewText, /Stay with the approach/);
-    assert.match(reviewText, /Don't rewrite the solution/);
-    assert.match(reviewText, /don't assign later steps/);
-    assert.equal(reviewText.includes("Next:"), false);
+
+    assert.match(reviewText, /Stay with the approach I already have/);
+    assert.match(reviewText, /the single issue or missing piece/);
+
     assert.match(debugText, /failing test case/);
     assert.match(debugText, /debug prints as observations/);
     assert.match(debugText, /not my example/);
+    assert.match(debugText, /one diagnostic step/);
+
+    assert.match(complexityText, /Start from the approach I am actually using/);
+    assert.match(complexityText, /what my current attempt costs/);
+    assert.match(complexityText, /don't rewrite my code/);
   });
 });
 

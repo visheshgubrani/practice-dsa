@@ -66,14 +66,14 @@ export function ReviewRatingDialog({
   return (
     <DialogContent
       showCloseButton={false}
-      className="max-h-[calc(100dvh-2rem)] w-[calc(100%-1rem)] max-w-md overflow-y-auto"
+      className="max-h-[calc(100dvh-2rem)] w-[calc(100%-1rem)] max-w-lg overflow-y-auto"
     >
       <DialogHeader className="gap-3 pr-7">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-mono text-xs text-muted-foreground">
+          <span className="font-mono text-support text-muted-foreground tabular-nums">
             {problem.number}.
           </span>
-          <span className="min-w-0 text-sm font-medium">{problem.title}</span>
+          <span className="min-w-0 text-base font-medium">{problem.title}</span>
           {context.mode === "initial" ? (
             <Badge variant="secondary">New</Badge>
           ) : null}
@@ -109,10 +109,10 @@ export function ReviewRatingDialog({
                   </Link>
                 ) : (
                   <Link
-                    href="/"
+                    href="/reviews"
                     className="underline underline-offset-4 hover:text-foreground"
                   >
-                    Back to dashboard
+                    Back to reviews
                   </Link>
                 )}
               </AlertDescription>
@@ -170,10 +170,12 @@ export function ReviewRatingDialog({
                   pending !== null ||
                   schedule.ratingResult !== null
                 }
-                className="h-auto min-h-12 w-full flex-col items-start justify-center gap-0.5 px-3 py-2 text-left"
+                className="h-auto min-h-14 w-full flex-col items-start justify-center gap-1 px-4 py-2.5 text-left"
               >
-                <span className="font-medium capitalize">{rating}</span>
-                <span className="whitespace-normal text-xs font-normal text-muted-foreground">
+                <span className="text-base font-medium capitalize">
+                  {rating}
+                </span>
+                <span className="whitespace-normal text-support font-normal text-muted-foreground">
                   {descriptions[rating]}
                 </span>
               </ToggleGroupItem>

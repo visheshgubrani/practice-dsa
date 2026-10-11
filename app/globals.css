@@ -7,9 +7,19 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-plex-sans);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-geist-sans);
+  --font-heading: var(--font-plex-sans);
+  /* The study-page type scale. Body and navigation are 16px, supporting copy
+     never drops below 14px, and page titles carry the hierarchy. */
+  --text-page: 2rem;
+  --text-page--line-height: 2.5rem;
+  --text-page--letter-spacing: -0.02em;
+  --text-section: 1.375rem;
+  --text-section--line-height: 1.75rem;
+  --text-section--letter-spacing: -0.01em;
+  --text-support: 0.875rem;
+  --text-support--line-height: 1.25rem;
   --color-panel: var(--panel);
   --color-panel-2: var(--panel-2);
   --color-success: var(--success);

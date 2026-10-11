@@ -20,12 +20,30 @@ The catalog is seeded from `lib/problems/catalog.ts` in NeetCode 150 roadmap ord
 - Submit judges the full suite (visible then hidden), reveals the first failing hidden case, and redacts hidden successes.
 - Drafts, notes, verified progress, submission history, and tutor conversations live in Postgres. Browser `dsa.*` keys are recovery copies and a one-time import source.
 - Only a successful Piston Submit marks a problem solved. Mock and Run never qualify. Legacy imported accepts stay labeled snapshots.
-- `/` is a dashboard: solved totals by difficulty, the catalog grouped by roadmap topic (`problems.topic`, seeded from the sheet), and a streak with a day-per-submission calendar. `/problems` is the filterable table. A problem's topic is derived at seed time, never hand-written per module.
+- `/` is a dashboard: one progress summary with the overall and per-difficulty
+  solved counts, one compact review reminder, the streak and its day-per-submission
+  calendar together, and compact per-topic progress rows that link into the
+  filtered problem list. `/problems` is the filterable table, with a URL-backed
+  `?topic=` filter that composes with search, difficulty, tag, and solved. A
+  problem's topic is derived at seed time, never hand-written per module.
+- The three study pages share one shell: a collapsible sidebar (248px expanded,
+  64px compact, cookie-backed, a drawer below 768px) that owns the navigation.
+  The coding workspace stays outside it and links back from its own header.
+  Study pages use IBM Plex Sans with a documented scale — 32px page titles, 22px
+  section headings, 16px body and navigation, 14px supporting text — and tabular
+  figures for counts.
+- `/reviews` is the one home for review lists: **Due**, **Upcoming**, and
+  **Paused** tabs with their counts, a title/number search, a topic filter, and
+  per-tab actions (**Start review**, **Review early**, **Pause reviews**,
+  **Resume reviews**, **Open problem**) plus **Start next review**. A paused card
+  keeps its schedule, is never counted as due, and never sets the next-due
+  boundary. The sidebar badge, the dashboard reminder, and the page read one
+  shared queue loader, so they cannot disagree.
 - A practice day is a verified Piston Submit, any verdict — the same predicate that decides solved. A Run, a mock verdict, or a visualize trace never counts for the streak. `submissions.day` is stamped at insert time from the client's UTC offset, so a historical day cannot move when a timezone or a season does.
 - Revise mode (`/problems/<slug>?revise=1`) reopens a solved problem from its accepted code. It records a revision in history (`is_revision`), never changes `status` / `solvedAt`, and never writes the stored draft.
 - Notes has five personal fields: Key idea (`approach`), Steps, What tripped me up, Time, and Space. New notes start empty, existing text is preserved, and autosave/recovery works in practice, revise, and review. Catalog guidance remains read-only in Solution. AI drafts are editable previews; generating does not save notes or chat, and only explicit application writes notes.
 - FSRS review cards populate the dashboard's due/upcoming queue. Adding a problem commits its first self-rating and schedule atomically; an initial attempt does not create a second review due today. Recall Review (`?review=1`, taking precedence over `?revise=1`) begins with the statement and fresh starter code; notes and saved solutions need an explicit reveal. The buffer is temporary. Finish and self-rate Again/Hard/Good/Easy without submitting; pause/resume preserves the schedule. Ratings never alter solved status or practice activity.
-- The tutor restores the latest thread (48 messages / 48,000 characters), sees the referenced attempt (submitted source and first failing case, including a revealed hidden case), and never receives the unrevealed hidden suite or reference-solution source. Editor code and execution results are separate evidence. Returned output is the function's return value; debug prints are observations. Every reply answers the current question and stays with the approach already agreed. A clarification can end; the next task is given only when they ask what to do. It gets an advisory attempt state — which expected methods exist and whether each body is empty — and a non-empty body is not proof the method is implemented. Examples are attributed to the failing case, the statement, or an illustration — not to the user unless they supplied the input.
+- The tutor restores the latest thread (48 messages / 48,000 characters), sees the referenced attempt (submitted source and first failing case, including a revealed hidden case), and never receives the unrevealed hidden suite or reference-solution source. Editor code and execution results are separate evidence. Returned output is the function's return value; debug prints are observations. It hints concretely: it names the tool (a hashmap, a stack, two pointers, a nested loop), says what that tool is doing for this problem, and teaches the idea behind the step instead of issuing a chore. It stays with the learner's approach — a working nested loop stays the plan, and the tradeoff is named once rather than used to switch them. Replies pace for a beginner: one clear focus, usually one to three short chunks, at most one question, no closing task. Confusion shrinks the example rather than repeating the hint. A failed run, a repeated question, and a debug print never move the plan. A direct request gets a direct answer, including the local line; the complete implementation waits for an explicit full-solution request. "Where were we?" gets a short recap of the buffer and the conversation plus one thing to try. It gets an advisory attempt state — which expected methods exist and whether each body is empty — and a non-empty body is not proof the method is implemented. Examples are attributed to the failing case, the statement, or an illustration — not to the user unless they supplied the input.
 - `pnpm test`, `pnpm problems:check`, `pnpm piston:check`, `pnpm visualizer:check`, and `pnpm chat:smoke` pass. Live OpenAI still needs `OPENAI_API_KEY`; without it, demo mode is the tutor.
 
 ## Hard constraints
@@ -63,6 +81,11 @@ of that study-coach scope. Phase 14 changes enrollment to rate first and
 schedule atomically; ratings do not change solved status or streaks. Catalog
 approach notes stay read-only guidance. Notifications, per-topic notes, and
 persistent review code buffers stay deferred.
+
+Phase 16 redesigned the dashboard and review surfaces and added a shared,
+collapsible navigation shell. It opened no new scope: the same review state is
+shown, the same FSRS schedule is kept, and there is no automatic enrollment,
+notification, or new scheduling setting.
 
 ## Done looks like this
 

@@ -47,15 +47,19 @@ After a unit lands, tick its boxes in the phase file. After the phase gate, tick
 ## Architecture
 
 ```
-app/page.tsx                 dashboard: stats, streak calendar, topics, review queue
-app/problems/page.tsx        problem list (table, filters)
+app/(study)/layout.tsx       shared shell: collapsible sidebar, queue badge, cookie-backed state
+app/(study)/page.tsx         dashboard: progress summary, review reminder, streak+calendar, topics
+app/(study)/problems/page.tsx  problem list (table, ?topic= filter)
+app/(study)/reviews/page.tsx   reviews hub: Due / Upcoming / Paused, search, pause/resume
 app/problems/[slug]          workspace; ?review=1 recall, ?revise=1 accepted-code pass
 app/api/run                  Run / Submit
 app/api/chat                 tutor
 app/api/notes/generate       disclosure-safe AI note preview; no persistence writes
-app/api/reviews              enrollment, queue, pause/resume, idempotent ratings
-components/dashboard/        heatmap, streak card, stat card, topic section
-components/problems/         list table, catalog header, revise button
+app/api/reviews              queue (due/upcoming/paused), pause/resume, idempotent ratings
+components/shell/            study shell, sidebar nav, page header/body chrome
+components/dashboard/        progress summary, review reminder, streak calendar, heatmap, topic rows
+components/reviews/          reviews hub, review rows and their per-tab actions
+components/problems/         list table, difficulty badge, revise button
 components/workspace/        header, problem panel, editor, console, chat
 lib/problems                 public types (UI); authoring modules + catalog are seed-only
 lib/problems/topics.ts       roadmap groups; the topic a seeded problem gets (seed-only)
@@ -63,10 +67,11 @@ lib/db/queries/problems.ts   catalog reads from Postgres
 lib/db/queries/dashboard.ts  activity days, progress statuses, history totals
 lib/db/schema/               Drizzle tables
 lib/practice/days.ts         local day keys and offsets (client-safe, no db import)
-lib/progress/                streak, heatmap grid, solved rollups (pure)
+lib/progress/                streak, heatmap grid, month labels, solved rollups (pure)
 lib/practice/notes.ts         client-safe five-field personal notes and apply guards
 lib/notes/                   AI draft request/response types and browser client
-lib/reviews/                 client DTOs, due-boundary timer, server FSRS adapter
+lib/reviews/                 client DTOs, dates, queue view logic, due-boundary timer, FSRS adapter
+lib/hooks/use-review-queue.ts  the one client review-queue loader (badge, reminder, page)
 lib/db/queries/reviews.ts    atomic review card/log persistence; no practice writes
 lib/runner/                  Piston vs mock seam
 lib/piston/                  engine client; Python 3.12.0 pinned in lib/piston/config.ts
@@ -80,12 +85,13 @@ lib/languages.ts             executable languages (Python only) vs stored enum
 
 A practice day is a verified Piston Submit and nothing else. `submissions.day` is stamped at insert time from the client's `utcOffsetMinutes`; do not re-derive a day from a timezone at read time. A revise Submit (`revision: true`) writes history and never touches `problem_progress` or the stored draft.
 
-The tutor is a guide, not a solution printer. Full solutions only when the user explicitly asks. Every reply answers the current question and stays with the approach already agreed. A clarification can end; the next task is given only when they ask what to do. Narrow follow-ups stay short. A tiny snippet is for a syntax snag. Prints, incomplete code, and repeated runs inform debugging when they are relevant; they do not change the lesson. The prompt carries an advisory attempt state (a non-empty body is not proof a method is done) so it does not ask for work the buffer already shows. Do not invent constraints, official examples, or judge cases in prompts.
+The tutor is a friendly coding buddy, not a solution printer. It hints concretely: name the tool (hashmap, stack, two loops) and say what it does for this problem, teaching the idea behind the step rather than issuing a chore. Stay with the learner's approach — a working nested loop stays the plan, and a tradeoff gets named once instead of used to switch them. Pace replies for a beginner: one clear focus, one to three short chunks, at most one question, no closing task. Confusion shrinks the example; it does not repeat the hint or change the algorithm. A direct request ("what exact line next?") gets a direct answer including that line; the complete implementation or detailed walkthrough of the remaining algorithm waits for an explicit full-solution request, and "be specific" or "I'm stuck" is not one. Directional questions ("what now?", "is this right?") are answered with the purpose of the piece, not with code. Prints, incomplete code, and repeated runs inform debugging when relevant; they never change the lesson. The prompt carries an advisory attempt state (a non-empty body is not proof a method is done) so it does not ask for work the buffer already shows. Do not invent constraints, official examples, or judge cases in prompts. Chat actions live in `lib/ai/prompts.ts` (`PRIMARY_ACTIONS`, `MORE_ACTIONS`), their availability rule in `lib/chat/actions.ts` (Make it concrete requires a completed, nonempty reply; partial or failed streams do not qualify), and the row renders in `components/workspace/chat-composer.tsx`.
 
 ## Conventions
 
 - TypeScript strict. Tests are `*.test.ts` next to the module (`pnpm test` via `tsx --test`).
-- Hooks live in `lib/hooks/`, imported as `@/lib/hooks/...` (the shadcn `hooks` alias in `components.json` is unused).
+- Hooks live in `lib/hooks/`, imported as `@/lib/hooks/...` (the shadcn `hooks` alias in `components.json` points there, so generated hooks land beside the existing ones).
+- Study-page typography is a scale, not a per-screen decision: `text-page` (32px) for a page title, `text-section` (22px) for a section heading, 16px body and navigation, `text-support` (14px) as the floor. Counts and dates use `tabular-nums`; amber is for the page's primary action and the selected nav item.
 - `PageProps` / `LayoutProps` come from `next typegen` (`next dev` or `next build`).
 - Compose existing shadcn components; semantic tokens; `cn()`; no new UI libraries.
 

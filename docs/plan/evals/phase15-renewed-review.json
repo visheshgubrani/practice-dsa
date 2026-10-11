@@ -1,0 +1,283 @@
+{
+  "reviewedAt": "2026-10-10T05:54:19.682879+00:00",
+  "reviewer": "Codex, manual review of every final reply against retained history, editor snapshots, and public problem content",
+  "transcript": "tutor-consistency-beginner-revised-corrected.json",
+  "model": "gpt-6-luna",
+  "contractSha256": "35c09aaf42d320fd0ea864a3541acfa67f0adf9c12ad55e713be951fe7057b3c",
+  "reviewedConversationRuns": 48,
+  "reviewedReplies": 129,
+  "hardFailures": 0,
+  "gate": "passed",
+  "rubric": [
+    "correctness",
+    "useful guidance",
+    "appropriate disclosure",
+    "continuity",
+    "readable pacing"
+  ],
+  "conversations": [
+    {
+      "id": "two-sum-handholding",
+      "runs": [
+        1,
+        2,
+        3
+      ],
+      "rubric": {
+        "correctness": "pass",
+        "useful guidance": "pass",
+        "appropriate disclosure": "pass",
+        "continuity": "pass",
+        "readable pacing": "pass"
+      },
+      "note": "Names a usable structure; accepts nested loops after either starting suggestion; clarifies positions versus values and strengthens the inner-loop explanation."
+    },
+    {
+      "id": "two-sum-concrete-hint",
+      "runs": [
+        1,
+        2,
+        3
+      ],
+      "rubric": {
+        "correctness": "pass",
+        "useful guidance": "pass",
+        "appropriate disclosure": "pass",
+        "continuity": "pass",
+        "readable pacing": "pass"
+      },
+      "note": "Starts concretely, keeps the chosen double loop, explains dictionary memory when asked, and resumes the agreed switch with the actual loop buffer."
+    },
+    {
+      "id": "two-sum-nested-supplied",
+      "runs": [
+        1,
+        2,
+        3
+      ],
+      "rubric": {
+        "correctness": "pass",
+        "useful guidance": "pass",
+        "appropriate disclosure": "pass",
+        "continuity": "pass",
+        "readable pacing": "pass"
+      },
+      "note": "Supplied histories stay independent: hashmap questions allow comparison, while the supplied resume recalls the established nested-loop plan."
+    },
+    {
+      "id": "parens-order-matters",
+      "runs": [
+        1,
+        2,
+        3
+      ],
+      "rubric": {
+        "correctness": "pass",
+        "useful guidance": "pass",
+        "appropriate disclosure": "pass",
+        "continuity": "pass",
+        "readable pacing": "pass"
+      },
+      "note": "Explains stack order and traces ([)] at the first mismatched closer; confusion becomes a short trace, not another algorithm."
+    },
+    {
+      "id": "parens-order-supplied",
+      "runs": [
+        1,
+        2,
+        3
+      ],
+      "rubric": {
+        "correctness": "pass",
+        "useful guidance": "pass",
+        "appropriate disclosure": "pass",
+        "continuity": "pass",
+        "readable pacing": "pass"
+      },
+      "note": "All three counterexamples have equal counts for each bracket type and correctly reject the order; recalls the initialized stack."
+    },
+    {
+      "id": "confusion-and-resume-independent",
+      "runs": [
+        1,
+        2,
+        3
+      ],
+      "rubric": {
+        "correctness": "pass",
+        "useful guidance": "pass",
+        "appropriate disclosure": "pass",
+        "continuity": "pass",
+        "readable pacing": "pass"
+      },
+      "note": "Smaller two-element examples explain number-to-index memory; exact-line requests return the two indices; resumes from the actual pass branch."
+    },
+    {
+      "id": "confusion-and-resume-connected",
+      "runs": [
+        1,
+        2,
+        3
+      ],
+      "rubric": {
+        "correctness": "pass",
+        "useful guidance": "pass",
+        "appropriate disclosure": "pass",
+        "continuity": "pass",
+        "readable pacing": "pass"
+      },
+      "note": "Retains the hashmap approach through confusion and local help; returns the saved and current indices and notices unapplied pass on return."
+    },
+    {
+      "id": "parens-alternative",
+      "runs": [
+        1,
+        2,
+        3
+      ],
+      "rubric": {
+        "correctness": "pass",
+        "useful guidance": "pass",
+        "appropriate disclosure": "pass",
+        "continuity": "pass",
+        "readable pacing": "pass"
+      },
+      "note": "Supports the proposed stack and explains why per-type counting misses nesting; does not switch algorithms."
+    },
+    {
+      "id": "codec-prints",
+      "runs": [
+        1,
+        2,
+        3
+      ],
+      "rubric": {
+        "correctness": "pass",
+        "useful guidance": "pass",
+        "appropriate disclosure": "pass",
+        "continuity": "pass",
+        "readable pacing": "pass"
+      },
+      "note": "Separates debug observations, raw encoding, and decode returning None; teaches length-prefixed chunks within the chosen format."
+    },
+    {
+      "id": "codec-prints-refreshed",
+      "runs": [
+        1,
+        2,
+        3
+      ],
+      "rubric": {
+        "correctness": "pass",
+        "useful guidance": "pass",
+        "appropriate disclosure": "pass",
+        "continuity": "pass",
+        "readable pacing": "pass"
+      },
+      "note": "Corrects the supplied earlier assistant mistake using the structured returned null; identifies decode pass and explains boundary loss without inventing judge output."
+    },
+    {
+      "id": "two-sum-stale-result",
+      "runs": [
+        1,
+        2,
+        3
+      ],
+      "rubric": {
+        "correctness": "pass",
+        "useful guidance": "pass",
+        "appropriate disclosure": "pass",
+        "continuity": "pass",
+        "readable pacing": "pass"
+      },
+      "note": "Uses the changed draft, distinguishes the old failing result when mentioning it, and keeps the lookup-first duplicate-safe approach."
+    },
+    {
+      "id": "parens-debug",
+      "runs": [
+        1,
+        2,
+        3
+      ],
+      "rubric": {
+        "correctness": "pass",
+        "useful guidance": "pass",
+        "appropriate disclosure": "pass",
+        "continuity": "pass",
+        "readable pacing": "pass"
+      },
+      "note": "Correctly traces the revealed hidden ([)] case: count comparisons return True but bracket order is invalid; does not leak hidden successes."
+    },
+    {
+      "id": "two-sum-long-thread",
+      "runs": [
+        1,
+        2,
+        3
+      ],
+      "rubric": {
+        "correctness": "pass",
+        "useful guidance": "pass",
+        "appropriate disclosure": "pass",
+        "continuity": "pass",
+        "readable pacing": "pass"
+      },
+      "note": "Recalls the retained nested-loop agreement and accurately identifies the starter pass buffer."
+    },
+    {
+      "id": "two-sum-syntax-then-solution",
+      "runs": [
+        1,
+        2,
+        3
+      ],
+      "rubric": {
+        "correctness": "pass",
+        "useful guidance": "pass",
+        "appropriate disclosure": "pass",
+        "continuity": "pass",
+        "readable pacing": "pass"
+      },
+      "note": "Index-loop syntax is local; complete code appears only after explicit full-solution requests. All three implementations passed five duplicate/negative/zero/ordinary examples."
+    },
+    {
+      "id": "codec-decode-independent",
+      "runs": [
+        1,
+        2,
+        3
+      ],
+      "rubric": {
+        "correctness": "pass",
+        "useful guidance": "pass",
+        "appropriate disclosure": "pass",
+        "continuity": "pass",
+        "readable pacing": "pass"
+      },
+      "note": "Points at the incorrect loop guard/uninitialized cursor, validates the scan without future operations, and explains why strings rather than lengths belong in the output."
+    },
+    {
+      "id": "codec-decode-connected",
+      "runs": [
+        1,
+        2,
+        3
+      ],
+      "rubric": {
+        "correctness": "pass",
+        "useful guidance": "pass",
+        "appropriate disclosure": "pass",
+        "continuity": "pass",
+        "readable pacing": "pass"
+      },
+      "note": "Retains continuity across changed buffers; validates existing loops without inventing missing bodies; append clarification stops before extraction code and advancement."
+    }
+  ],
+  "reviewNotes": [
+    "Keyword diagnostics are not teaching-quality scores. Some replies omit diagnostic vocabulary or include a small local return snippet during confusion/resume; these stay on one current branch and do not supply the complete remaining algorithm.",
+    "High-level strategy explanations are permitted. Detailed decoder conversion/extraction/append/advancement sequences require a full-solution request.",
+    "A generic total-count explanation using (] is different from per-type counting; the regression check distinguishes these rather than treating every mention of (] as incorrect.",
+    "The new factual checks were added while the final live run was in progress. Recorded replies were then regraded unchanged, with contract hashes, model, public-context hashes, editor snapshots and three-run coverage verified. Generation timestamps and original grades are retained.",
+    "Contract hashes for these recordings were backfilled from the unchanged teaching source used for each live run; future recordings store them directly."
+  ]
+}

@@ -8,6 +8,7 @@ import {
   describeCell,
   heatmapWeeks,
   longestStreak,
+  monthLabels,
   summarizeStreak,
   type ActivityDay,
 } from "@/lib/progress/calendar";
@@ -185,6 +186,53 @@ describe("heatmapWeeks", () => {
     // 53 Sundays ending with the week of `end`.
     assert.equal(cells[0]![0]!.day, "2025-03-09");
     assert.equal(cells.at(-1)!.at(-1)!.day, "2026-03-14");
+  });
+});
+
+describe("monthLabels", () => {
+  it("labels the first column and every column whose month changed", () => {
+    const weeks = heatmapWeeks({
+      days: [],
+      // The week of 2026-03-12 starts on Sunday 2026-03-08 (March already).
+      end: "2026-03-12",
+      weeks: 3,
+    });
+
+    // 2026-02-22, 2026-03-01, 2026-03-08.
+    assert.deepEqual(monthLabels(weeks), ["Feb", "Mar", null]);
+  });
+
+  it("labels a month that starts mid-week, which an anchored Sunday misses", () => {
+    // The week of 2026-03-29 runs 29 March – 4 April with 1 April (a
+    // Wednesday) inside it, so that column is the April column even though its
+    // Sunday is still March.
+    const weeks = heatmapWeeks({
+      days: [],
+      end: "2026-04-02", // a Thursday
+      weeks: 2,
+    });
+
+    assert.deepEqual(monthLabels(weeks), ["Mar", "Apr"]);
+  });
+
+  it("gives a year-long window one label per month and no repeats in a row", () => {
+    const labels = monthLabels(
+      heatmapWeeks({ days: [], end: "2026-10-10", weeks: 53 }),
+    );
+
+    const named = labels.filter((label): label is string => label !== null);
+    assert.equal(named[0], labels[0]);
+    assert.equal(named.length, 13);
+    for (let index = 1; index < named.length; index += 1) {
+      assert.notEqual(named[index], named[index - 1]);
+    }
+    assert.ok(named.includes("Jan"));
+    // The old implementation rendered the year prefix ("202") here.
+    assert.ok(named.every((label) => Number.isNaN(Number(label))));
+  });
+
+  it("tolerates an empty week", () => {
+    assert.deepEqual(monthLabels([[], []]), [null, null]);
   });
 });
 

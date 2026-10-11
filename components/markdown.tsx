@@ -1,30 +1,7 @@
-import type { ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import { cn } from "@/lib/utils";
-
-/** Flattens inline markdown children (`Next: check \`i\``) back to plain text. */
-function plainText(node: ReactNode): string {
-  if (typeof node === "string" || typeof node === "number") return String(node);
-  if (Array.isArray(node)) return node.map(plainText).join("");
-  if (node && typeof node === "object" && "props" in node) {
-    return plainText(
-      (node as { props?: { children?: ReactNode } }).props?.children,
-    );
-  }
-  return "";
-}
-
-const NEXT_ACTION_PATTERN = /^next:/i;
-
-function paragraphClass(highlight: boolean): string {
-  return cn(
-    "text-sm leading-[1.7] text-foreground/90",
-    highlight &&
-      "rounded-sm border-l-2 border-primary/50 bg-primary/5 py-1.5 pl-2.5 font-mono text-[12.5px] text-foreground",
-  );
-}
 
 /**
  * Workbench prose: Geist Sans for reading, Geist Mono for anything that is
@@ -32,7 +9,10 @@ function paragraphClass(highlight: boolean): string {
  */
 const components: Components = {
   p: ({ node: _node, className, children, ...props }) => (
-    <p className={cn(paragraphClass(false), className)} {...props}>
+    <p
+      className={cn("text-sm leading-[1.7] text-foreground/90", className)}
+      {...props}
+    >
       {children}
     </p>
   ),
@@ -157,41 +137,16 @@ const components: Components = {
   ),
 };
 
-/**
- * Tutor replies only: emphasize the closing `Next:` action line — the one thing
- * to do next. Problem statements and notes use `components` unchanged.
- */
-const nextActionComponents: Components = {
-  ...components,
-  p: ({ node: _node, className, children, ...props }) => (
-    <p
-      className={cn(
-        paragraphClass(NEXT_ACTION_PATTERN.test(plainText(children).trimStart())),
-        className,
-      )}
-      {...props}
-    >
-      {children}
-    </p>
-  ),
-};
-
 export function Markdown({
   children,
   className,
-  highlightNext = false,
 }: {
   children: string;
   className?: string;
-  /** Emphasise the tutor's closing `Next:` action line. */
-  highlightNext?: boolean;
 }) {
   return (
     <div className={cn("flex flex-col gap-3.5", className)}>
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={highlightNext ? nextActionComponents : components}
-      >
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {children}
       </ReactMarkdown>
     </div>

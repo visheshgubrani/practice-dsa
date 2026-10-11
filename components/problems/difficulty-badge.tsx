@@ -23,7 +23,11 @@ export function DifficultyBadge({
   return (
     <Badge
       variant="outline"
-      className={cn("border font-mono text-[11px]", TONE[difficulty], className)}
+      className={cn(
+        "h-auto border px-2 py-0.5 font-mono text-support",
+        TONE[difficulty],
+        className,
+      )}
     >
       {DIFFICULTY_LABEL[difficulty]}
     </Badge>

@@ -130,4 +130,9 @@ export function shortDayLabel(key: string): string {
   return `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]}`;
 }
 
+/** "Mar" — the month abbreviation a calendar axis labels a column with. */
+export function monthLabel(key: string): string {
+  return MONTHS[dayKeyToUtcDate(key).getUTCMonth()];
+}
+
 export const WEEKDAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"] as const;

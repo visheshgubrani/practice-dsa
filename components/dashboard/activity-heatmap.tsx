@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+
 import {
   Tooltip,
   TooltipContent,
@@ -9,6 +11,7 @@ import { WEEKDAY_LABELS, describeDay } from "@/lib/practice/days";
 import {
   activityLevel,
   describeCell,
+  monthLabels,
   type DayCell,
 } from "@/lib/progress/calendar";
 import { cn } from "@/lib/utils";
@@ -38,6 +41,10 @@ const LEVEL_CLASS = [
 
 const LEGEND_LABELS = ["none", "1", "2", "3", "4+"] as const;
 
+/** One cell, and the pitch between cells. */
+const CELL = "size-3.5 rounded-[3px]";
+const GAP = "gap-1";
+
 export function ActivityHeatmap({
   weeks,
   end,
@@ -49,55 +56,58 @@ export function ActivityHeatmap({
   end: string;
   className?: string;
 }) {
+  const scrollerRef = useRef<HTMLDivElement>(null);
+
+  // A year of squares does not fit a phone, and the interesting end of it is
+  // the recent one, so the view opens on today rather than on last October.
+  useEffect(() => {
+    const node = scrollerRef.current;
+    if (!node) return;
+    node.scrollLeft = node.scrollWidth;
+  }, [weeks.length]);
+
   if (weeks.length === 0) return null;
 
-  // A month label sits above the first column whose week starts in that month.
-  // Only January and the first column get a label when the window is a year
-  // long, so the axis stays quiet instead of repeating twelve times.
-  const monthLabels = weeks.map((week, index) => {
-    const first = week[0]!.day;
-    if (index === 0) {
-      return first.slice(0, 3) === "Jan" ? "Jan" : null;
-    }
-    const previous = weeks[index - 1]![0]!.day;
-    return first.slice(0, 7) !== previous.slice(0, 7) && first.endsWith("-01")
-      ? first.slice(0, 3)
-      : null;
-  });
+  const labels = monthLabels(weeks);
 
   return (
-    <div className={cn("flex flex-col gap-2", className)}>
+    <div className={cn("flex flex-col gap-3", className)}>
       <div className="flex gap-2">
         <div
-          className="flex w-3 shrink-0 flex-col gap-[3px] pt-[14px]"
+          className={cn("flex w-4 shrink-0 flex-col pt-[18px]", GAP)}
           aria-hidden
         >
           {WEEKDAY_LABELS.map((label, index) => (
             <span
               key={index}
-              className="h-[11px] font-mono text-[9px] leading-[11px] text-muted-foreground/60"
+              className="h-3.5 shrink-0 text-support leading-none text-muted-foreground"
             >
-              {label}
+              {/* Monday, Wednesday, Friday: enough to read the rows, quiet
+                  enough that the axis is not a wall of letters. */}
+              {index % 2 === 1 ? label : ""}
             </span>
           ))}
         </div>
 
-        <div className="min-w-0 flex-1 overflow-x-auto pb-1">
-          <div className="flex w-max flex-col gap-[3px]">
-            <div className="flex gap-[3px]" aria-hidden>
-              {monthLabels.map((label, index) => (
+        <div
+          ref={scrollerRef}
+          className="min-w-0 flex-1 overflow-x-auto overscroll-x-contain pb-1"
+        >
+          <div className={cn("flex w-max flex-col", GAP)}>
+            <div className={cn("flex", GAP)} aria-hidden>
+              {labels.map((label, index) => (
                 <span
                   key={index}
-                  className="w-[11px] overflow-visible font-mono text-[9px] whitespace-nowrap text-muted-foreground/70"
+                  className="w-3.5 overflow-visible text-support leading-none whitespace-nowrap text-muted-foreground"
                 >
                   {label ?? ""}
                 </span>
               ))}
             </div>
 
-            <div className="flex gap-[3px]">
+            <div className={cn("flex", GAP)}>
               {weeks.map((week) => (
-                <div key={week[0]!.day} className="flex flex-col gap-[3px]">
+                <div key={week[0]!.day} className={cn("flex flex-col", GAP)}>
                   {week.map((cell) => {
                     // A day that has not happened yet is not "no submissions";
                     // it is nothing at all, so it gets no colour and no label.
@@ -106,7 +116,10 @@ export function ActivityHeatmap({
                         <span
                           key={cell.day}
                           aria-hidden
-                          className="size-[11px] rounded-[2px] border border-dashed border-border/60"
+                          className={cn(
+                            CELL,
+                            "border border-dashed border-border/60",
+                          )}
                         />
                       );
                     }
@@ -124,16 +137,17 @@ export function ActivityHeatmap({
                           render={
                             <span
                               className={cn(
-                                "block size-[11px] rounded-[2px]",
+                                "block",
+                                CELL,
                                 LEVEL_CLASS[activityLevel(cell)],
                                 cell.day === end &&
-                                  "outline outline-1 outline-offset-1 outline-primary/50",
+                                  "outline outline-1 outline-offset-1 outline-primary/60",
                               )}
                             />
                           }
                         />
                         <TooltipContent side="top">
-                          <span className="font-mono text-[11px]">
+                          <span className="text-support">
                             {describeDay(cell.day)} · {describeCell(cell)}
                           </span>
                         </TooltipContent>
@@ -147,22 +161,20 @@ export function ActivityHeatmap({
         </div>
       </div>
 
-      <div className="flex items-center gap-2 pl-5">
-        <span className="font-mono text-[10px] text-muted-foreground">
-          less
-        </span>
-        <div className="flex items-center gap-[3px]" aria-hidden>
+      <div className="flex flex-wrap items-center gap-2 pl-6">
+        <span className="text-support text-muted-foreground">less</span>
+        <div className={cn("flex items-center", GAP)} aria-hidden>
           {LEVEL_CLASS.map((tone, index) => (
             <span
               key={index}
               title={LEGEND_LABELS[index]}
-              className={cn("size-[11px] rounded-[2px]", tone)}
+              className={cn(CELL, tone)}
             />
           ))}
         </div>
-        <span className="font-mono text-[10px] text-muted-foreground">more</span>
-        <span className="ml-2 font-mono text-[10px] text-muted-foreground/70">
-          one square per day · submits, not attempts
+        <span className="text-support text-muted-foreground">more</span>
+        <span className="text-support text-muted-foreground">
+          one square per day · verified submits, not attempts
         </span>
       </div>
     </div>

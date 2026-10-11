@@ -1,8 +1,20 @@
 # Follow-up — Tutor replies stop at the question
 
-**Status:** not complete — the Encode/Decode transcript still fails the stop-at-the-question review
+**Status:** not complete — superseded by [Phase 15](./15-beginner-tutor.md), which
+replaced this restrictive response contract
 
 Phase 11 made replies consistent and still ended every one with a `Next:` task. On Encode and Decode Strings that turned a clarification into the rest of `decode`: pointer updates, loop termination, and two more lines to write. The keyword score from that pass (40/42, 95.2%) did not catch it.
+
+Phase 15 supersedes this contract. The rule set here — answer the question and
+nothing else, a clarification may end, the next task only when asked — produced a
+tutor that was accurate and unhelpful: it explained why `length` belongs in the
+list and stopped, which is a poor answer for someone staring at a half-written
+`decode`. Phase 15 replaces it with concrete named hints, the idea behind each
+step, confusion handled by shrinking the example, and the complete implementation
+still behind an explicit request. The Encode and Decode clarification is still
+part of Phase 15's recorded evaluation, because the replacement contract has to
+answer that question without walking the rest of `decode` either. This file stays
+as the historical record of what was tried and why it did not work.
 
 Worked ahead of Phase 9 by direct request. It does not change that phase's status. No model switch, provider, or new chat infrastructure. Existing conversations and practice data stay intact. No chat request, database schema, judging, or source-wrapping changes.
 

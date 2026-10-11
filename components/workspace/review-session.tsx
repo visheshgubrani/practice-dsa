@@ -57,22 +57,22 @@ export function ReviewSession({
           <h2
             id="review-session-title"
             tabIndex={-1}
-            className="font-mono text-xs font-medium"
+            className="text-base font-medium"
           >
             Review recall
           </h2>
           {status === "ready" && card.enrolled && dueStatus && card.dueAt ? (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-support text-muted-foreground">
               {dueStatus}: {dueLabel(card.dueAt)}
             </p>
           ) : null}
           {status === "ready" && !card.enrolled ? (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-support text-muted-foreground">
               Not in your review schedule yet. Finish review to add and rate it.
             </p>
           ) : null}
           {status === "ready" && card.enrolled && !card.active ? (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-support text-muted-foreground">
               Resume reviews from Notes before rating this paused card.
             </p>
           ) : null}
@@ -82,7 +82,12 @@ export function ReviewSession({
           (status === "ready" && (!card.enrolled || card.active))) ? (
           <DialogTrigger
             render={
-              <Button type="button" size="sm" disabled={schedule.ratingSaving} />
+              <Button
+                type="button"
+                size="lg"
+                className="text-base"
+                disabled={schedule.ratingSaving}
+              />
             }
             onClick={onFinishReview}
           >
@@ -92,7 +97,7 @@ export function ReviewSession({
       </div>
 
       {status === "loading" ? (
-        <p className="flex items-center gap-2 text-xs text-muted-foreground">
+        <p className="flex items-center gap-2 text-support text-muted-foreground">
           <Spinner /> Loading review state…
         </p>
       ) : null}
@@ -127,10 +132,10 @@ export function ReviewSession({
               </Link>
             ) : (
               <Link
-                href="/"
+                href="/reviews"
                 className="underline underline-offset-4 hover:text-foreground"
               >
-                Back to dashboard
+                Back to reviews
               </Link>
             )}
           </AlertDescription>

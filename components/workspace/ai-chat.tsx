@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { AlertTriangleIcon, MessagesSquareIcon } from "lucide-react";
@@ -36,7 +36,12 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { messageText } from "@/lib/chat/messages";
-import type { ChatThreadSummary, TutorUIMessage } from "@/lib/chat/types";
+import { hasCompletedTutorReply } from "@/lib/chat/actions";
+import type {
+  ChatCompletionStatus,
+  ChatThreadSummary,
+  TutorUIMessage,
+} from "@/lib/chat/types";
 import type { ChatWorkspace } from "@/lib/hooks/use-chat-workspace";
 import type { Language } from "@/lib/languages";
 import type { Problem } from "@/lib/problems";
@@ -106,6 +111,10 @@ function TutorThread({
     extrasRef.current = extras;
   });
 
+  const [completions, setCompletions] = useState<
+    Record<string, ChatCompletionStatus>
+  >({});
+
   const transport = useMemo(
     () => new DefaultChatTransport<TutorUIMessage>({ api: "/api/chat" }),
     [],
@@ -124,13 +133,22 @@ function TutorThread({
     messages: initialMessages,
     generateId: () => crypto.randomUUID(),
     transport,
-    onFinish: () => {
+    onFinish: ({ message, isAbort, isError, isDisconnect }) => {
+      setCompletions((previous) => ({
+        ...previous,
+        [message.id]: isAbort
+          ? "aborted"
+          : isError || isDisconnect
+            ? "failed"
+            : "completed",
+      }));
       onTurnSettled();
     },
   });
 
   const isStreaming = status === "streaming" || status === "submitted";
   const hasMessages = messages.length > 0;
+  const hasTutorReply = hasCompletedTutorReply(messages, completions);
   const items = threadItems(threads, threadId);
 
   return (
@@ -224,11 +242,12 @@ function TutorThread({
                       <EmptyMedia variant="icon">
                         <MessagesSquareIcon />
                       </EmptyMedia>
-                      <EmptyTitle>Nothing asked yet</EmptyTitle>
+                      <EmptyTitle>Ask me anything about this one</EmptyTitle>
                       <EmptyDescription>
-                        The tutor sees the statement, the constraints, and your
-                        current {language.short} code. Ask for a nudge rather
-                        than the answer.
+                        I can see the statement, the constraints, and the{" "}
+                        {language.short} code in your editor — every message
+                        carries it, so you never have to paste it. Start with a
+                        hint, or just say what is confusing you.
                       </EmptyDescription>
                     </EmptyHeader>
                   </Empty>
@@ -260,7 +279,7 @@ function TutorThread({
                                   {text}
                                 </p>
                               ) : (
-                                <Markdown highlightNext>{text}</Markdown>
+                                <Markdown>{text}</Markdown>
                               )}
                             </BubbleContent>
                           </Bubble>
@@ -325,6 +344,7 @@ function TutorThread({
         problem={problem}
         language={language}
         isStreaming={isStreaming}
+        hasTutorReply={hasTutorReply}
         onSend={(text) => {
           void sendMessage({ text }, { body: extrasRef.current });
         }}

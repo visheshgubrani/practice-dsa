@@ -82,6 +82,8 @@ export function isReviewQueue(value: unknown): value is ReviewQueue {
     body.due.every(isReviewSummary) &&
     Array.isArray(body.upcoming) &&
     body.upcoming.every(isReviewSummary) &&
+    Array.isArray(body.paused) &&
+    body.paused.every(isReviewSummary) &&
     (body.nextDueAt === null || typeof body.nextDueAt === "string") &&
     body.dueCount === body.due.length
   );

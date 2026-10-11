@@ -454,15 +454,17 @@ export function Workspace({
     practice.notesConflict ? (
       <div className="flex shrink-0 flex-col gap-2 border-b border-border px-3 py-2">
       {review ? (
-          <div className="flex flex-wrap items-center gap-2 rounded-md border border-primary/35 bg-primary/10 px-3 py-2">
-            <p className="text-xs text-foreground/90">
-              <span className="font-mono text-[11px] text-primary">review</span>{" "}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-primary/35 bg-primary/10 px-4 py-3">
+            <span className="shrink-0 rounded-sm bg-primary/15 px-1.5 py-0.5 font-mono text-support font-medium text-primary">
+              review
+            </span>
+            <p className="text-base text-foreground">
               Recall the key idea, outline the steps, then try coding. The code
               buffer restarts on refresh.
             </p>
             <Link
               href={`/problems/${problem.slug}`}
-              className="ml-auto shrink-0 font-mono text-[11px] text-muted-foreground underline underline-offset-4 hover:text-foreground"
+              className="ml-auto shrink-0 text-support text-muted-foreground underline underline-offset-4 hover:text-foreground"
             >
               leave review mode
             </Link>
@@ -475,10 +477,10 @@ export function Workspace({
           />
         ) : null}
         {revision ? (
-          <div className="flex flex-wrap items-center gap-2 rounded-md border border-primary/35 bg-primary/10 px-3 py-2">
-            <RotateCcwIcon className="size-3.5 shrink-0 text-primary" />
-            <p className="text-xs text-foreground/90">
-              <span className="font-mono text-[11px] text-primary">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-primary/35 bg-primary/10 px-4 py-3">
+            <RotateCcwIcon className="size-4 shrink-0 text-primary" />
+            <p className="text-base text-foreground">
+              <span className="font-mono text-support font-medium text-primary">
                 revising
               </span>{" "}
               {/* A revise link on a problem with no accepted solution is still
@@ -495,7 +497,7 @@ export function Workspace({
             </p>
             <Link
               href={`/problems/${problem.slug}`}
-              className="ml-auto shrink-0 font-mono text-[11px] text-muted-foreground underline underline-offset-4 hover:text-foreground"
+              className="ml-auto shrink-0 text-support text-muted-foreground underline underline-offset-4 hover:text-foreground"
             >
               leave revise mode
             </Link>

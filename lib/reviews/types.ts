@@ -37,6 +37,11 @@ export type ReviewQueue = {
   dueCount: number;
   due: ReviewSummary[];
   upcoming: ReviewSummary[];
+  /**
+   * Enrolled cards that are paused. They keep their schedule and stay visible,
+   * but they are never counted as due and never set the next due boundary.
+   */
+  paused: ReviewSummary[];
   /** Soonest active card that is not due yet, when there is one. */
   nextDueAt: string | null;
 };

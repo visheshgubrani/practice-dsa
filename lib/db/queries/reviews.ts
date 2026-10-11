@@ -174,7 +174,6 @@ export async function listReviewQueue(now = new Date()): Promise<ReviewQueue> {
     })
     .from(reviewCards)
     .innerJoin(problems, eq(reviewCards.problemId, problems.id))
-    .where(eq(reviewCards.active, true))
     .orderBy(
       asc(reviewCards.dueAt),
       asc(problems.position),
@@ -183,6 +182,7 @@ export async function listReviewQueue(now = new Date()): Promise<ReviewQueue> {
 
   const due: ReviewSummary[] = [];
   const upcoming: ReviewSummary[] = [];
+  const paused: ReviewSummary[] = [];
   for (const row of rows) {
     assertCardDueAt(row);
     const summary: ReviewSummary = {
@@ -194,7 +194,11 @@ export async function listReviewQueue(now = new Date()): Promise<ReviewQueue> {
       dueAt: toIso(row.dueAt),
       revision: row.revision,
     };
-    if (row.dueAt.getTime() <= now.getTime()) due.push(summary);
+    // Paused cards keep their row in the list — the pages show them under
+    // Paused — but only active cards are candidates for "due" or for the next
+    // due boundary, so a paused card can never make the count wrong.
+    if (!row.active) paused.push(summary);
+    else if (row.dueAt.getTime() <= now.getTime()) due.push(summary);
     else upcoming.push(summary);
   }
 
@@ -202,6 +206,7 @@ export async function listReviewQueue(now = new Date()): Promise<ReviewQueue> {
     dueCount: due.length,
     due,
     upcoming,
+    paused,
     nextDueAt: upcoming[0]?.dueAt ?? null,
   };
 }

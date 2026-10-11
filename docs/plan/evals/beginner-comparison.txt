@@ -1,0 +1,335 @@
+beginner-baseline: keyword 83/129, hard fails 0
+beginner-revised: keyword 97/129, hard fails 0
+
+=== two-sum-handholding
+  -- approach
+     was 126w  732c nocode - map  clean
+     now 100w  572c nocode - map  clean
+     was  86w  466c nocode - tool-  clean
+     now  91w  535c nocode - map  clean
+     was  71w  400c nocode - tool-  clean
+     now  74w  409c nocode - tool-  clean
+  -- propose-loops
+     was  65w  328c nocode - tool-  clean
+     now  69w  363c nocode - tool-  clean
+     was  69w  380c nocode - tool-  clean
+     now  69w  353c nocode - tool-  clean
+     was  55w  299c nocode - tool-  missing /slow|quadratic|n\^2|n²|O\(n(?:\^2|\*\*2)\)|10\^4|large/i
+     now  69w  359c nocode - tool-  clean
+  -- what-now
+     was  49w  266c 1code - tool-  clean
+     now  52w  271c nocode - tool-  clean
+     was  61w  335c 1code - tool-  clean
+     now  61w  333c nocode - tool-  clean
+     was  57w  307c 1code - tool-  clean
+     now  50w  253c nocode - tool-  clean
+  -- confused
+     was  75w  418c 1code - tool-  clean
+     now  70w  373c 1code - tool-  clean
+     was  69w  385c 1code - tool-  clean
+     now  71w  358c nocode - tool-  clean
+     was  79w  434c 1code - tool-  clean
+     now  76w  390c 1code - tool-  clean
+  -- clarify
+     was  60w  314c 1code - tool-  clean
+     now  68w  343c nocode - tool-  clean
+     was  37w  211c 1code - tool-  clean
+     now  63w  346c nocode - tool-  clean
+     was  28w  145c nocode - tool-  missing /loop|i\b|j\b|index/i
+     now  59w  290c nocode - tool-  clean
+
+=== two-sum-concrete-hint
+  -- start
+     was  85w  469c nocode - tool-  named no concrete tool or step; missing /list|nums|array/i
+     now  68w  358c nocode - tool-  clean
+     was  85w  457c 1code - tool-  clean
+     now  75w  420c nocode - tool-  clean
+     was  99w  570c 1code - tool-  named no concrete tool or step
+     now  84w  452c nocode - tool-  clean
+  -- choose-loops
+     was  75w  420c 1code - tool-  missing /slow|quadratic|n\s*\^|n²|O\(n\s*(?:\^|\*\*)?\s*2\)|large|faster/i
+     now  57w  305c nocode - tool-  clean
+     was  54w  309c nocode - tool-  clean
+     now  51w  283c nocode - tool-  missing /nested|every pair|two loops|brute|double/i
+     was  68w  360c nocode - tool-  clean
+     now  52w  274c nocode - tool-  clean
+  -- hashmap
+     was  60w  357c nocode - map  reply reads as a dead end
+     now  65w  392c nocode - map  clean
+     was  64w  380c nocode - map  clean
+     now  68w  400c nocode - map  reply reads as a dead end
+     was  63w  379c nocode - map  clean
+     now  64w  387c nocode - map  reply reads as a dead end
+  -- resume
+     was  45w  282c nocode - map  resume reply does not ground the recap in the current code
+     now  52w  303c nocode - map  resume reply does not ground the recap in the current code
+     was  54w  329c nocode - map  resume reply does not ground the recap in the current code
+     now  57w  319c nocode - map  resume reply does not ground the recap in the current code
+     was  57w  325c 1code - map  resume reply does not ground the recap in the current code
+     now  60w  347c nocode - map  resume reply does not ground the recap in the current code
+
+=== two-sum-nested-supplied
+  -- start
+     was  83w  482c nocode - map  missing /list|nums|array/i; unexpected /hash ?map|dict|dictionary|set\(|complement|seen/i
+     now  70w  384c nocode - map  clean
+     was  85w  474c nocode - tool-  missing /list|nums|array/i
+     now  65w  403c nocode - tool-  clean
+     was  87w  503c 1code - map  unexpected /hash ?map|dict|dictionary|set\(|complement|seen/i
+     now  72w  411c nocode - tool-  clean
+  -- choose-loops
+     was  70w  375c 1code - tool-  did not acknowledge the learner's idea before extending it; missing /slow|quadratic|n\s*\^|n²|O\(n\s*(?:\^|\*\*)?\s*2\)|large|faster/i
+     now  57w  303c nocode - tool-  clean
+     was  56w  294c nocode - tool-  did not acknowledge the learner's idea before extending it
+     now  82w  451c nocode - tool-  missing /slow|quadratic|n\s*\^|n²|O\(n\s*(?:\^|\*\*)?\s*2\)|large|faster/i
+     was  62w  340c nocode - tool-  did not acknowledge the learner's idea before extending it
+     now  71w  362c nocode - tool-  clean
+  -- hashmap
+     was  52w  292c nocode - map  reply reads as a dead end; missing /complement|partner|pair|match|the other/i
+     now  53w  313c nocode - map  clean
+     was  44w  250c nocode - map  reply reads as a dead end
+     now  63w  363c nocode - map  clean
+     was  60w  335c nocode - map  reply reads as a dead end
+     now  48w  280c nocode - map  reply reads as a dead end; missing /complement|partner|pair|match|the other/i; missing /index|position|where|remember|track|store|seen/i
+  -- resume
+     was  45w  231c nocode - tool-  resume reply does not ground the recap in the current code; missing /hash ?map|dict|dictionary|seen|complement/i
+     now  53w  286c nocode - tool-  resume reply does not ground the recap in the current code; missing /hash ?map|dict|dictionary|seen|complement/i
+     was  58w  308c nocode - tool-  resume reply does not ground the recap in the current code; missing /hash ?map|dict|dictionary|seen|complement/i
+     now  43w  215c nocode - tool-  resume reply does not ground the recap in the current code; missing /hash ?map|dict|dictionary|seen|complement/i
+     was  48w  258c nocode - tool-  resume reply does not ground the recap in the current code; missing /hash ?map|dict|dictionary|seen|complement/i
+     now  48w  254c nocode - tool-  resume reply does not ground the recap in the current code; missing /hash ?map|dict|dictionary|seen|complement/i
+
+=== parens-order-matters
+  -- stack
+     was  65w  336c nocode - stack  clean
+     now  62w  328c nocode - stack  clean
+     was  61w  321c nocode - stack  clean
+     now  72w  385c nocode - stack  clean
+     was  80w  427c nocode - stack  clean
+     now  72w  410c nocode - stack  clean
+  -- counting
+     was  61w  345c nocode - stack  clean
+     now  66w  364c nocode - stack  clean
+     was  62w  358c nocode - stack  clean
+     now  55w  307c nocode - stack  clean
+     was  56w  308c nocode - stack  clean
+     now  69w  385c nocode - stack  clean
+  -- lost
+     was  99w  509c nocode - stack  did not reuse the agreed example; missing /remember|hold|keep|track|waiting|expect/i
+     now 112w  563c nocode - stack  missing /remember|hold|keep|track|waiting|expect/i
+     was  91w  469c nocode - stack  clean
+     now 105w  516c nocode - stack  did not reuse the agreed example; missing /remember|hold|keep|track|waiting|expect/i
+     was 110w  559c nocode - stack  clean
+     now 110w  568c nocode - stack  clean
+  -- resume
+     was  48w  261c nocode - stack  resume reply does not ground the recap in the current code
+     now  42w  209c nocode - stack  resume reply does not ground the recap in the current code
+     was  44w  266c 1code - stack  resume reply does not ground the recap in the current code
+     now  34w  177c nocode - stack  resume reply does not ground the recap in the current code
+     was  54w  289c nocode - stack  resume reply does not ground the recap in the current code
+     now  42w  234c nocode - stack  resume reply does not ground the recap in the current code
+
+=== parens-order-supplied
+  -- stack
+     was  85w  446c nocode - stack  clean
+     now  62w  350c nocode - stack  clean
+     was  96w  499c nocode - stack  clean
+     now  76w  409c nocode - stack  clean
+     was  76w  422c nocode - stack  clean
+     now  73w  397c nocode - stack  clean
+  -- counting
+     was  64w  371c nocode - stack  clean
+     now  65w  367c nocode - stack  clean
+     was  56w  305c nocode - stack  did not explain order with the ([)] counterexample
+     now  66w  357c nocode - stack  clean
+     was  52w  288c nocode - stack  clean
+     now  59w  339c nocode - stack  clean
+  -- lost
+     was  78w  377c nocode - stack  missing /remember|hold|keep|track|waiting|expect/i
+     now  92w  447c nocode - stack  clean
+     was  64w  327c nocode - stack  missing /remember|hold|keep|track|waiting|expect/i
+     now  82w  402c nocode - stack  clean
+     was  75w  398c nocode - stack  clean
+     now  74w  383c nocode - stack  clean
+  -- resume
+     was  47w  274c nocode - stack  resume reply does not ground the recap in the current code
+     now  44w  251c nocode - stack  resume reply does not ground the recap in the current code
+     was  37w  203c nocode - stack  resume reply does not ground the recap in the current code
+     now  41w  233c nocode - stack  resume reply does not ground the recap in the current code
+     was  44w  236c nocode - stack  resume reply does not ground the recap in the current code
+     now  38w  230c nocode - stack  resume reply does not ground the recap in the current code
+
+=== confusion-and-resume-independent
+  -- confused
+     was  61w  328c 1code - map+complement  answered confusion with code
+     now  70w  414c 1code - map+complement  answered confusion with code
+     was  87w  493c 1code - map+complement  answered confusion with code
+     now  60w  366c 1code - complement  answered confusion with code
+     was  88w  496c 1code - map+complement  answered confusion with code
+     now  68w  391c 1code - map+complement  answered confusion with code
+  -- specific
+     was  37w  227c 1code - complement  clean
+     now  33w  215c 1code - complement  clean
+     was  30w  207c 1code - complement  clean
+     now  37w  234c 1code - complement  clean
+     was  35w  225c 1code - complement  clean
+     now  32w  212c 1code - complement  clean
+  -- resume
+     was  49w  279c nocode - tool-  resume reply does not ground the recap in the current code
+     now  46w  230c nocode - tool-  resume reply does not ground the recap in the current code
+     was  56w  339c 1code - map+complement  resume reply does not ground the recap in the current code
+     now  63w  379c nocode - map+complement  resume reply does not ground the recap in the current code
+     was  45w  274c nocode - map+complement  resume reply does not ground the recap in the current code
+     now  72w  412c nocode - map+complement  resume reply does not ground the recap in the current code
+
+=== confusion-and-resume-connected
+  -- confused
+     was  91w  496c 1code - complement  answered confusion with code
+     now  68w  358c nocode - tool-  clean
+     was  81w  445c nocode - map+complement  clean
+     now  91w  466c nocode - tool-  clean
+     was  92w  507c 1code - map+complement  did not reuse the agreed example
+     now  91w  468c nocode - tool-  clean
+  -- specific
+     was  39w  246c 1code - complement  clean
+     now  35w  222c 1code - complement  clean
+     was  53w  328c 1code - complement  clean
+     now  37w  229c 1code - complement  clean
+     was  36w  227c 1code - complement  clean
+     now  32w  219c 1code - complement  clean
+  -- resume
+     was  59w  354c 1code - complement  resume reply does not ground the recap in the current code
+     now  65w  403c nocode - complement  resume reply does not ground the recap in the current code
+     was  47w  317c nocode - complement  resume reply does not ground the recap in the current code
+     now  65w  389c 1code - complement  resume reply does not ground the recap in the current code
+     was  59w  378c nocode - complement  resume reply does not ground the recap in the current code
+     now  67w  433c 1code - map+complement  resume reply does not ground the recap in the current code
+
+=== parens-alternative
+  -- propose-stack
+     was  73w  393c nocode - stack  clean
+     now  65w  348c nocode - stack  clean
+     was  73w  389c nocode - stack  clean
+     now  83w  435c nocode - stack  clean
+     was  77w  426c nocode - stack  clean
+     now  64w  341c nocode - stack  clean
+  -- what-now
+     was  46w  279c 1code - stack  clean
+     now  34w  189c nocode - stack  clean
+     was  47w  281c 1code - stack  clean
+     now  42w  230c nocode - stack  clean
+     was  36w  214c nocode - stack  clean
+     now  35w  193c nocode - stack  clean
+  -- counting
+     was  51w  278c nocode - stack  clean
+     now  53w  280c nocode - stack  clean
+     was  71w  374c nocode - stack  clean
+     now  49w  274c nocode - stack  clean
+     was  64w  350c nocode - stack  clean
+     now  52w  283c nocode - stack  clean
+
+=== codec-prints
+  -- what-now
+     was  65w  455c 1code - tool-  clean
+     now  67w  397c nocode - tool-  clean
+     was  64w  382c nocode - tool-  clean
+     now  63w  429c 1code - tool-  clean
+     was  66w  442c 1code - tool-  clean
+     now  55w  336c nocode - tool-  clean
+
+=== codec-prints-refreshed
+  -- why-failing
+     was  75w  437c nocode - tool-  clean
+     now  63w  406c nocode - tool-  clean
+     was  65w  403c nocode - tool-  clean
+     now  77w  485c nocode - tool-  clean
+     was  69w  430c nocode - tool-  clean
+     now  65w  399c nocode - tool-  clean
+
+=== two-sum-stale-result
+  -- draft
+     was  61w  387c 1code - complement  clean
+     now  72w  399c nocode - complement  clean
+     was  69w  394c 1code - complement  clean
+     now  55w  309c nocode - tool-  clean
+     was  75w  495c 1code - complement  clean
+     now  63w  356c nocode - tool-  clean
+
+=== parens-debug
+  -- why-failing
+     was  71w  410c nocode - stack  missing /invalid|\bfalse\b|wrong|not valid|must close|cross/i
+     now  94w  525c nocode - stack  clean
+     was  81w  492c nocode - stack  missing /invalid|\bfalse\b|wrong|not valid|must close|cross/i
+     now  86w  483c nocode - stack  missing /invalid|\bfalse\b|wrong|not valid|must close|cross/i
+     was  85w  497c nocode - stack  clean
+     now  86w  489c nocode - stack  clean
+
+=== two-sum-long-thread
+  -- recall
+     was  49w  260c nocode - tool-  clean
+     now  56w  306c nocode - tool-  clean
+     was  47w  257c nocode - map  clean
+     now  66w  360c nocode - map  clean
+     was  52w  286c nocode - map  clean
+     now  54w  299c nocode - tool-  clean
+
+=== two-sum-syntax-then-solution
+  -- syntax
+     was  40w  228c 1code - enumerate  clean
+     now  37w  206c 1code - enumerate  clean
+     was  38w  208c 1code - enumerate  clean
+     now  43w  245c 1code - enumerate  clean
+     was  37w  216c 1code - enumerate  clean
+     now  44w  237c 1code - enumerate  clean
+  -- full-solution
+     was  79w  579c 1code - enumerate+complement  clean
+     now  92w  637c 1code - map+enumerate+complement  clean
+     was  78w  559c 1code - map+enumerate  clean
+     now  72w  511c 1code - enumerate+complement  clean
+     was  85w  599c 1code - map+enumerate+complement  clean
+     now  76w  557c 1code - enumerate+complement  clean
+
+=== codec-decode-independent
+  -- what-now
+     was 110w  607c 1code - tool-  clean
+     now 114w  623c nocode - tool-  clean
+     was 111w  657c 1code - tool-  clean
+     now 107w  600c nocode - tool-  clean
+     was 118w  638c 1code - tool-  clean
+     now 122w  693c 1code - tool-  clean
+  -- like-this
+     was  75w  383c 1code - tool-  assigned the next lines
+     now  69w  370c nocode - tool-  clean
+     was  74w  392c nocode - tool-  clean
+     now  69w  356c nocode - tool-  clean
+     was  70w  365c nocode - tool-  clean
+     now  67w  342c nocode - tool-  clean
+  -- append-length
+     was  65w  371c nocode - tool-  clean
+     now  55w  321c nocode - tool-  clean
+     was  57w  313c nocode - tool-  clean
+     now  53w  313c nocode - tool-  clean
+     was  46w  254c nocode - tool-  clean
+     now  64w  365c nocode - tool-  clean
+
+=== codec-decode-connected
+  -- what-now
+     was 120w  667c 1code - tool-  clean
+     now 105w  606c nocode - tool-  clean
+     was  97w  548c 1code - tool-  clean
+     now 106w  619c nocode - tool-  clean
+     was 122w  673c 1code - tool-  clean
+     now 114w  630c nocode - tool-  clean
+  -- like-this
+     was  64w  338c nocode - tool-  clean
+     now  67w  367c nocode - tool-  clean
+     was  71w  369c nocode - tool-  clean
+     now  90w  496c 1code - tool-  assigned the next lines
+     was  75w  415c 1code - tool-  reviewed a missing return
+     now  75w  401c nocode - tool-  clean
+  -- append-length
+     was  49w  280c nocode - tool-  clean
+     now  36w  214c nocode - tool-  assigned more than the question
+     was  57w  331c nocode - tool-  clean
+     now  53w  299c 1code - tool-  answered a conceptual question with code
+     was  38w  216c nocode - tool-  clean
+     now  49w  301c nocode - tool-  clean

@@ -17,6 +17,11 @@
  * (`docs/plan/evals/tutor-consistency-<label>.json`). Set `CHAT_SMOKE_RUNS`
  * to override the default of three runs per conversation.
  *
+ * CHAT_SMOKE_REPLAY=<recorded JSON> regrades unchanged live replies against the
+ * current fixtures and checks, retaining their generation date and original grades.
+ * It performs no model calls. Context, editor snapshots, run counts, and model
+ * must match, so old or incomplete recordings cannot satisfy a new gate.
+ *
  * Keyword misses are logged with the transcripts. They are not a teaching-quality
  * score. Hard failures — an unsolicited full solution, a hidden-data leak, or a
  * stale-result claim — still fail the run.
@@ -24,8 +29,11 @@
  * Usage: pnpm chat:smoke
  */
 
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { previousContractTurn, decoderBoundaryFailure, tutorFactFailure } from "@/lib/ai/tutor-eval";
 
 import {
   LIVE_MODEL,
@@ -41,9 +49,15 @@ import type { SubmissionDetail } from "@/lib/submissions/types";
 
 loadEnv();
 
-const { assembleTutorTurn, tutorPayloadText, QUICK_ACTIONS } = await import(
-  "@/lib/ai/prompts"
-);
+const {
+  assembleTutorTurn,
+  buildTutorProblemContext,
+  buildTutorTeachingInstructions,
+  tutorPayloadText,
+  PRIMARY_ACTIONS,
+  MORE_ACTIONS,
+  quickActionById,
+} = await import("@/lib/ai/prompts");
 const { pool } = await import("@/lib/db/index");
 const { getProblem } = await import("@/lib/db/queries/problems");
 const { getLanguage } = await import("@/lib/languages");
@@ -290,11 +304,11 @@ function assistantTurn(id: string, text: string): TutorUIMessage {
 }
 
 function quickPrompt(
-  id: "hint" | "simplify" | "review" | "debug",
+  id: "hint" | "concrete" | "example" | "simplify" | "review" | "debug" | "complexity",
   problem: Problem,
   language: Language,
 ): string {
-  const action = QUICK_ACTIONS.find((entry) => entry.id === id);
+  const action = quickActionById(id);
   if (!action) throw new Error(`Missing quick action ${id}`);
   return action.prompt({ problem, language });
 }
@@ -506,9 +520,11 @@ type TurnResult = {
   id: string;
   user: string;
   text: string;
+  editorCode: string;
   latencyMs: number;
   payloadIncludes: boolean | null;
   grade: Grade;
+  originalGrade?: Grade;
 };
 
 type ConversationResult = {
@@ -518,9 +534,11 @@ type ConversationResult = {
   turns: TurnResult[];
 };
 
-function gradeTurn(turn: TurnSpec, text: string): Grade {
+function gradeTurn(turn: TurnSpec, text: string, problem: Problem): Grade {
   const hardFails: string[] = [];
   const misses: string[] = [];
+  const factFailure = tutorFactFailure(problem, turn.editorCode, turn.user, text);
+  if (factFailure) hardFails.push(factFailure);
 
   if (text.trim().length < 40) misses.push("answer is too short to be useful");
   if (/^next:/im.test(text)) misses.push("forced a Next: task");
@@ -547,6 +565,11 @@ function gradeTurn(turn: TurnSpec, text: string): Grade {
     }
   } else if (unsolicitedSolution(text, turn.editorCode)) {
     hardFails.push("unsolicited full solution");
+  }
+
+  if (turn.id === "what-now" || turn.id === "like-this" || turn.id === "append-length") {
+    const boundary = decoderBoundaryFailure(turn.id, text, turn.editorCode);
+    if (boundary) hardFails.push(boundary);
   }
 
   if (turn.staleClaim?.(text)) hardFails.push("stale-result claim");
@@ -667,6 +690,381 @@ function appendLengthOverreach(text: string): string | null {
   return null;
 }
 
+/**
+ * Phase 15 probes. The quick-action prompts are threaded through the app's
+ * action definitions, so the payload checks in `main` assert the real text.
+ */
+const TWO_SUM_DRAFT_LINE = "return [seen[complement], i]";
+
+const TWO_SUM_SHORT_DRAFT = `class Solution:
+    def twoSum(self, nums: List[int], target: int) -> List[int]:
+        seen = {}
+        for i, num in enumerate(nums):
+            complement = target - num
+            if complement in seen:
+                pass
+`;
+
+const TWO_SUM_HASHMAP_BEFORE = [
+  {
+    role: "user" as const,
+    text: "okay let's just do the nested loops, i get those. starting now",
+  },
+  {
+    role: "assistant" as const,
+    text: "Good call — nested loops are the honest first version. Outer loop for i, inner loop for j starting at i + 1.",
+  },
+  {
+    role: "user" as const,
+    text: "okay both loops are in",
+  },
+  {
+    role: "assistant" as const,
+    text: "Then the inner body compares nums[i] + nums[j] to target.",
+  },
+  {
+    role: "user" as const,
+    text: "and it works for [2,7,9,11]. not fast though",
+  },
+  {
+    role: "assistant" as const,
+    text: "It does work. It is O(n²) because every pair gets checked; n = 10^4 is where that starts to hurt.",
+  },
+];
+
+const TWO_SUM_WAIT_BEFORE = [
+  ...TWO_SUM_HASHMAP_BEFORE,
+  {
+    role: "user" as const,
+    text: "wait, so can we use a hashmap here?",
+  },
+  {
+    role: "assistant" as const,
+    text: "A dict would work, but the loops are already in the editor and they are correct. Tell me what you want to do before we touch them.",
+  },
+];
+
+const PARENS_ORDER_BEFORE = [
+  {
+    role: "user" as const,
+    text: "Can we do this with a stack of opening brackets?",
+  },
+  {
+    role: "assistant" as const,
+    text: "Yes. A stack remembers which opener is still waiting for its closer, which is exactly what this problem needs.",
+  },
+];
+
+const PARENS_LOST_BEFORE = [
+  ...PARENS_ORDER_BEFORE,
+  {
+    role: "user" as const,
+    text: 'wait, would counting each type be easier? "([)]" has equal counts',
+  },
+  {
+    role: "assistant" as const,
+    text: 'Counting is easier to write, but it misses order. In "([)]" the counts match and the sequence is still wrong. Stay with the stack.',
+  },
+];
+
+const TWO_SUM_CONFUSED_BEFORE = [
+  {
+    role: "user" as const,
+    text: "what approach should i take here? complete beginner",
+  },
+  {
+    role: "assistant" as const,
+    text: "Start with the loops: i over every index, j over the ones after it, and compare nums[i] + nums[j] to target. A dict is the faster second version once the loops work.",
+  },
+  {
+    role: "user" as const,
+    text: "okay the loops are in and they find the pair for [2,7,9,11]",
+  },
+  {
+    role: "assistant" as const,
+    text: "Nice — that is a correct brute force. Now the dict idea: as you walk once, remember each number you have already passed and where it sat.",
+  },
+  {
+    role: "user" as const,
+    text: "i started a dict called seen",
+  },
+  {
+    role: "assistant" as const,
+    text: "Good. Inside the loop you need the number that would complete the pair, then a look in seen.",
+  },
+  {
+    role: "user" as const,
+    text: "i have seen = {}, i, num in enumerate(nums), and complement = target - num",
+  },
+  {
+    role: "assistant" as const,
+    text: "That is the setup. Checking seen is the next idea.",
+  },
+  {
+    role: "user" as const,
+    text: "i think the check is if complement in seen but im not sure what i do when it is",
+  },
+  {
+    role: "assistant" as const,
+    text: "If it is in seen, you have both halves of the pair: the current index and the index stored under that number.",
+  },
+];
+
+const TWO_SUM_WHERE_BEFORE = [
+  ...TWO_SUM_CONFUSED_BEFORE,
+  {
+    role: "user" as const,
+    text: "okay i added the check, it found [0,1]",
+  },
+  {
+    role: "assistant" as const,
+    text: "That is the pair. The loop still needs to remember every number it walks past, or nothing will be in the dict for the next one.",
+  },
+];
+
+/** A fence that holds a whole method, which is what a solution printer does. */
+function completeMethodBlock(code: string): boolean {
+  const lines = code
+    .split("\n")
+    .filter((line) => line.trim().length > 0 && !line.trimStart().startsWith("#"));
+  if (/\bclass Solution\b/.test(code)) return true;
+  if (/\bdef\s+\w+\s*\(\s*self\b/.test(code)) return true;
+  return (
+    lines.length >= 6 && /\breturn\b/.test(code) && /\b(for|while|if)\b/.test(code)
+  );
+}
+
+/** A fence that writes out the algorithm the learner was meant to write. */
+function snippetDoesTooMuchMiss(text: string): string | null {
+  for (const block of codeBlocks(text)) {
+    if (block.includes(TWO_SUM_DRAFT_LINE)) continue;
+    if (completeMethodBlock(block)) {
+      return "handed over a method instead of the local line";
+    }
+    const lines = block.split("\n").filter((line) => line.trim().length > 0);
+    if (
+      lines.length > 3 &&
+      lines.some((line) => /\bdef\b|\bfor\b|\bwhile\b|\breturn\b/.test(line))
+    ) {
+      return "snippet is a method body, not the local line";
+    }
+  }
+  return null;
+}
+
+const CANNED_PRAISE =
+  /(?:^|[.!?\n]\s*)(?:exactly right|exactly!|great job|good job|nice work|you're close|you are close|perfect!|well done|awesome!|good start!)/i;
+const FORCED_HUMOR =
+  /\b(?:haha|hah!|lol\b|😂|🚀|trusty|old friend|our good friend|like a boss)\b/i;
+
+/** Canned praise or a mascot voice instead of a specific, friendly pointer. */
+function cannedVoiceMiss(text: string): string | null {
+  if (CANNED_PRAISE.test(text)) return "canned praise";
+  if (FORCED_HUMOR.test(text)) return "forced humor or mascot voice";
+  return null;
+}
+
+/** A reply that stops without leaving the learner a way back in. */
+function deadEndMiss(text: string): string | null {
+  const ending = text.trimEnd();
+  if (/\?["')\]]*$/.test(ending)) return null;
+  // Anything that hands the next move back counts: a try, a run, a question,
+  // or simply saying what comes after this piece.
+  const movesOn =
+    /\b(?:try|run it|run that|give it a (?:try|run)|see (?:if|what|how)|let me know|tell me|show me|come back|we(?:'ll| will)|you(?:'ll| will)|then|next|once you|after that|when you|check (?:it|that|this)|does (?:that|this) (?:make sense|help)?|if (?:it|that|this) (?:is|isn'?t|was|doesn'?t)|when (?:it|that|this)|(?:good|decent|solid) first|start (?:building|sketching|with)|your first change|first version)\b/i.test(
+      ending.slice(-400),
+    );
+  return movesOn ? null : "reply reads as a dead end";
+}
+
+/** Confusion is not a reason to repeat the same hint or drop the attempt. */
+function repeatedHintMiss(text: string): string | null {
+  if (
+    /\b(?:start over|different approach|another approach|switch(?:ing)? to|forget (?:that|the)|let'?s try something else)\b/i.test(
+      text,
+    )
+  ) {
+    return "abandoned the current attempt instead of re-explaining";
+  }
+  if (
+    /\b(?:as i (?:said|mentioned)|like i said|again,? the same|same as before)\b/i.test(
+      text,
+    )
+  ) {
+    return "repeated the earlier hint instead of rephrasing";
+  }
+  return null;
+}
+
+/** Confusion still gets no code: it gets a smaller, plainer explanation. */
+function reexplainMiss(text: string, example: RegExp): string | null {
+  if (!example.test(text)) return "did not reuse the agreed example";
+  const block = codeBlocks(text).find((code) => !/^\s*#/m.test(code));
+  return block === undefined ? null : "answered confusion with code";
+}
+
+/** A direct request for the exact line may name it; it may not write the method. */
+function directLineMiss(text: string, line: string): string | null {
+  const escaped = line.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  if (new RegExp(`(?:^|[^\\w.])${escaped}`, "i").test(text)) return null;
+  if (/\[\s*\w+\s*\]\s*=/i.test(text)) return null;
+  return "did not name the exact local line";
+}
+
+/** A reply that walks the learner through the whole remaining method. */
+function walksWholeMethod(text: string): string | null {
+  const steps = [
+    /\bfor\b[^\n]{0,40}\bin\s+(?:enumerate\s*\(|range\s*\()/i,
+    /\[\s*\w+\s*\]\s*=/i,
+    /complement\s+in\s+(?:seen|lookup|memo|d)\b/i,
+    /^\s*return\s+/im,
+  ];
+  return steps.filter((pattern) => pattern.test(text)).length >= 3
+    ? "walked the remaining dictionary steps"
+    : null;
+}
+
+/** "What did we agree on?" fails only when the reply cannot name the agreement. */
+function forgetsAgreementMiss(text: string): string | null {
+  const namesPlan =
+    /\b(?:nested loop|two loops|i\s*\+\s*1|every pair|brute force|hash ?map|dict|dictionary|seen|complement)\b/i.test(
+      text,
+    );
+  const asksAgain =
+    /\b(?:which (?:one|approach)|remind me|what did you (?:pick|choose)|tell me which)\b/i.test(
+      text,
+    );
+  return namesPlan || !asksAgain
+    ? null
+    : "asked the learner to restate the plan instead of recalling it";
+}
+
+/** A resume has to say where the work stands, not restart it. */
+const SCAFFOLD_SIGNALS =
+  /\b(?:while|for|if|def|class|return|stack|dict|dictionary|hash|seen|complement|enumerate|loop|editor|buffer|pass|nums|target|index)\b/i;
+
+const CONCRETE_MOVE =
+  /\b(?:try|add|write|push|pop|store|check|look up|look at|use|keep|walk|start|fill|move|return the)\b/i;
+
+function resumeMiss(text: string): string | null {
+  const signals = new Set((text.match(new RegExp(SCAFFOLD_SIGNALS.source, "gi")) ?? []).map((signal) => signal.toLowerCase()));
+  const namesWork =
+    /\b(?:loop|stack|dict|dictionary|map|seen|complement|pass|line|piece|editor|buffer|return|index)\b/i.test(
+      text,
+    );
+  if (signals.size < 2 || !namesWork) {
+    return "resume reply does not ground the recap in the current code";
+  }
+  if (deadEndMiss(text) === null) return null;
+  if (CONCRETE_MOVE.test(text.slice(-320))) return null;
+  return "resume reply does not leave a concrete next move";
+}
+
+/** The way back into the work after a break. */
+function backToItMiss(text: string): string | null {
+  const namesCurrent =
+    /\b(?:later|next time|when you(?:'re| are) back|whenever|the moment you|tomorrow|after a break|pick (?:it|this) up|come back)\b/i.test(
+      text,
+    );
+  const namesStep =
+    SCAFFOLD_SIGNALS.test(text) || /\b(?:comment|note|line|step)\b/i.test(text);
+  return namesCurrent && namesStep ? null : "no way back into the work after the break";
+}
+
+/** A plain-language recap of what the stack is for, no code needed. */
+function recapStackMiss(text: string): string | null {
+  const holdsOpeners =
+    /\b(?:stack|bracket|paren)\b/i.test(text) &&
+    /\b(?:remember|hold|keep|track|waiting|expect|store|push|pop)\b/i.test(text);
+  return holdsOpeners ? null : "recap does not say what the stack is holding";
+}
+
+/** Counting is a peer idea: name it, show the limitation, keep the stack. */
+function countsOnlyMiss(text: string): string | null {
+  const counts = /s\.count|count\(|counting/i.test(text);
+  const whyFails = /\b(?:order|sequence|\(\[\)\]|nest(?:ed|ing)?|pairing)\b/i.test(text);
+  const stack = /\bstack\b/i.test(text);
+  return counts && whyFails && stack
+    ? null
+    : "did not connect counting to a concrete limitation and the stack idea";
+}
+
+/** The counting answer is judged on the counterexample, not only on the word stack. */
+function orderMattersMiss(text: string): string | null {
+  const counterExample = /\(\[\)\]/.test(text);
+  const order =
+    /\b(?:order|out of order|wrong order|sequence|cross|closes? before|does not match)\b/i.test(
+      text,
+    );
+  return counterExample && order ? null : "did not explain order with the ([)] counterexample";
+}
+
+/** A hint names a tool and says what it is for. */
+function namingKindnessMiss(text: string): string | null {
+  const namedTool =
+    /\b(?:stack|hash ?map|dict|dictionary|two pointers|set|sliding window|nested loop|outer loop|inner loop|for loop|while loop|index|list|array|slice)\b/i.test(
+      text,
+    );
+  if (!namedTool) return "named no concrete tool or step";
+  const reason =
+    /\b(?:because|so that|which means|that way|lets you|helps you|its purpose|what it (?:does|stores|remembers)|so you|so it|so we|so the|instead of|rather than|keeps|remembers|avoids|won'?t|doesn'?t)\b/i.test(
+      text,
+    ) ||
+    /—/.test(text) ||
+    /:\s*[a-z]/.test(text) ||
+    /`\w+`/.test(text);
+  return reason ? null : "named a step but gave no reason for it";
+}
+
+/** A replied recipe is an ordered walkthrough, or a paste of the whole buffer. */
+function readsLikeRecipeMiss(text: string, editor: string): string | null {
+  if (codeBlocks(text).some(completeMethodBlock)) {
+    return "handed over a complete method";
+  }
+  if (
+    codeBlocks(text).some(
+      (block) =>
+        !block.includes(TWO_SUM_DRAFT_LINE) &&
+        block.replace(/\s+/g, "").length >= 60 &&
+        editor.replace(/\s+/g, "").includes(block.replace(/\s+/g, "")),
+    )
+  ) {
+    return "pasted the whole buffer back instead of pointing at it";
+  }
+  const ordered = text
+    .split("\n")
+    .filter((line) =>
+      /\b(?:add|write|check|store|save|skip|take|return|append|pop|push|compare|look up|walk)\b/i.test(
+        line,
+      ),
+    ).length;
+  const hasRecipeMarker =
+    /\b(?:here'?s (?:the|how)|step \d|steps?:|first,|second,|third,|then,|next,|finally,|the plan is|in order)\b/i.test(
+      text,
+    );
+  return ordered >= 4 && hasRecipeMarker
+    ? "gave the ordered recipe instead of one idea"
+    : null;
+}
+
+/** Support the learner's calls and show that they were heard. */
+function acknowledgesThinkingMiss(text: string): string | null {
+  const heard =
+    /\b(?:you(?:'re| are) right|that works|(?:good|great|solid|valid|fair|fine|honest) (?:call|move|question|thinking|way|start|idea|instinct|first|choice|approach)|makes sense|this works|it works|that is correct|exactly|yes[,!.]|yep|sure can|that does|get(?:s)? you started)\b/i.test(
+      text,
+    );
+  const namesCost =
+    /\b(?:n\^?2|n²|O\(n\s*(?:\^|\*\*)?\s*2\)|quadratic|slower|slow way|about \d+|pair checks)\b/i.test(
+      text,
+    );
+  const referencesTheirCode = /`(?:pass|nums|i|j|target)`|your (?:loop|code|editor|draft)/i.test(
+    text,
+  );
+  return heard || namesCost || referencesTheirCode
+    ? null
+    : "did not acknowledge the learner's idea before extending it";
+}
+
 /** "Like this?" fails when the reply assigns the lines after the digit scan. */
 function likeThisOverreach(text: string): string | null {
   if (/length is already|`length` is already/i.test(text)) {
@@ -742,6 +1140,146 @@ function conversationSpecs(): ConversationSpec[] {
   const switchesToCounting =
     /\b(?:next:|instead|let's count|we should count|switch to counting)\b/i;
 
+  /**
+   * The beginner probes. `mode` picks whether each question is asked on its own
+   * with supplied history, or in order with the model's own earlier replies.
+   */
+  function twoSumNestedProbes(mode: "supplied" | "connected"): TurnSpec[] {
+    return [
+      {
+        id: "start",
+        user: "i'm starting two sum, complete beginner, where do i even start?",
+        editorCode: TWO_SUM_STARTER,
+        mustMention: [
+          /loop|pair|index/i,
+          /list|nums|array|number|value|element|pair/i,
+        ],
+        mustNot: [rejectsBruteForce, /\b(?:seen|complement)\b/i],
+        missIf: (text) =>
+          namingKindnessMiss(text) ?? readsLikeRecipeMiss(text, TWO_SUM_STARTER),
+      },
+      {
+        id: "choose-loops",
+        user: "can i just do the double loop for now? i know it's slower",
+        editorCode: TWO_SUM_NESTED,
+        mustMention: [
+          /nested|every pair|two loops|brute|double/i,
+          /slow|quadratic|n\s*\^|n²|O\(n\s*(?:\^|\*\*)?\s*2\)|large|faster/i,
+        ],
+        mustNot: [rejectsBruteForce, /\b(?:give up|pointless|waste of time)\b/i],
+        missIf: (text) =>
+          acknowledgesThinkingMiss(text) ??
+          readsLikeRecipeMiss(text, TWO_SUM_NESTED),
+      },
+      {
+        id: "hashmap",
+        user: "okay wait, so can we use a hashmap here?",
+        editorCode: TWO_SUM_NESTED,
+        prior: mode === "supplied" ? TWO_SUM_WAIT_BEFORE : undefined,
+        mustMention: [
+          /hash ?map|dict|dictionary/i,
+          /complement|partner|pair|match|the other/i,
+          /index|position|where|remember|track|store|seen/i,
+        ],
+        mustNot: [rejectsBruteForce],
+        missIf: (text) =>
+          readsLikeRecipeMiss(text, TWO_SUM_NESTED) ?? deadEndMiss(text),
+      },
+      {
+        id: "resume",
+        user: "where were we?",
+        editorCode: TWO_SUM_NESTED,
+        prior: mode === "supplied" ? TWO_SUM_HASHMAP_BEFORE : undefined,
+        mustMention: [/loop|pair|index/i, /hash ?map|dict|dictionary|seen|complement/i],
+        missIf: (text) =>
+          resumeMiss(text) ?? forgetsAgreementMiss(text) ?? cannedVoiceMiss(text),
+      },
+    ];
+  }
+
+  function parensOrderProbes(mode: "supplied" | "connected"): TurnSpec[] {
+    return [
+      {
+        id: "stack",
+        user: "can we do this one with a stack?",
+        editorCode: PARENS_STARTER,
+        prior: mode === "supplied" ? [] : undefined,
+        mustMention: [/stack/i, /open|clos|bracket|paren/i],
+        missIf: (text) =>
+          namingKindnessMiss(text) ?? readsLikeRecipeMiss(text, PARENS_STARTER),
+      },
+      {
+        id: "counting",
+        user: "would counting work? it feels simpler",
+        editorCode: PARENS_STACK,
+        prior: mode === "supplied" ? PARENS_ORDER_BEFORE : undefined,
+        mustMention: [/stack/i],
+        missIf: (text) => countsOnlyMiss(text) ?? orderMattersMiss(text),
+      },
+      {
+        id: "lost",
+        user: "hmm not following. what does the stack actually do here?",
+        editorCode: PARENS_STACK,
+        prior: mode === "supplied" ? PARENS_LOST_BEFORE : undefined,
+        mustMention: [
+          /stack/i,
+          /remember|hold|keep|track|waiting|expect/i,
+          /\(\[\)\]|\[|\(|bracket/i,
+        ],
+        missIf: (text) =>
+          reexplainMiss(text, /\(\[\)\]/) ??
+          repeatedHintMiss(text) ??
+          cannedVoiceMiss(text),
+      },
+      {
+        id: "resume",
+        user: "ok where were we",
+        editorCode: PARENS_STACK,
+        prior: mode === "supplied" ? PARENS_LOST_BEFORE : undefined,
+        mustMention: [/stack/i, /bracket|paren/i],
+        missIf: (text) => resumeMiss(text) ?? recapStackMiss(text),
+      },
+    ];
+  }
+
+  function twoSumConfusedProbes(mode: "supplied" | "connected"): TurnSpec[] {
+    return [
+      {
+        id: "confused",
+        user: "wait what? i'm lost now",
+        editorCode: TWO_SUM_DRAFT,
+        prior: mode === "supplied" ? TWO_SUM_CONFUSED_BEFORE : undefined,
+        mustMention: [/seen|dict|complement|num/i, /\[2,\s*7|example/i],
+        missIf: (text) =>
+          reexplainMiss(text, /\[2,\s*7/) ??
+          repeatedHintMiss(text) ??
+          cannedVoiceMiss(text),
+      },
+      {
+        id: "specific",
+        user: "be really specific, what exact line do i write next and why",
+        editorCode: TWO_SUM_SHORT_DRAFT,
+        prior: mode === "supplied" ? TWO_SUM_CONFUSED_BEFORE : undefined,
+        mustMention: [/seen|dict|dictionary|store|index|i\b/i],
+        missIf: (text) =>
+          snippetDoesTooMuchMiss(text) ?? directLineMiss(text, TWO_SUM_DRAFT_LINE) ??
+          repeatedHintMiss(text),
+      },
+      {
+        id: "resume",
+        user: "hey, i'm back after a couple of days. where were we?",
+        editorCode: TWO_SUM_SHORT_DRAFT,
+        prior: mode === "supplied" ? TWO_SUM_WHERE_BEFORE : undefined,
+        mustMention: [/seen|dict|complement|num|index/i],
+        missIf: (text) =>
+          resumeMiss(text) ??
+          backToItMiss(text) ??
+          walksWholeMethod(text) ??
+          cannedVoiceMiss(text),
+      },
+    ];
+  }
+
   return [
     {
       id: "two-sum-handholding",
@@ -787,6 +1325,55 @@ function conversationSpecs(): ConversationSpec[] {
           mustNot: [leavesTheLoops],
         },
       ],
+    },
+    {
+      id: "two-sum-concrete-hint",
+      slug: "two-sum",
+      purpose:
+        "A beginner chooses nested loops, meets the hashmap idea, and comes back to the thread.",
+      prior: [],
+      turns: twoSumNestedProbes("connected"),
+    },
+    {
+      id: "two-sum-nested-supplied",
+      slug: "two-sum",
+      purpose: "The same four beginner questions, each replayed with supplied history.",
+      independent: true,
+      prior: [],
+      turns: twoSumNestedProbes("supplied"),
+    },
+    {
+      id: "parens-order-matters",
+      slug: "valid-parentheses",
+      purpose:
+        "A stack approach, the counting misconception, confusion re-explained on the same example, then a resume.",
+      prior: [],
+      turns: parensOrderProbes("connected"),
+    },
+    {
+      id: "parens-order-supplied",
+      slug: "valid-parentheses",
+      purpose: "The same four stack questions, each replayed with supplied history.",
+      independent: true,
+      prior: [],
+      turns: parensOrderProbes("supplied"),
+    },
+    {
+      id: "confusion-and-resume-independent",
+      slug: "two-sum",
+      purpose:
+        "Repeated confusion, a direct request for the exact line, and returning after a break, each with supplied history.",
+      independent: true,
+      prior: [],
+      turns: twoSumConfusedProbes("supplied"),
+    },
+    {
+      id: "confusion-and-resume-connected",
+      slug: "two-sum",
+      purpose:
+        "The same confusion, direct-help, and return questions in order, with the model's own replies as history.",
+      prior: [],
+      turns: twoSumConfusedProbes("connected"),
     },
     {
       id: "parens-alternative",
@@ -858,6 +1445,31 @@ function conversationSpecs(): ConversationSpec[] {
               ? "described the judge result as the word, not the returned null"
               : null;
           },
+        },
+      ],
+    },
+    {
+      id: "codec-prints-refreshed",
+      slug: "encode-and-decode-strings",
+      purpose: "The same print-heavy encode run, asked after the editor has moved on.",
+      prior: [
+        {
+          role: "user",
+          text: "I ran it with prints and it printed 2 hi but the judge says wrong answer.",
+        },
+        {
+          role: "assistant",
+          text: "The print shows the word. The judge is comparing what the function returned, which is the word alone rather than the length-prefixed chunk.",
+        },
+      ],
+      turns: [
+        {
+          id: "why-failing",
+          user: "ok i see the print now. why is this still failing?",
+          editorCode: CODEC_PARTIAL,
+          submission: codecRunSubmission(),
+          mustMention: [/length|len\(|#|prefix/i, /return|judge|compare/i],
+          printObservation: "2 hi",
         },
       ],
     },
@@ -1043,19 +1655,21 @@ async function runConversation(
       ...base,
       userTurn(`${spec.id}-r${run}-${turn.id}`, turn.user),
     ];
-    const assembled = assembleTutorTurn({
+    const current = assembleTutorTurn({
       problem,
       language,
       editorCode: turn.editorCode,
       submission: turn.submission ?? null,
       history: withUser,
     });
+    const assembled = process.env.CHAT_SMOKE_CONTRACT === "previous" ? previousContractTurn(current) : current;
     const payload = tutorPayloadText(assembled);
     const answer = await askModel(assembled);
-    const grade = gradeTurn(turn, answer.text);
+    const grade = gradeTurn(turn, answer.text, problem);
     turns.push({
       id: turn.id,
       user: turn.user,
+      editorCode: turn.editorCode,
       text: answer.text,
       latencyMs: answer.latencyMs,
       payloadIncludes: turn.payloadIncludes ? payload.includes(turn.payloadIncludes) : null,
@@ -1161,8 +1775,8 @@ async function main(): Promise<void> {
       partialPayload.includes("work in progress"),
   );
   recordTrue(
-    "hint quick-action asks for one immediate step",
-    partialPayload.includes("one immediate step"),
+    "hint quick-action asks for one idea and one thing to try",
+    partialPayload.includes("one concrete idea and one manageable thing to try next"),
   );
 
   const failing = assembleTutorTurn({
@@ -1228,9 +1842,9 @@ async function main(): Promise<void> {
     followUpPayload.includes('s.count("(")'),
   );
   recordTrue(
-    "instructions stay on the same concept when the user is confused",
-    followUpPayload.includes("Stay on the same concept") &&
-      followUpPayload.includes("Do not switch algorithms between turns"),
+    "instructions stay on the same concept when the learner is confused",
+    followUpPayload.includes("do not repeat the same sentence louder") &&
+      followUpPayload.includes("Confusion does not change the algorithm"),
   );
   recordFalse(
     "follow-up does not leak unrevealed parentheses success",
@@ -1265,8 +1879,8 @@ async function main(): Promise<void> {
     codecPayload.includes("Never ask for work the buffer already shows"),
   );
   recordTrue(
-    "instructions answer the question and then stop",
-    codecPayload.includes("Answer the question they just asked, then stop"),
+    "instructions answer what was asked instead of changing the plan",
+    codecPayload.includes("Answer what they asked, and do not change the plan"),
   );
   recordFalse(
     "instructions do not require a closing Next: action",
@@ -1281,8 +1895,8 @@ async function main(): Promise<void> {
     codecPayload.includes("Debug prints are observations"),
   );
   recordTrue(
-    "instructions do not treat repeated runs as a reason to switch",
-    codecPayload.includes("repeated runs"),
+    "instructions do not treat a repeated run as a reason to switch",
+    codecPayload.includes("do not change the plan because a run failed"),
   );
 
   const longHistory = Array.from({ length: 20 }, (_, index) =>
@@ -1309,8 +1923,116 @@ async function main(): Promise<void> {
     !longPayload.includes("Earlier conversation turns were omitted"),
   );
 
+  const hintAction = quickActionById("hint");
+  const concreteAction = quickActionById("concrete");
+  const exampleAction = quickActionById("example");
+  const simplifyAction = quickActionById("simplify");
+  if (!hintAction || !concreteAction || !exampleAction || !simplifyAction) {
+    throw new Error(
+      "hint, concrete, example, and simplify must exist in QUICK_ACTIONS",
+    );
+  }
+
+  const actionPayload = (action: { prompt: (input: { problem: Problem; language: Language }) => string }) =>
+    tutorPayloadText(
+      assembleTutorTurn({
+        problem: twoSum,
+        language,
+        editorCode: TWO_SUM_STARTER,
+        history: [userTurn("action", action.prompt({ problem: twoSum, language }))],
+      }),
+    );
+
+  const startPayload = actionPayload(hintAction);
+  const concretePayload = actionPayload(concreteAction);
+  const examplePayload = actionPayload(exampleAction);
+  const simplifyPayload = actionPayload(simplifyAction);
+  const complexityPayload = actionPayload(
+    quickActionById("complexity") ?? hintAction,
+  );
+  const primaryLabels = PRIMARY_ACTIONS.map((action) => action.label);
+  const moreLabels = MORE_ACTIONS.map((action) => action.label);
+
+  console.log("\nChat actions");
+  record(
+    "three primary actions: hint, make it concrete, tiny example",
+    "true",
+    String(
+      primaryLabels.length === 3 &&
+        ["Give me a hint", "Make it concrete", "Show a tiny example"].every(
+          (label) => primaryLabels.includes(label),
+        ),
+    ),
+  );
+  recordTrue(
+    "More help holds explain simply, review, failing, and complexity",
+    [
+      "Explain it simply",
+      "Review my code",
+      "Why is this failing?",
+      "Explain the complexity",
+    ].every((label) => moreLabels.includes(label)),
+  );
+  recordTrue(
+    "the hint action asks for a named tool and what it is for",
+    startPayload.includes("a hashmap, a stack, two pointers, a nested loop"),
+  );
+  recordTrue(
+    "the concrete action allows a local snippet for the current piece",
+    concretePayload.includes("just the one or two Python 3 lines for that exact piece"),
+  );
+  recordTrue(
+    "the example action asks for a labelled illustrative example",
+    examplePayload.includes("label it as an illustrative example") &&
+      examplePayload.includes("not one of the problem's own examples"),
+  );
+  recordTrue(
+    "the complexity action starts from the current approach",
+    complexityPayload.includes("Start from the approach I am actually using"),
+  );
+  recordTrue(
+    "the simple explanation stays on the current piece without code",
+    simplifyPayload.includes("Stay on the piece of code I am on") &&
+      simplifyPayload.includes("No code and no next step"),
+  );
+  recordFalse(
+    "the old one-immediate-step hint wording is gone",
+    startPayload.includes("one immediate step"),
+  );
+  recordTrue(
+    "instructions ask for a named idea behind the step",
+    startPayload.includes("Teach the idea behind the step"),
+  );
+  recordTrue(
+    "instructions keep pacing to one clear focus",
+    startPayload.includes("One clear focus per reply"),
+  );
+  recordTrue(
+    "instructions make confusion a reason to shrink the example",
+    startPayload.includes("do not repeat the same sentence louder"),
+  );
+  recordTrue(
+    "instructions treat a direct request as direct help, not a full solution",
+    startPayload.includes("a direct request earns a direct answer") &&
+      startPayload.includes("explicit request for the full solution"),
+  );
+  recordTrue(
+    "instructions keep the learner's own approach",
+    startPayload.includes("Stay with their approach"),
+  );
+  recordTrue(
+    "instructions define a term as it appears",
+    startPayload.includes("Define a term the first time you use it"),
+  );
+  recordTrue(
+    "instructions carry a friendly-buddy voice with reply examples",
+    startPayload.includes("friendly coding buddy") &&
+      startPayload.includes("where do i even start?"),
+  );
+
+  const replayPath = process.env.CHAT_SMOKE_REPLAY;
   const key = process.env.OPENAI_API_KEY;
-  if (!key) {
+  if (!key && !replayPath) {
     console.log("\nLive model");
     console.log(
       "  skip  OPENAI_API_KEY is unset. Demo mode still has to pass `pnpm test`.",
@@ -1318,10 +2040,15 @@ async function main(): Promise<void> {
     console.log(
       "  skip  Live answer review is skipped. Live tutoring is not declared ready until this script talks to the model.",
     );
+    console.log(
+      "  skip  No evaluation file was written; this run only checked the prompt payload.",
+    );
     return;
   }
 
-  const label = process.env.CHAT_SMOKE_LABEL ?? "revised";
+  // The default label names this phase, so a bare `pnpm chat:smoke` cannot
+  // overwrite an older phase's recorded evaluation.
+  const label = process.env.CHAT_SMOKE_LABEL ?? "beginner-revised";
   const gate = process.env.CHAT_SMOKE_GATE !== "0";
   const problems = {
     "two-sum": twoSum,
@@ -1333,10 +2060,48 @@ async function main(): Promise<void> {
     Array.from({ length: RUNS }, (_, index) => ({ spec, run: index + 1 })),
   );
 
-  console.log(`\nLive conversations (${LIVE_MODEL}, ${RUNS} runs, label ${label})`);
-  const results = await mapPool(jobs, LIVE_CONCURRENCY, (job) =>
-    runConversation(job.spec, problems, language, job.run),
-  );
+  const contextHashes = Object.fromEntries(Object.entries(problems).map(([slug, problem]) =>
+    [slug, createHash("sha256").update(buildTutorProblemContext(problem, language)).digest("hex")],
+  ));
+  const teaching = buildTutorTeachingInstructions();
+  const teachingForEvaluation = process.env.CHAT_SMOKE_CONTRACT === "previous"
+    ? previousContractTurn({ instructions: teaching, messages: [], truncated: false, omittedTurns: 0 }).instructions
+    : teaching;
+  const contractSha256 = createHash("sha256").update(teachingForEvaluation).digest("hex");
+  let generatedAt = new Date().toISOString();
+  let results: ConversationResult[];
+  if (replayPath) {
+    const recorded = JSON.parse(readFileSync(replayPath, "utf8"));
+    assert.equal(recorded.model, LIVE_MODEL);
+    assert.equal(recorded.contractSha256, contractSha256, "Recorded teaching contract differs from the selected contract");
+    assert.equal(recorded.contract, process.env.CHAT_SMOKE_CONTRACT === "previous" ? "previous" : "current");
+    assert.deepEqual(recorded.problemContextSha256, contextHashes);
+    assert.equal(recorded.runs.length, jobs.length);
+    generatedAt = recorded.generatedAt;
+    const seen = new Set<string>();
+    results = jobs.map(({ spec, run }) => {
+      const saved = recorded.runs.filter((r: ConversationResult) => r.id === spec.id && r.run === run);
+      assert.equal(saved.length, 1, `Missing or duplicate recording for ${spec.id}/${run}`);
+      const result: ConversationResult = saved[0];
+      seen.add(`${result.id}/${result.run}`);
+      assert.equal(result.turns.length, spec.turns.length);
+      return { ...result, turns: spec.turns.map((turn, index) => {
+        const savedTurn = result.turns[index]!;
+        assert.equal(savedTurn.id, turn.id);
+        assert.equal(savedTurn.user, turn.user);
+        assert.equal(savedTurn.editorCode, turn.editorCode);
+        return { ...savedTurn, originalGrade: savedTurn.originalGrade ?? savedTurn.grade,
+          grade: gradeTurn(turn, savedTurn.text, problems[spec.slug]) };
+      }) };
+    });
+    assert.equal(seen.size, jobs.length);
+    console.log(`\nRegrading recorded live conversations (${LIVE_MODEL}, ${RUNS} runs); no model calls`);
+  } else {
+    console.log(`\nLive conversations (${LIVE_MODEL}, ${RUNS} runs, label ${label})`);
+    results = await mapPool(jobs, LIVE_CONCURRENCY, (job) =>
+      runConversation(job.spec, problems, language, job.run),
+    );
+  }
 
   for (const result of results) {
     const score = summarize([result]);
@@ -1366,7 +2131,11 @@ async function main(): Promise<void> {
       {
         model: LIVE_MODEL,
         label,
-        generatedAt: new Date().toISOString(),
+        contract: process.env.CHAT_SMOKE_CONTRACT === "previous" ? "previous" : "current",
+        contractSha256,
+        problemContextSha256: contextHashes,
+        generatedAt,
+        ...(replayPath ? { regradedAt: new Date().toISOString(), replaySource: replayPath } : {}),
         teachingQuality:
           "Not a keyword score. Review the codec-decode transcripts against the editor snapshots.",
         keywordLog: { clean: totals.satisfactory, total: totals.total },
@@ -1384,7 +2153,7 @@ async function main(): Promise<void> {
 
   if (gate) {
     recordTrue(
-      `no unsolicited full solutions, hidden-data leaks, or stale-result claims`,
+      `no unsolicited implementations, hidden-data leaks, stale-result claims, or known factual regressions`,
       totals.hardFails === 0,
     );
   }

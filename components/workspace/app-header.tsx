@@ -1,6 +1,6 @@
 "use client";
 
-import { LayoutGridIcon, ListTreeIcon } from "lucide-react";
+import { LayoutGridIcon, ListTreeIcon, RepeatIcon } from "lucide-react";
 import Link from "next/link";
 
 import { buttonVariants } from "@/components/ui/button";
@@ -9,6 +9,9 @@ import { cn } from "@/lib/utils";
 /**
  * The workbench title bar. Mono for chrome, amber only for the primary action,
  * hairline separators instead of cards.
+ *
+ * The workspace sits outside the study shell on purpose — it is a full-width
+ * editor — so it carries the same three destinations as icons.
  */
 export function AppHeader({
   children,
@@ -39,6 +42,14 @@ export function AppHeader({
         className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }))}
       >
         <ListTreeIcon />
+      </Link>
+      <Link
+        href="/reviews"
+        aria-label="Reviews"
+        title="Reviews"
+        className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }))}
+      >
+        <RepeatIcon />
       </Link>
       <span
         aria-hidden

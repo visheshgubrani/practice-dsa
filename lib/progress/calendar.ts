@@ -1,4 +1,10 @@
-import { addDays, dayRange, daysBetween, weekdayIndex } from "@/lib/practice/days";
+import {
+  addDays,
+  dayRange,
+  daysBetween,
+  monthLabel,
+  weekdayIndex,
+} from "@/lib/practice/days";
 
 /**
  * The streak and the activity calendar, as pure functions over day keys.
@@ -123,6 +129,32 @@ export function heatmapWeeks({
   }
 
   return columns;
+}
+
+/**
+ * The month axis above the columns of `heatmapWeeks`.
+ *
+ * A column represents the month most of its days fall in, so the anchor is the
+ * week's middle day rather than its Sunday: a week that starts on 29 January is
+ * a February column. A label appears where that month changes, and the first
+ * column is always labelled so the axis has a starting reference. `null` means
+ * the column keeps the previous label's month.
+ */
+export function monthLabels(
+  weeks: readonly (readonly DayCell[])[],
+): (string | null)[] {
+  let previous: string | null = null;
+
+  return weeks.map((week, index) => {
+    const anchor = week[3] ?? week[0];
+    if (!anchor) return null;
+    const month = monthLabel(anchor.day);
+    if (index === 0 || month !== previous) {
+      previous = month;
+      return month;
+    }
+    return null;
+  });
 }
 
 /**

@@ -1,0 +1,336 @@
+Verified: identical model and public problem context.
+beginner-baseline-corrected: keyword 98/129, hard fails 0
+beginner-revised-corrected: keyword 101/129, hard fails 0
+
+=== two-sum-handholding
+  -- approach
+     was 107w  633c nocode - map  clean
+     now  71w  428c nocode - map  clean
+     was 113w  690c nocode - map  clean
+     now  69w  387c nocode - tool-  clean
+     was 107w  609c nocode - map  clean
+     now  87w  525c nocode - map  clean
+  -- propose-loops
+     was  78w  435c nocode - map  clean
+     now  64w  334c nocode - tool-  clean
+     was  81w  479c nocode - map  clean
+     now  51w  270c nocode - tool-  missing /slow|quadratic|n\^2|n²|O\(n(?:\^2|\*\*2)\)|10\^4|large/i
+     was  70w  392c nocode - map  clean
+     now  69w  379c nocode - tool-  missing /nested|every pair|two loops|brute|for i\b|j from|i\s*\+\s*1/i
+  -- what-now
+     was  34w  189c 1code - tool-  clean
+     now  47w  247c nocode - tool-  clean
+     was  44w  253c 1code - tool-  clean
+     now  41w  226c nocode - tool-  clean
+     was  39w  203c 1code - tool-  clean
+     now  37w  213c nocode - tool-  clean
+  -- confused
+     was  59w  314c 1code - tool-  clean
+     now  55w  286c nocode - tool-  clean
+     was  78w  438c 1code - tool-  clean
+     now  68w  338c nocode - tool-  clean
+     was  80w  445c 1code - tool-  clean
+     now  67w  359c nocode - tool-  clean
+  -- clarify
+     was  27w  124c nocode - tool-  missing /loop|i\b|j\b|index/i
+     now  33w  168c nocode - tool-  clean
+     was  60w  299c nocode - tool-  clean
+     now  35w  172c nocode - tool-  missing /loop|i\b|j\b|index/i
+     was  56w  289c nocode - tool-  clean
+     now  32w  165c nocode - tool-  clean
+
+=== two-sum-concrete-hint
+  -- start
+     was  97w  533c nocode - tool-  named no concrete tool or step; missing /loop|pair|index/i; unexpected /\b(?:seen|complement)\b/i
+     now  62w  338c nocode - tool-  clean
+     was  97w  559c nocode - map  clean
+     now  59w  344c nocode - map  clean
+     was 111w  648c nocode - map  unexpected /\b(?:seen|complement)\b/i
+     now  72w  390c nocode - tool-  clean
+  -- choose-loops
+     was  60w  326c nocode - tool-  clean
+     now  47w  254c nocode - tool-  missing /nested|every pair|two loops|brute|double/i; missing /slow|quadratic|n\s*\^|n²|O\(n\s*(?:\^|\*\*)?\s*2\)|large|faster/i
+     was  71w  399c nocode - map  clean
+     now  42w  209c nocode - tool-  missing /slow|quadratic|n\s*\^|n²|O\(n\s*(?:\^|\*\*)?\s*2\)|large|faster/i
+     was  51w  262c nocode - tool-  missing /slow|quadratic|n\s*\^|n²|O\(n\s*(?:\^|\*\*)?\s*2\)|large|faster/i
+     now  46w  265c nocode - tool-  missing /nested|every pair|two loops|brute|double/i
+  -- hashmap
+     was  72w  407c nocode - map  reply reads as a dead end
+     now  51w  302c nocode - map  reply reads as a dead end
+     was  57w  333c nocode - map+complement  reply reads as a dead end
+     now  46w  248c nocode - map  clean
+     was  65w  385c nocode - map  clean
+     now  52w  298c nocode - map  clean
+  -- resume
+     was  59w  341c nocode - map  resume reply does not leave a concrete next move
+     now  38w  208c nocode - map  clean
+     was  64w  389c nocode - map+complement  clean
+     now  50w  286c nocode - map  clean
+     was  51w  299c nocode - map  clean
+     now  46w  281c nocode - map  clean
+
+=== two-sum-nested-supplied
+  -- start
+     was 137w  757c nocode - tool-  unexpected /\b(?:seen|complement)\b/i
+     now  64w  385c nocode - tool-  clean
+     was 146w  837c nocode - map  unexpected /\b(?:seen|complement)\b/i
+     now  83w  454c nocode - tool-  clean
+     was 119w  670c nocode - tool-  unexpected /\b(?:seen|complement)\b/i
+     now  56w  311c nocode - tool-  clean
+  -- choose-loops
+     was  78w  411c nocode - tool-  missing /slow|quadratic|n\s*\^|n²|O\(n\s*(?:\^|\*\*)?\s*2\)|large|faster/i
+     now  66w  346c nocode - tool-  clean
+     was  51w  277c nocode - tool-  clean
+     now  66w  356c nocode - map  clean
+     was  58w  311c nocode - tool-  missing /slow|quadratic|n\s*\^|n²|O\(n\s*(?:\^|\*\*)?\s*2\)|large|faster/i
+     now  68w  362c nocode - tool-  missing /nested|every pair|two loops|brute|double/i
+  -- hashmap
+     was  40w  238c nocode - map  reply reads as a dead end
+     now  53w  294c nocode - map  clean
+     was  66w  363c nocode - map  clean
+     now  49w  283c nocode - map+complement  reply reads as a dead end
+     was  77w  432c nocode - map+complement  clean
+     now  50w  283c nocode - map  reply reads as a dead end
+  -- resume
+     was  45w  225c nocode - tool-  missing /hash ?map|dict|dictionary|seen|complement/i
+     now  34w  164c nocode - tool-  missing /hash ?map|dict|dictionary|seen|complement/i
+     was  43w  219c nocode - tool-  missing /hash ?map|dict|dictionary|seen|complement/i
+     now  36w  201c nocode - tool-  missing /hash ?map|dict|dictionary|seen|complement/i
+     was  43w  244c nocode - tool-  missing /hash ?map|dict|dictionary|seen|complement/i
+     now  48w  242c nocode - tool-  missing /hash ?map|dict|dictionary|seen|complement/i
+
+=== parens-order-matters
+  -- stack
+     was  66w  373c nocode - stack  clean
+     now  75w  406c nocode - stack  clean
+     was  74w  387c nocode - stack  clean
+     now  62w  340c nocode - stack  clean
+     was  90w  497c nocode - stack  clean
+     now  63w  316c nocode - stack  clean
+  -- counting
+     was  50w  280c nocode - stack  clean
+     now  45w  253c nocode - stack  clean
+     was  54w  312c nocode - stack  clean
+     now  38w  215c nocode - stack  clean
+     was  53w  305c nocode - stack  clean
+     now  43w  243c nocode - stack  clean
+  -- lost
+     was  68w  361c nocode - stack  clean
+     now  87w  425c nocode - stack  clean
+     was  90w  480c nocode - stack  clean
+     now  64w  335c nocode - stack  clean
+     was  78w  423c nocode - stack  missing /remember|hold|keep|track|waiting|expect/i
+     now  77w  368c nocode - stack  missing /remember|hold|keep|track|waiting|expect/i
+  -- resume
+     was  44w  238c nocode - stack  clean
+     now  44w  249c nocode - stack  resume reply does not ground the recap in the current code
+     was  44w  232c nocode - stack  recap does not say what the stack is holding
+     now  34w  204c nocode - stack  resume reply does not ground the recap in the current code
+     was  49w  282c nocode - stack  resume reply does not ground the recap in the current code
+     now  35w  208c nocode - stack  clean
+
+=== parens-order-supplied
+  -- stack
+     was  78w  422c nocode - stack  clean
+     now  53w  282c nocode - stack  clean
+     was  62w  329c nocode - stack  clean
+     now  48w  252c nocode - stack  clean
+     was  73w  421c nocode - stack  clean
+     now  41w  218c nocode - stack  clean
+  -- counting
+     was  43w  253c nocode - stack  clean
+     now  53w  296c nocode - stack  clean
+     was  44w  252c nocode - stack  did not explain order with the ([)] counterexample
+     now  38w  221c nocode - stack  clean
+     was  42w  248c nocode - stack  did not connect counting to a concrete limitation and the stack idea
+     now  48w  285c nocode - stack  clean
+  -- lost
+     was  63w  324c nocode - stack  clean
+     now  67w  352c nocode - stack  clean
+     was  88w  469c nocode - stack  clean
+     now  65w  345c nocode - stack  clean
+     was  62w  360c nocode - stack  clean
+     now  75w  410c nocode - stack  clean
+  -- resume
+     was  33w  185c nocode - stack  clean
+     now  37w  193c nocode - stack  clean
+     was  38w  209c nocode - stack  resume reply does not ground the recap in the current code
+     now  33w  180c nocode - stack  clean
+     was  46w  270c nocode - stack  clean
+     now  36w  215c nocode - stack  clean
+
+=== confusion-and-resume-independent
+  -- confused
+     was  51w  312c 1code - complement  did not reuse the agreed example
+     now  51w  314c 1code - map+complement  answered confusion with code
+     was  59w  322c nocode - complement  clean
+     now  67w  373c 1code - complement  answered confusion with code
+     was  70w  398c 1code - complement  answered confusion with code
+     now  50w  290c 1code - complement  answered confusion with code
+  -- specific
+     was  55w  336c 1code - complement  clean
+     now  30w  197c 1code - complement  clean
+     was  33w  222c 1code - complement  clean
+     now  30w  207c 1code - complement  clean
+     was  33w  223c 1code - complement  clean
+     now  30w  206c 1code - complement  clean
+  -- resume
+     was  64w  390c nocode - map+complement  clean
+     now  49w  315c 1code - map+complement  no way back into the work after the break
+     was  44w  242c nocode - complement  clean
+     now  34w  219c nocode - map+complement  no way back into the work after the break
+     was  55w  322c nocode - map+complement  no way back into the work after the break
+     now  46w  273c nocode - map+complement  no way back into the work after the break
+
+=== confusion-and-resume-connected
+  -- confused
+     was  70w  392c nocode - complement  clean
+     now  93w  462c nocode - tool-  clean
+     was  77w  434c nocode - complement  clean
+     now  60w  325c nocode - map+complement  clean
+     was  63w  370c nocode - map+complement  clean
+     now  73w  405c nocode - complement  clean
+  -- specific
+     was  39w  256c 1code - complement  clean
+     now  35w  232c 1code - complement  clean
+     was  33w  213c 1code - complement  clean
+     now  34w  210c 1code - complement  clean
+     was  36w  239c 1code - complement  clean
+     now  39w  263c 1code - complement  clean
+  -- resume
+     was  62w  408c 1code - map+complement  no way back into the work after the break
+     now  43w  278c 1code - complement  resume reply does not leave a concrete next move
+     was  59w  376c nocode - map+complement  no way back into the work after the break
+     now  44w  294c nocode - map+complement  no way back into the work after the break
+     was  54w  308c 1code - complement  no way back into the work after the break
+     now  50w  308c nocode - complement  resume reply does not leave a concrete next move
+
+=== parens-alternative
+  -- propose-stack
+     was  70w  367c nocode - stack  clean
+     now  40w  218c nocode - stack  clean
+     was  77w  413c nocode - stack  clean
+     now  42w  233c nocode - stack  clean
+     was  58w  331c nocode - stack  clean
+     now  62w  324c nocode - stack  clean
+  -- what-now
+     was  31w  170c nocode - stack  clean
+     now  33w  197c nocode - stack  clean
+     was  39w  211c nocode - stack  clean
+     now  36w  213c nocode - stack  clean
+     was  33w  183c nocode - stack  clean
+     now  34w  193c nocode - stack  clean
+  -- counting
+     was  53w  285c nocode - stack  clean
+     now  49w  280c nocode - stack  clean
+     was  49w  274c nocode - stack  clean
+     now  51w  294c nocode - stack  clean
+     was  51w  281c nocode - stack  clean
+     now  56w  321c nocode - stack  clean
+
+=== codec-prints
+  -- what-now
+     was  40w  283c 1code - tool-  clean
+     now  50w  309c nocode - tool-  clean
+     was  42w  315c nocode - tool-  clean
+     now  65w  370c nocode - tool-  treated debug print "2 hi" as the return value
+     was  46w  311c 1code - tool-  clean
+     now  48w  298c nocode - tool-  clean
+
+=== codec-prints-refreshed
+  -- why-failing
+     was  57w  352c nocode - tool-  missing /length|len\(|#|prefix/i
+     now  67w  422c nocode - tool-  clean
+     was  53w  372c nocode - tool-  clean
+     now  82w  506c nocode - tool-  missing /length|len\(|#|prefix/i
+     was  60w  388c nocode - tool-  missing /length|len\(|#|prefix/i
+     now  61w  381c nocode - tool-  clean
+
+=== two-sum-stale-result
+  -- draft
+     was  45w  265c 1code - complement  clean
+     now  34w  189c nocode - complement  clean
+     was  39w  243c 1code - complement  clean
+     now  62w  360c nocode - complement  clean
+     was  30w  164c nocode - complement  clean
+     now  38w  204c nocode - complement  clean
+
+=== parens-debug
+  -- why-failing
+     was  79w  468c nocode - stack  clean
+     now  65w  388c nocode - stack  clean
+     was  93w  538c nocode - tool-  clean
+     now  78w  454c nocode - stack  missing /invalid|\bfalse\b|wrong|not valid|must close|cross/i
+     was  92w  536c nocode - stack  missing /invalid|\bfalse\b|wrong|not valid|must close|cross/i
+     now  67w  394c nocode - stack  clean
+
+=== two-sum-long-thread
+  -- recall
+     was  35w  200c nocode - tool-  clean
+     now  33w  187c nocode - map  clean
+     was  24w  136c nocode - tool-  clean
+     now  43w  225c nocode - tool-  clean
+     was  64w  335c nocode - tool-  clean
+     now  48w  261c nocode - map  clean
+
+=== two-sum-syntax-then-solution
+  -- syntax
+     was  55w  292c 1code - enumerate  clean
+     now  39w  209c 1code - enumerate  clean
+     was  42w  229c 1code - enumerate  clean
+     now  32w  179c 1code - enumerate  clean
+     was  43w  230c 1code - enumerate  clean
+     now  34w  189c 1code - enumerate  clean
+  -- full-solution
+     was 112w  726c 1code - enumerate  clean
+     now  79w  587c 1code - map+enumerate+complement  clean
+     was  74w  537c 1code - map+enumerate+complement  clean
+     now  81w  580c 1code - map+enumerate  clean
+     was  98w  625c 1code - enumerate  clean
+     now  79w  560c 1code - map+enumerate  clean
+
+=== codec-decode-independent
+  -- what-now
+     was  62w  336c nocode - tool-  clean
+     now  69w  382c nocode - tool-  clean
+     was  77w  421c 1code - tool-  clean
+     now  77w  441c 1code - tool-  clean
+     was  70w  398c nocode - tool-  clean
+     now  73w  412c nocode - tool-  clean
+  -- like-this
+     was  56w  287c nocode - tool-  clean
+     now  21w  123c nocode - tool-  clean
+     was  44w  240c nocode - tool-  clean
+     now  28w  143c nocode - tool-  clean
+     was  36w  196c nocode - tool-  clean
+     now  33w  170c nocode - tool-  clean
+  -- append-length
+     was  44w  263c nocode - tool-  clean
+     now  33w  198c nocode - tool-  clean
+     was  45w  283c nocode - tool-  clean
+     now  53w  323c nocode - tool-  clean
+     was  56w  328c nocode - tool-  clean
+     now  36w  221c nocode - tool-  clean
+
+=== codec-decode-connected
+  -- what-now
+     was  66w  341c 1code - tool-  clean
+     now  82w  461c nocode - tool-  clean
+     was  72w  397c 1code - tool-  clean
+     now  75w  429c 1code - tool-  clean
+     was  55w  325c nocode - tool-  clean
+     now  85w  483c nocode - tool-  clean
+  -- like-this
+     was  32w  157c nocode - tool-  clean
+     now  47w  269c nocode - tool-  clean
+     was  30w  158c nocode - tool-  clean
+     now  42w  222c nocode - tool-  clean
+     was  32w  169c nocode - tool-  clean
+     now  39w  202c nocode - tool-  clean
+  -- append-length
+     was  52w  292c nocode - tool-  clean
+     now  40w  253c nocode - tool-  clean
+     was  37w  232c nocode - tool-  clean
+     now  36w  222c nocode - tool-  clean
+     was  46w  269c nocode - tool-  clean
+     now  28w  176c nocode - tool-  clean

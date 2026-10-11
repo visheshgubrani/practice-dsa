@@ -482,4 +482,93 @@ describe("review persistence", () => {
       await db.delete(problems).where(eq(problems.id, second.id));
     }
   });
+
+  it("lists paused cards without counting them due or moving the boundary", async () => {
+    const overdue = await insertProblem("queue-paused-overdue");
+    const pausedFuture = await insertProblem("queue-paused-future");
+    try {
+      const overdueCard = await insertLegacyUnratedCard(
+        overdue.id,
+        new Date("2020-01-01T00:00:00.000Z"),
+      );
+      const futureCard = await insertLegacyUnratedCard(
+        pausedFuture.id,
+        new Date("2099-06-01T00:00:00.000Z"),
+      );
+
+      const beforePause = await listReviewQueue(NOW);
+      assert.ok(beforePause.due.some((item) => item.slug === overdue.slug));
+      assert.ok(
+        beforePause.upcoming.some((item) => item.slug === pausedFuture.slug),
+      );
+
+      const pausedOverdue = await setReviewActive(
+        overdue.slug,
+        false,
+        overdueCard.revision,
+      );
+      const pausedFutureCard = await setReviewActive(
+        pausedFuture.slug,
+        false,
+        futureCard.revision,
+      );
+      assert.equal(pausedOverdue?.active, false);
+      assert.equal(pausedFutureCard?.active, false);
+
+      const queue = await listReviewQueue(NOW);
+      // Partitioning: paused rows move to their own list and out of both active
+      // ones, and the count is still exactly the due list's length.
+      assert.ok(!queue.due.some((item) => item.slug === overdue.slug));
+      assert.ok(!queue.upcoming.some((item) => item.slug === pausedFuture.slug));
+      assert.deepEqual(
+        queue.paused
+          .filter(
+            (item) =>
+              item.slug === overdue.slug || item.slug === pausedFuture.slug,
+          )
+          .map((item) => item.slug),
+        [overdue.slug, pausedFuture.slug],
+      );
+      assert.equal(queue.dueCount, queue.due.length);
+      assert.equal(
+        queue.nextDueAt,
+        queue.upcoming[0]?.dueAt ?? null,
+      );
+      assert.ok(
+        queue.paused.every(
+          (item) =>
+            !queue.due.some((due) => due.slug === item.slug) &&
+            !queue.upcoming.some((upcoming) => upcoming.slug === item.slug),
+        ),
+      );
+
+      // A paused row keeps its schedule, and resuming an overdue card puts it
+      // straight back into Due with the same due instant.
+      const pausedRow = queue.paused.find((item) => item.slug === overdue.slug);
+      const resumed = await setReviewActive(
+        overdue.slug,
+        true,
+        pausedRow!.revision,
+      );
+      assert.equal(resumed?.active, true);
+      assert.equal(resumed?.dueAt, "2020-01-01T00:00:00.000Z");
+      const resumedQueue = await listReviewQueue(NOW);
+      assert.ok(resumedQueue.due.some((item) => item.slug === overdue.slug));
+      assert.ok(
+        !resumedQueue.paused.some((item) => item.slug === overdue.slug),
+      );
+
+      // None of the pause/resume churn wrote practice state.
+      assert.deepEqual(await problemCounts(overdue.id), {
+        progress: 0,
+        drafts: 0,
+        submissions: 0,
+        cards: 1,
+        logs: 0,
+      });
+    } finally {
+      await db.delete(problems).where(eq(problems.id, overdue.id));
+      await db.delete(problems).where(eq(problems.id, pausedFuture.id));
+    }
+  });
 });
