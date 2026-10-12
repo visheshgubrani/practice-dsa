@@ -26,7 +26,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-dsa_software}
     ports:
-      - '127.0.0.1:${POSTGRES_PORT:-5441}:5432'
+      - '127.0.0.1:${POSTGRES_PORT:-5491}:5432'
     volumes:
       # PG18 keeps data under /var/lib/postgresql/<major>/, so the parent
       # directory is what gets mounted. Mounting /var/lib/postgresql/data is the

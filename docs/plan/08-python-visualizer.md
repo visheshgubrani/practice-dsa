@@ -75,6 +75,17 @@ The tracer still runs the full program. The picture does not: the code pane is t
 - [x] `buildTraceProgram` returns that span. `visualizeTrace` summarizes the raw trace first, so a step limit or an error on the harness call is not lost, then presents the trace the frame draws.
 - [x] The code pane in `pnpm visualizer:check` is the solution that was traced, and every remaining step lands on a line of it.
 
+### 8.7 Snap code arrows to their rows
+
+- [x] Update only the app-owned `vendor/python-tutor/frame.html`; keep the upstream bundle and stylesheet unchanged.
+- [x] Hide the animated SVG gutter arrows and draw red/green markers in two reserved gutter cells, directly on the rows named by Python Tutor's current and previous line values. Preserve return-call-site semantics; clear invalid targets while retaining completion and error rows.
+- [x] Initialize markers on the first render. Keep each frame instance independent in inline and fullscreen views.
+- [x] Reproduce Generate Parentheses case 2 through recursive returns. Check rapid Next/Prev, slider jumps, completion, exceptions, and implicit returns. Check scrolling, resizing, browser zoom, tab switching, and opening/closing fullscreen. Markers must be centered on their target rows within one pixel immediately and after animations settle.
+  - Review correction (2026-10-12): `display: none` on the original gutter caused Python Tutor's `Assertion Failure` before the custom markers could render. Hide it with `visibility: hidden` so its measurement still works. The frame now preserves string-thrown assertion details in its error message. The upstream bundle and stylesheet remain unchanged.
+  - Browser gate passed after waiting for Monaco to load before clicking tabs: the actual workspace in temporary Review mode traced the supplied Generate Parentheses code for case 2. All recursive steps, rapid Next/Prev immediately and after settling, slider jumps, tab return, fullscreen opening at the selected step, fullscreen stepping/closing, wide-layout resizing at 1200/1600px, and layout zoom at 80/100/125% passed. Additional real-engine traces covered implicit returns, exceptions, scrolling, and Two Sum. 141 position checks had a maximum error of 0.0078125px; no page errors occurred; submissions/progress/drafts stayed 94/15/16. [Browser evidence](./evals/phase8-7-visualizer-review.json).
+- [x] Run `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `pnpm build`, plus real-engine `pnpm visualizer:check --slug generate-parentheses` and `pnpm visualizer:check --slug two-sum` — 429 tests passed; both targeted trace checks passed and left submissions/progress/drafts at 94/15/16.
+  - Repeated after the review correction: lint, typecheck, all 429 tests, production build, and all five visible-case traces across the two targeted problems passed.
+
 ## Phase gate
 
 - [x] `pnpm visualizer:check` — 167 traces across 60 seeded problems, worst payload 216 kB (4385 B/step on `word-search-ii`), worst time ~200 ms, nothing written

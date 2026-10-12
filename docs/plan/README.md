@@ -6,6 +6,8 @@ Get the existing four problems working end to end before expanding the catalog.
 
 **Current phase:** none. [Phase 16](./16-dashboard-and-reviews-ui.md), including implementation review corrections in work unit 16.9, is complete (2026-10-10). [Phase 15](./15-beginner-tutor.md), including review corrections in work unit 15.5, is complete (2026-10-10).
 
+[Phase 8 work unit 8.7](./08-python-visualizer.md#87-snap-code-arrows-to-their-rows) is complete (2026-10-12), including the drawing-error correction and browser acceptance gate. Its 141 marker-position checks passed within one pixel, all 429 tests and the production checks passed, and the browser and targeted real-engine traces preserved practice data counts.
+
 Phase 13 is reviewed and wrapped up. Its final checks passed: 379 tests, 1,767 catalog checks, 443 real Piston checks, lint, typecheck, and build. The stateful browser acceptance run used a disposable database copy, preserving the user's database. Phase 9's remaining recorded gate and the unfinished tutor-conversation follow-up keep their existing status; this review does not close those unrelated checklists.
 
 Phase 14 completed on 2026-10-08. Lint, typecheck, all 382 tests, and the
