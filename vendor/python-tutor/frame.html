@@ -36,6 +36,43 @@
       #visualizerDiv {
         padding: 6px 10px 48px;
       }
+      /* Keep the two execution markers in their own cells. Python Tutor still
+         measures its original gutter during rendering, so hide it without
+         removing it from layout (display: none breaks its alignment checks). */
+      #visualizerDiv #gutterTD,
+      #visualizerDiv #leftCodeGutterSVG {
+        visibility: hidden !important;
+      }
+      #visualizerDiv table#pyCodeOutput td.dsa-arrow-cell {
+        box-sizing: border-box !important;
+        width: 13px !important;
+        min-width: 13px !important;
+        max-width: 13px !important;
+        padding: 0 !important;
+        position: relative;
+        vertical-align: middle !important;
+      }
+      #visualizerDiv .dsa-arrow-marker {
+        border-bottom: 5px solid transparent;
+        border-left: 7px solid transparent;
+        border-top: 5px solid transparent;
+        height: 0;
+        left: 3px;
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        visibility: hidden;
+        width: 0;
+      }
+      #visualizerDiv .dsa-arrow-cell--previous .dsa-arrow-marker {
+        border-left-color: #c9e6ca;
+      }
+      #visualizerDiv .dsa-arrow-cell--current .dsa-arrow-marker {
+        border-left-color: #e93f34;
+      }
+      #visualizerDiv .dsa-arrow-cell--visible .dsa-arrow-marker {
+        visibility: visible;
+      }
       #frameError {
         display: none;
         margin: 10px;
@@ -69,6 +106,70 @@
           post({ type: "dsa:error", epoch: epoch, message: message });
         }
 
+        function setArrowMarkers(visualizer) {
+          var table = document.querySelector(
+            "#visualizerDiv table#pyCodeOutput",
+          );
+          if (!table) return;
+
+          var rows = table.querySelectorAll("tr");
+          for (var i = 0; i < rows.length; i++) {
+            var row = rows[i];
+            var lineNumberCell = row.querySelector("td.lineNo");
+            if (!lineNumberCell) continue;
+
+            var previousCell = row.querySelector(
+              "td.dsa-arrow-cell--previous",
+            );
+            if (!previousCell) {
+              previousCell = document.createElement("td");
+              previousCell.className =
+                "dsa-arrow-cell dsa-arrow-cell--previous";
+              previousCell.setAttribute("aria-hidden", "true");
+              previousCell.innerHTML = '<span class="dsa-arrow-marker"></span>';
+              row.insertBefore(previousCell, lineNumberCell);
+            }
+
+            var currentCell = row.querySelector(
+              "td.dsa-arrow-cell--current",
+            );
+            if (!currentCell) {
+              currentCell = document.createElement("td");
+              currentCell.className = "dsa-arrow-cell dsa-arrow-cell--current";
+              currentCell.setAttribute("aria-hidden", "true");
+              currentCell.innerHTML = '<span class="dsa-arrow-marker"></span>';
+              row.insertBefore(currentCell, lineNumberCell);
+            }
+
+            previousCell.classList.remove("dsa-arrow-cell--visible");
+            currentCell.classList.remove("dsa-arrow-cell--visible");
+          }
+
+          function markerForLine(lineNumber, markerClass) {
+            if (
+              typeof lineNumber !== "number" ||
+              !Number.isInteger(lineNumber) ||
+              lineNumber < 1
+            ) {
+              return;
+            }
+
+            var lineCell = table.querySelector("#lineNo" + lineNumber);
+            if (!lineCell || !table.contains(lineCell)) return;
+            var markerCell = lineCell.parentElement.querySelector(
+              "td.dsa-arrow-cell--" + markerClass,
+            );
+            if (markerCell) {
+              markerCell.classList.add("dsa-arrow-cell--visible");
+            }
+          }
+
+          // These values are computed by Python Tutor, including its special
+          // call-site line for a returning function. Keep that semantics intact.
+          markerForLine(visualizer.prevLineNumber, "previous");
+          markerForLine(visualizer.curLineNumber, "current");
+        }
+
         function draw(data) {
           epoch = typeof data.epoch === "number" ? data.epoch : null;
 
@@ -87,7 +188,14 @@
             document.getElementById("frameError").style.display = "none";
             document.getElementById("visualizerDiv").innerHTML = "";
             var options = data.options || {};
+            var suppliedUpdateOutputCallback = options.updateOutputCallback;
             options.embeddedMode = true;
+            options.updateOutputCallback = function (visualizer) {
+              if (typeof suppliedUpdateOutputCallback === "function") {
+                suppliedUpdateOutputCallback(visualizer);
+              }
+              setArrowMarkers(visualizer);
+            };
             current = window.addVisualizerToPage(
               { code: code, trace: trace },
               "visualizerDiv",
@@ -95,9 +203,16 @@
             );
           } catch (error) {
             current = null;
+            // Python Tutor's assertions throw strings rather than Error objects.
+            var detail =
+              error && typeof error.message === "string"
+                ? error.message
+                : typeof error === "string"
+                  ? error
+                  : "";
             fail(
-              error && error.message
-                ? "The trace could not be drawn: " + error.message
+              detail
+                ? "The trace could not be drawn: " + detail
                 : "The trace could not be drawn.",
             );
           }

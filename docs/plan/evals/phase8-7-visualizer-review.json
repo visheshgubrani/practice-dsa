@@ -1,0 +1,26 @@
+{
+  "checks": [
+    "Generate Parentheses visible case 2: every step, recursive returns, completion",
+    "Rapid Next/Prev, slider jump, tab switching retain immediate row alignment",
+    "Fullscreen opens at the selected step, steps correctly, closes to the preserved inline trace",
+    "Wide-layout resize at 1200/1600px and layout zoom at 80/100/125 percent",
+    "implicit return: 5 real-engine steps",
+    "exception: 6 real-engine steps",
+    "scrolling: 54 real-engine steps",
+    "Two Sum: 7 real-engine steps",
+    "String assertion details reach the error UI, and a subsequent valid trace recovers"
+  ],
+  "measurements": 141,
+  "maxAlignmentError": 0.0078125,
+  "errors": [],
+  "before": {
+    "submissions": "94",
+    "progress": "15",
+    "drafts": "16"
+  },
+  "after": {
+    "submissions": "94",
+    "progress": "15",
+    "drafts": "16"
+  }
+}
