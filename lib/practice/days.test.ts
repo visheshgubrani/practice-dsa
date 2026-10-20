@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import {
   addDays,
+  dayBounds,
   dayKey,
   dayKeyToUtcDate,
   dayRange,
@@ -53,6 +54,25 @@ describe("dayKey", () => {
 
   it("refuses a value that is not a date", () => {
     assert.throws(() => dayKey("not-a-date", 0), /not a date/);
+  });
+});
+
+describe("dayBounds", () => {
+  it("turns a local day key into the UTC window that contains it", () => {
+    const ist = dayBounds("2026-03-12", IST);
+    assert.equal(ist.start.toISOString(), "2026-03-11T18:30:00.000Z");
+    assert.equal(ist.end.toISOString(), "2026-03-12T18:30:00.000Z");
+
+    const pst = dayBounds("2026-03-12", PST);
+    assert.equal(pst.start.toISOString(), "2026-03-12T08:00:00.000Z");
+    assert.equal(pst.end.toISOString(), "2026-03-13T08:00:00.000Z");
+  });
+
+  it("contains only instants that dayKey maps back to the key", () => {
+    const { start, end } = dayBounds("2026-03-12", IST);
+    assert.equal(dayKey(start, IST), "2026-03-12");
+    assert.equal(dayKey(new Date(end.getTime() - 1), IST), "2026-03-12");
+    assert.equal(dayKey(end, IST), "2026-03-13");
   });
 });
 

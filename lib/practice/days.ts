@@ -59,6 +59,24 @@ export function todayKey(now: Date = new Date()): string {
   return dayKey(now, utcOffsetMinutesFor(now));
 }
 
+/**
+ * The UTC instants that bound a local day key.
+ *
+ * Used by one-user reads that have an instant but no stored local day, such as
+ * "review cards rated today". The offset is fixed for the whole day, matching
+ * how the app turns an instant into a day everywhere else; a DST transition can
+ * therefore make a real local day 23 or 25 hours, while this window stays 24.
+ */
+export function dayBounds(
+  day: string,
+  offsetMinutes: number,
+): { start: Date; end: Date } {
+  const start = new Date(
+    dayKeyToUtcDate(day).getTime() - offsetMinutes * 60_000,
+  );
+  return { start, end: new Date(start.getTime() + 86_400_000) };
+}
+
 /** A new key `amount` days later (or earlier, with a negative amount). */
 export function addDays(key: string, amount: number): string {
   const base = dayKeyToUtcDate(key);

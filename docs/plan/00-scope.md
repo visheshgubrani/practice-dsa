@@ -37,8 +37,18 @@ The catalog is seeded from `lib/problems/catalog.ts` in NeetCode 150 roadmap ord
   per-tab actions (**Start review**, **Review early**, **Pause reviews**,
   **Resume reviews**, **Open problem**) plus **Start next review**. A paused card
   keeps its schedule, is never counted as due, and never sets the next-due
-  boundary. The sidebar badge, the dashboard reminder, and the page read one
-  shared queue loader, so they cannot disagree.
+  boundary. The sidebar badge, the dashboard's queue summary, and the page read
+  one shared queue loader, so they cannot disagree.
+- `/` opens with **Today's plan** (Phase 17): a deterministic daily coach picks
+  due reviews in FSRS order and one new/continued problem from the remaining
+  catalog, capped by a 15/30/60-minute budget. The day closes from today's
+  distinct review ratings and first solves (`problem_progress.solved_at`), so
+  finishing the plan does not invent more work. The plan is a read-only
+  snapshot; it writes no submission, progress, draft, or review state. A short
+  coach note is generated over structured plan facts only; the deterministic
+  plan note is the first paint and the fallback when the key or provider is
+  unavailable. The old dashboard review reminder was replaced by a compact queue
+  summary in the plan card's footer.
 - A practice day is a verified Piston Submit, any verdict — the same predicate that decides solved. A Run, a mock verdict, or a visualize trace never counts for the streak. `submissions.day` is stamped at insert time from the client's UTC offset, so a historical day cannot move when a timezone or a season does.
 - Revise mode (`/problems/<slug>?revise=1`) reopens a solved problem from its accepted code. It records a revision in history (`is_revision`), never changes `status` / `solvedAt`, and never writes the stored draft.
 - Notes has five personal fields: Key idea (`approach`), Steps, What tripped me up, Time, and Space. New notes start empty, existing text is preserved, and autosave/recovery works in practice, revise, and review. Catalog guidance remains read-only in Solution. AI drafts are editable previews; generating does not save notes or chat, and only explicit application writes notes.
@@ -63,6 +73,27 @@ The catalog is seeded from `lib/problems/catalog.ts` in NeetCode 150 roadmap ord
 - **A recall rating is not practice activity.** Enrollment and ratings write only review state. They never rewrite historical submissions, drafts, solve dates, or submission-day stamps. Ratings use the server clock, expected revisions, and an immutable request payload so retries schedule once. Neither the AI nor the judge chooses a rating.
 - **Review and Revise have different Submit semantics.** A solved Review Submit is a revision and preserves the first solve. An unsolved Review Submit can create a first solve through normal verified judging; neither saves the temporary buffer as an ordinary draft. A direct Revise visit to an unsolved problem still writes history only.
 - **AI note generation is a read.** Use bounded editor and submitted source as distinct evidence, completed conversation turns, and the tutor's disclosed first failure. Never include reference-solution source or the unrevealed hidden suite. Replacing a field changed since generation requires renewed explicit review.
+- **The daily coach is advisory and read-only.** `/api/coach/plan` composes
+  public summaries, progress, the review queue, activity, and today's worked
+  counts; it never calls `getProblem` and writes nothing. `/api/coach/note`
+  receives only enums, counts, and item kinds/difficulties — no titles, slugs,
+  statements, source, cases, notes, or free text — and writes nothing.
+- **The deterministic planner owns the plan.** The LLM writes one short note;
+  it never chooses, reorders, adds, or removes items, and it never chooses a
+  rating. The plan's review quota is a slice of due cards in FSRS order, not the
+  whole backlog; new work is attempted-first/roadmap-order, easy/medium only,
+  and never auto-picks a hard problem.
+- **Completing the plan does not create more work.** Reviews done are distinct
+  cards rated inside the browser-local day; new done is a distinct first solve
+  (`problem_progress.solved_at`) inside that day. The day's targets use
+  `dueAtStart = dueNow + reviewsDone` and only shrink as work lands. No plan row
+  is persisted.
+- **A review rating is not a practice day and a revision is not a first
+  solve.** The coach uses the same verified-Piston-Submit predicate as the
+  streak for `practisedToday`; it never infers a rating from a Submit and never
+  treats a revise accept as new-problem progress. The `dsa.coach.*` browser keys
+  are a time preference and a note cache, never practice state and never
+  imported by the one-time `dsa.*` scan.
 - **The day an attempt belongs to is stored, not derived.** `submissions.day` is computed once at insert from `created_at + utc_offset_minutes`. Nothing re-derives a day from a timezone at read time, and the streak never touches the server's `TZ`.
 - **Only a visible case can be traced.** The visualize route resolves its index against public problem content, so hidden cases and the hidden suite are not addressable from it — a large index is simply out of range.
 - **The trace runs where judging runs:** the same engine, the same pinned Python 3.12.0, the same `Solution().<name>(*_args)` call and the same JSON arguments. The trace prelude differs from `PYTHON_PRELUDE` in exactly one line — `from typing import *` becomes an inert annotation shim, because the tracer re-encodes every reachable global at every step and that import costs 48 KB per step against 2 KB. `lib/visualizer/program.test.ts` holds the two preludes in sync and requires the shim to cover every annotation name the seeded starters use.
@@ -87,6 +118,13 @@ collapsible navigation shell. It opened no new scope: the same review state is
 shown, the same FSRS schedule is kept, and there is no automatic enrollment,
 notification, or new scheduling setting.
 
+Phase 17 opened the daily study coach narrowly: a deterministic today plan, a
+read-only queue slice, a 15/30/60-minute budget, and one short LLM note over
+structured facts. Notifications, goal and badge systems, per-topic notes,
+persisted plan rows/history, automatic enrollment, and a free-form dashboard
+coach chat remain deferred. The phase does not change judging, FSRS scheduling,
+rating semantics, disclosure, or the tutor contract.
+
 ## Done looks like this
 
-Solve a problem in Python, fail and inspect a hidden case, ask the tutor about that exact attempt, submit successfully, restart the application, and recover the draft, notes, accepted solution, history, and conversation.
+Solve a problem in Python, fail and inspect a hidden case, ask the tutor about that exact attempt, submit successfully, restart the application, and recover the draft, notes, accepted solution, history, and conversation. Open the dashboard, follow today's plan, and see it close without piling on more work.

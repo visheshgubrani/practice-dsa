@@ -8,7 +8,7 @@ import { isValidElement, type ReactNode } from "react";
 import * as jsxRuntime from "react/jsx-runtime";
 import ts from "typescript";
 
-import type { ReviewReminder } from "@/components/dashboard/review-reminder";
+import type { ReviewQueueSummary } from "@/components/reviews/review-queue-summary";
 import type { ReviewQueueProvider } from "@/components/reviews/review-queue-provider";
 import type { ReviewsHub } from "@/components/reviews/reviews-hub";
 import type { StudyShell } from "@/components/shell/study-shell";
@@ -17,7 +17,6 @@ import * as days from "@/lib/practice/days";
 import * as calendar from "@/lib/progress/calendar";
 import * as summary from "@/lib/progress/summary";
 import * as client from "./client";
-import * as date from "./date";
 import * as queueView from "./queue-view";
 import type { ReviewQueue, ReviewSummary } from "./types";
 
@@ -161,12 +160,12 @@ it("shares one provider's canonical queue and failed-refresh state across consum
   assert.equal(hook.useReviewQueue().queue?.dueCount, 1);
   assert.equal(hook.useReviewQueue().error, "Queue unavailable");
 
-  const reminder = loadSource<{ ReviewReminder: typeof ReviewReminder }>("../../components/dashboard/review-reminder.tsx", {
-    ...ui, "@/lib/hooks/use-review-queue": hook, "@/lib/reviews/date": date,
+  const queueSummary = loadSource<{ ReviewQueueSummary: typeof ReviewQueueSummary }>("../../components/reviews/review-queue-summary.tsx", {
+    ...ui, "@/lib/hooks/use-review-queue": hook,
   });
   const hub = hubHarness(hook.useReviewQueue, async () => { throw new Error("Unexpected write"); });
-  assert.match(textOf(reminder.ReviewReminder()), /1 review due/);
-  assert.match(textOf(reminder.ReviewReminder()), /Showing the last known count/);
+  assert.match(textOf(queueSummary.ReviewQueueSummary({})), /1 review due/);
+  assert.match(textOf(queueSummary.ReviewQueueSummary({})), /Showing the last known count/);
   assert.match(textOf(hub.render()), /1 due/);
   assert.match(textOf(hub.render()), /Queue unavailable/);
 
@@ -234,7 +233,7 @@ it("keeps the dashboard available after the initial review read fails and avoids
   const page = loadSource<{ default: () => Promise<React.ReactElement> }>("../../app/(study)/page.tsx", {
     "react/jsx-runtime": jsxRuntime,
     "@/components/dashboard/progress-summary": { ProgressSummaryCard: "progress" },
-    "@/components/dashboard/review-reminder": { ReviewReminder: "reminder" },
+    "@/components/dashboard/today-plan": { TodayPlanCard: "today-plan" },
     "@/components/dashboard/streak-calendar": { StreakCalendar: "calendar" },
     "@/components/dashboard/topic-progress": { TopicProgressList: "topics" },
     "@/components/database-unavailable": { DatabaseUnavailable: "unavailable" },
@@ -254,11 +253,11 @@ it("keeps the dashboard available after the initial review read fails and avoids
   const hub = hubHarness(() => state, async () => { throw new Error("Unexpected write"); });
   assert.match(textOf(hub.render()), /Queue unavailable/);
   assert.doesNotMatch(textOf(hub.render()), /Nothing due|0 due|No paused reviews/);
-  const reminder = loadSource<{ ReviewReminder: typeof ReviewReminder }>("../../components/dashboard/review-reminder.tsx", {
-    ...ui, "@/lib/hooks/use-review-queue": { useReviewQueue: () => state }, "@/lib/reviews/date": date,
+  const queueSummary = loadSource<{ ReviewQueueSummary: typeof ReviewQueueSummary }>("../../components/reviews/review-queue-summary.tsx", {
+    ...ui, "@/lib/hooks/use-review-queue": { useReviewQueue: () => state },
   });
-  assert.match(textOf(reminder.ReviewReminder()), /Review count unavailable/);
-  assert.match(textOf(reminder.ReviewReminder()), /Retry/);
+  assert.match(textOf(queueSummary.ReviewQueueSummary({})), /Review count unavailable/);
+  assert.match(textOf(queueSummary.ReviewQueueSummary({})), /Retry/);
 });
 
 it("locks overlapping writes per problem, rejects duplicates before rerender, and waits through refresh", async () => {

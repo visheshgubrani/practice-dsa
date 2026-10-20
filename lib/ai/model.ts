@@ -15,12 +15,25 @@ const tutorReasoning = {
   reasoningSummary: null,
 } satisfies OpenAILanguageModelResponsesOptions;
 
+/**
+ * A coach note is two or three sentences over facts the planner already chose;
+ * low effort keeps it quick and cheap without changing the tutor's setting.
+ */
+const coachReasoning = {
+  reasoningEffort: "low",
+  reasoningSummary: null,
+} satisfies OpenAILanguageModelResponsesOptions;
+
 export function tutorLanguageModel() {
   return openai(LIVE_MODEL);
 }
 
 export const tutorProviderOptions = {
   openai: tutorReasoning,
+};
+
+export const coachProviderOptions = {
+  openai: coachReasoning,
 };
 
 /** Live tutoring when the OpenAI key is set; otherwise the scripted demo tutor. */

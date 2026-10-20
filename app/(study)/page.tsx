@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 import { ProgressSummaryCard } from "@/components/dashboard/progress-summary";
-import { ReviewReminder } from "@/components/dashboard/review-reminder";
 import { StreakCalendar } from "@/components/dashboard/streak-calendar";
+import { TodayPlanCard } from "@/components/dashboard/today-plan";
 import { TopicProgressList } from "@/components/dashboard/topic-progress";
 import { DatabaseUnavailable } from "@/components/database-unavailable";
 import { PageBody, PageHeader } from "@/components/shell/page-chrome";
@@ -132,14 +132,7 @@ export default async function Page() {
       />
 
       <PageBody>
-        <ReviewReminder />
-
-        {totals.submissions === 0 ? (
-          <p className="rounded-xl border border-dashed border-border px-4 py-3 text-base text-muted-foreground">
-            Nothing submitted yet. Run and Submit in a problem and it shows up
-            here — only a verified Submit counts, not a Run.
-          </p>
-        ) : null}
+        <TodayPlanCard />
 
         <ProgressSummaryCard summary={summary} />
 

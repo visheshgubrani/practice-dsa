@@ -1,12 +1,14 @@
 # DSA Software
 
-A personal, AI-native workbench for algorithm practice: a dashboard of progress
-by topic with a practice streak, the problem list, a LeetCode-shaped workspace
-(statement / solution / personal notes / AI chat on the left, Monaco on the right, a
-minimizeable console below), Run and Submit buttons, a revise mode for a second
-pass at a solved problem, and a streaming tutor that sees the problem and your
-current code. Personal notes and manually enrolled FSRS reviews help you recall
-the approach later.
+A personal, AI-native workbench for algorithm practice: a dashboard that starts
+with today's plan, progress by topic with a practice streak, the problem list, a
+LeetCode-shaped workspace (statement / solution / personal notes / AI chat on the
+left, Monaco on the right, a minimizeable console below), Run and Submit buttons,
+a revise mode for a second pass at a solved problem, and a streaming tutor that
+sees the problem and your current code. Personal notes and manually enrolled FSRS
+reviews help you recall the approach later. A deterministic daily coach chooses
+a small review slice and one new problem; the AI writes only a short note about
+it.
 
 ## Run it
 
@@ -20,7 +22,7 @@ cp .env.example .env.local   # add PISTON_URL to turn real judging on
 pnpm dev
 ```
 
-- `/` — the dashboard: one progress summary, a review reminder, the streak and its calendar, and compact topic rows
+- `/` — the dashboard: **today's plan**, one progress summary, the streak and its calendar, and compact topic rows
 - `/problems` — the full list (search, difficulty, topic, tag, and solved filters; `?topic=` is a shareable deep link)
 - `/reviews` — spaced repetition: **Due**, **Upcoming**, and **Paused** tabs with search, a topic filter, pause/resume, and **Start next review**
 - `/problems/two-sum` — the workspace
@@ -122,7 +124,7 @@ See `.env.example`.
 
 | Variable | Effect when set |
 | --- | --- |
-| `OPENAI_API_KEY` | The tutor and AI note drafts use OpenAI (`gpt-6-luna`). Without it, chat has a scripted demo; note drafting reports the missing key and manual notes remain available. |
+| `OPENAI_API_KEY` | The tutor, AI note drafts, and the daily coach note use OpenAI (`gpt-6-luna`). Without it, chat has a scripted demo, note drafting reports the missing key, and the coach shows its deterministic plan note. |
 | `PISTON_URL` | The execution engine. **This is what turns real judging on**; unset, Run and Submit are answered by the mock and the console says `simulated`. Defaults to `http://127.0.0.1:2001`. |
 | `RUNNER_KIND` | `mock` forces simulated verdicts even with an engine configured; anything else defers to `PISTON_URL`. |
 | `PISTON_RUN_TIMEOUT_MS` / `PISTON_RUN_MEMORY_MB` / `PISTON_MAX_CONCURRENCY` | Per-case limits (defaults 2000 ms, 256 MB, 4 at a time). The compose service advertises a higher ceiling than the runner asks for. |
@@ -249,10 +251,12 @@ wrong-answer fixture.
 
 ## Current plan
 
-Work is sequenced in [`docs/plan`](docs/plan/README.md). Phase 13 (personal notes
-and spaced repetition) is reviewed and complete; no new phase is selected.
-Older Phase 9 and tutor-conversation verification follow-ups retain their
-recorded status. Phase 7 closed with 104 of the 150 NeetCode problems ready and seeded;
+Work is sequenced in [`docs/plan`](docs/plan/README.md). Phase 17 (today's
+plan: a deterministic daily coach with a short LLM note) is implemented and its
+automated/API/live-note checks pass. Its real-browser acceptance pass is still
+pending because no browser binary is available in this environment. Phase 13
+(personal notes and spaced repetition) is complete. Older Phase 9 and
+tutor-conversation verification follow-ups retain their recorded status. Phase 7 closed with 104 of the 150 NeetCode problems ready and seeded;
 Encode and Decode Strings, Min Stack, Median of Two Sorted Arrays, and Time
 Based Key-Value Store were added afterward, so 108 are ready and seeded and 42
 remain deferred. The catalog has 109 rows in total because it also includes the
@@ -261,7 +265,7 @@ out-of-sheet `search-insert-position` problem. See
 
 ## What is real and what is not
 
-The notes below describe the implementation through Phase 13.
+The notes below describe the implementation through Phase 17.
 
 - **Durable (Postgres)**: the catalog (including each problem's roadmap topic),
   drafts, notes, preferred language, verified solved status, imported legacy
@@ -302,6 +306,17 @@ The notes below describe the implementation through Phase 13.
   decides solved: a Run, a mock verdict, or a visualize trace never extends a
   streak. A day with no practice renders as an empty square, and the darkest
   square means a busy day that also accepted something.
+- **Today's plan is a read-only coach.** `/` opens with due reviews in FSRS order
+  plus one new/continued problem, capped by a 15/30/60-minute budget. The
+  deterministic planner owns the choice: attempted problems first, then roadmap
+  order, easy/medium only, and never a hard auto-pick. "Reviews done" are distinct
+  cards rated today; "new done" is a distinct first solve whose
+  `problem_progress.solved_at` falls today. Completing the plan does not create
+  more work, and there is no plan table. The plan and note routes write nothing.
+  The note request carries only kinds, difficulties, counts, and no titles or
+  free text. The coach note is generated with `gpt-6-luna` when a key is set;
+  otherwise, or on any failure, a deterministic plan note is shown. The old
+  dashboard review reminder is now a compact queue summary inside the plan card.
 - **Revise never unsolves anything.** `/problems/<slug>?revise=1` opens the
   workspace on a copy of your accepted code. A Submit there is stored as a
   revision (history keeps it, and the panel badges it `revise`), `status` and the
@@ -312,7 +327,9 @@ The notes below describe the implementation through Phase 13.
   the source for a one-time import. Import never overwrites Postgres and never
   turns a legacy accept into verified solved. If a save fails, the console
   still shows the verdict with a **not saved** state; reload does not claim
-  durable progress.
+  durable progress. `dsa.coach.minutes` (time budget) and `dsa.coach.note`
+  (note cache) are browser-local coach state, not practice data, and the import
+  scan ignores them.
 - **Simulated only when asked for**: `lib/runner/mock.ts` never runs anything; it
   maps shapes of the submitted source onto verdicts. It answers when `PISTON_URL`
   is unset, or when `RUNNER_KIND=mock` asks for it, and the console labels those
@@ -321,24 +338,26 @@ The notes below describe the implementation through Phase 13.
   `force:runtime-error`, or `force:tle` inside a comment to reach a state on
   demand. Without `OPENAI_API_KEY`, the tutor streams a scripted demo answer
   through the same protocol.
-- **Not built yet**: custom test input, and a light theme.
+- **Not built yet**: custom test input, a light theme, a free-form dashboard coach chat, and persisted plan history.
 
 ## Layout of the code
 
 ```
 app/(study)/         the shared shell: dashboard, problem list, and the /reviews hub
+app/api/coach/       deterministic plan and one bounded coach note (read-only)
 app/problems/[slug]  the coding workspace, outside the study shell
 components/ui/       shadcn components (base-nova preset, Base UI primitives)
 components/shell/    sidebar navigation and the shared page header/body chrome
-components/dashboard/ progress summary, review reminder, streak calendar, heatmap, topic rows
-components/reviews/  reviews hub, review rows, per-tab pause/resume actions
+components/dashboard/ today's plan, progress summary, streak calendar, heatmap, topic rows
+components/reviews/  reviews hub, queue summary, review rows, per-tab pause/resume actions
 components/problems/ problem list, difficulty badge, revise button
 components/workspace/ header, problem panel, editor, console, history, chat
 lib/                 problem types + seed data, languages, runner types, AI prompts, hooks
-lib/ai/              tutor/notes prompts and disclosed workspace context
+lib/ai/              tutor/notes prompts, disclosed context, and the coach-note prompt
 lib/notes/           client-safe AI draft types and requests
 lib/reviews/         client DTOs, date labels, queue view logic, due-boundary timer, FSRS adapter
-lib/hooks/           use-review-queue (the shared queue loader), practice, progress, drafts
+lib/coach/           pure daily planner, copy, fingerprint, note contract, client/cache
+lib/hooks/           use-review-queue, use-coach-plan, use-coach-note, practice, progress, drafts
 lib/chat/            client-safe chat types and the server turn handler
 lib/practice/        load/save recovery, import scan, serial write queues, local day keys
 lib/progress/        streak rules, heatmap grid, solved rollups (pure, no database)

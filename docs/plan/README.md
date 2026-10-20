@@ -4,7 +4,10 @@ Build in this order: **trustworthy judging → durable persistence → more prob
 
 Get the existing four problems working end to end before expanding the catalog.
 
-**Current phase:** none. [Phase 16](./16-dashboard-and-reviews-ui.md), including implementation review corrections in work unit 16.9, is complete (2026-10-10). [Phase 15](./15-beginner-tutor.md), including review corrections in work unit 15.5, is complete (2026-10-10).
+**Current phase:** [Phase 17](./17-daily-coach.md) — Today's plan: a deterministic
+daily coach with a short LLM note. Implementation and automated/API/live-note
+checks are complete (2026-10-18); the real-browser acceptance pass is pending
+because no browser binary is available in this environment. [Phase 16](./16-dashboard-and-reviews-ui.md), including implementation review corrections in work unit 16.9, is complete (2026-10-10). [Phase 15](./15-beginner-tutor.md), including review corrections in work unit 15.5, is complete (2026-10-10).
 
 Phase 13 is reviewed and wrapped up. Its final checks passed: 379 tests, 1,767 catalog checks, 443 real Piston checks, lint, typecheck, and build. The stateful browser acceptance run used a disposable database copy, preserving the user's database. Phase 9's remaining recorded gate and the unfinished tutor-conversation follow-up keep their existing status; this review does not close those unrelated checklists.
 
@@ -42,7 +45,7 @@ Tick boxes here when a whole phase is done. Tick boxes inside the phase file whe
 
 Local personal app. Python only. Piston. Durable local Postgres. Context-aware tutoring. Reveal the first failing hidden case for learning. A dry run you can step through, drawn from the same sandbox that judges.
 
-Deferred: hosting, accounts, other language harnesses, study-coach features, linked lists / trees / custom classes / in-place output contracts, and Submit batching unless the latency checkpoint in Phase 4 triggers it.
+Deferred: hosting, accounts, other language harnesses, free-form or persisted study-coach features (notifications, goals, badges, plan history, a dashboard coach chat), linked lists / trees / custom classes / in-place output contracts, and Submit batching unless the latency checkpoint in Phase 4 triggers it.
 
 Invariants and the “done” scenario live in [00-scope.md](./00-scope.md).
 
@@ -64,6 +67,7 @@ Invariants and the “done” scenario live in [00-scope.md](./00-scope.md).
 - [x] [Phase 14 — Rate before review enrollment](./14-rate-before-review.md)
 - [x] [Phase 15 — Beginner tutor](./15-beginner-tutor.md) — renewed teaching and browser gates passed
 - [x] [Phase 16 — Dashboard and reviews UI redesign](./16-dashboard-and-reviews-ui.md) — verified, including implementation review corrections in work unit 16.9
+- [ ] [Phase 17 — Today's plan: a deterministic coach with a short LLM note](./17-daily-coach.md) — implementation complete; browser acceptance pending
 
 Phase 16 rebuilt the front of the app: IBM Plex Sans and a documented type
 scale, one collapsible sidebar shell shared by `/`, `/problems`, and `/reviews`,
