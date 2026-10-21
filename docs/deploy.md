@@ -58,22 +58,23 @@ Create these in the repository settings:
 | `VPS_HOST` | VPS IP or DNS name |
 | `VPS_USER` | SSH user that can run Docker |
 | `VPS_SSH_KEY` | private deploy key, including `BEGIN`/`END` lines |
-| `VPS_KNOWN_HOSTS` | verified host keys (below) |
 | `VPS_PORT` | optional; defaults to `22` |
 | `VPS_APP_DIR` | optional; defaults to `practice-dsa` relative to the SSH user's home |
 
 Use a dedicated key with no passphrase (the workflow runs non-interactively)
-and put its public half in `~/.ssh/authorized_keys`. Build the known-hosts
-secret from the host and verify the fingerprint out of band before trusting
-it:
+and put its public half in `~/.ssh/authorized_keys`.
+
+CI does not store host keys. The ephemeral runner uses `StrictHostKeyChecking
+accept-new`, so it records the VPS key on the job's first connection and
+verifies it for the remaining steps. There is no `VPS_KNOWN_HOSTS` secret to
+create or rotate. The tradeoff is trust-on-first-use per run: a hijacked DNS or
+routing path at connect time would not be caught. Confirm the fingerprint once
+out of band if that matters to you:
 
 ```bash
-ssh-keyscan -p "${VPS_PORT:-22}" VPS_HOST > vps_known_hosts
-ssh-keygen -lf vps_known_hosts
+ssh-keyscan -p "${VPS_PORT:-22}" VPS_HOST | ssh-keygen -lf -
 # compare with: ssh VPS_USER@VPS_HOST 'ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub'
 ```
-
-Paste the file contents as `VPS_KNOWN_HOSTS`.
 
 ### 3. Copy the modified Piston checkout (once)
 
