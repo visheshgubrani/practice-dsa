@@ -168,6 +168,91 @@ offers. The other three remain in the database enum, and a row written for one o
 them is still readable — adding a language back means writing its harness and one
 entry in `lib/languages.ts`.
 
+### Deploying the engine on an ARM64 VPS
+
+The pinned upstream image works on amd64 only: its runtimes are downloaded at
+start-up from a package index built on amd64 (the repo builder installs
+`linux-headers-amd64`), so on an ARM64 host Python never comes up. The Piston
+checkout ships `Dockerfile.python` for this: it compiles CPython 3.12.0 and
+Isolate natively on whichever architecture builds it (linux/arm64 and
+linux/amd64), bundles the same Python libraries the package index would, and
+installs them under `/piston/packages/python/3.12.0` — the exact version
+`lib/piston/config.ts` pins.
+
+`docker-compose.piston-native.yml` merges over the dev compose file and swaps
+this image in for the pinned one:
+
+```bash
+pnpm db:up:native         # build the image, then start postgres + piston
+pnpm piston:check         # reference solutions through the whole judging path
+pnpm visualizer:check     # traces through the whole visualizer path
+```
+
+VPS prerequisites: Ubuntu 24.04 ARM64 (or amd64), rootful Docker, a modern
+Docker Compose (`!reset` needs v2.24+), and unified cgroup v2 with cgroup v1
+disabled — same requirement as the upstream engine. The build is native, so
+it compiles CPython and Isolate on the VPS itself; expect a slow first build.
+`PISTON_SOURCE_DIR` (default `../piston`) points the build context at the
+Piston checkout.
+
+Two differences from the dev engine:
+
+- **`pnpm piston:runtimes` is not needed.** Python 3.12.0 is in the image and
+  loaded at start-up; there is nothing to download and no restart after
+  install. The health check reports healthy only when the engine reports
+  exactly that runtime.
+- **The `piston_data` volume is not mounted.** Volume contents would shadow
+  the bundled runtime at `/piston/packages` (mounting over image data hides
+  it), so the override drops the mount. The volume itself still exists for
+  the upstream image's benefit and is never written by the native image.
+
+Before upgrading a working native deployment, preserve its running image,
+then rebuild after changing the Piston checkout:
+
+```bash
+PISTON_CURRENT_CONTAINER=$(docker compose -f docker-compose.dev.yml -f docker-compose.piston-native.yml ps -q piston)
+PISTON_CURRENT_IMAGE=$(docker inspect --format '{{.Image}}' "$PISTON_CURRENT_CONTAINER")
+docker image tag "$PISTON_CURRENT_IMAGE" piston-native:rollback
+pnpm db:up:native
+```
+
+If the new image fails, restore the saved native image:
+
+```bash
+PISTON_NATIVE_IMAGE=piston-native:rollback docker compose \
+  -f docker-compose.dev.yml -f docker-compose.piston-native.yml \
+  up -d --no-build --pull never --wait piston
+```
+
+`PISTON_NATIVE_IMAGE` selects the local image (default
+`piston-native:python-3.12.0`). The rollback skips building and pulling and
+recreates only Piston, leaving PostgreSQL running. On a first installation
+there is no previous native image to restore; fix the build and retry
+`pnpm db:up:native`.
+
+On **amd64 only**, `pnpm db:up` returns to the pinned upstream image and its
+existing `piston_data` volume. That upstream image cannot restore native
+execution on ARM64.
+
+## Deployment
+
+The production install lives on an Oracle ARM64 VPS. GitHub Actions builds the
+app natively on `ubuntu-24.04-arm`, pushes a SHA-tagged image and its digest to
+GHCR, then SSHes to the VPS to migrate and recreate the app from that digest.
+Postgres 18 and a natively built Piston run beside it in
+`docker-compose.prod.yml`; only the app is published, on `127.0.0.1:3000`, for
+the host Caddy to reverse proxy. One Caddy `basic_auth` block protects the whole
+site, including the API.
+
+Piston is built once from the modified `~/piston` checkout and is not rebuilt by
+app deploys. Database seeding stays manual, the Postgres volume is never reset,
+and CI runs only the production build — no lint, test, or typecheck step.
+
+The complete runbook — secrets, first Piston build, database dump and restore,
+Caddy, deploy verification, backup, manual seed, app rollback, logs, and Piston
+upgrades — is in [`docs/deploy.md`](docs/deploy.md). `GET /api/health` is the
+readiness gate: 200 when Postgres answers, 503 when it does not.
+
 ## Dry runs you can step through
 
 The **Visualize** tab in the workspace runs the selected visible case and draws
@@ -345,6 +430,7 @@ The notes below describe the implementation through Phase 17.
 ```
 app/(study)/         the shared shell: dashboard, problem list, and the /reviews hub
 app/api/coach/       deterministic plan and one bounded coach note (read-only)
+app/api/health/      uncached readiness check for Compose and the deploy script
 app/problems/[slug]  the coding workspace, outside the study shell
 components/ui/       shadcn components (base-nova preset, Base UI primitives)
 components/shell/    sidebar navigation and the shared page header/body chrome
@@ -376,7 +462,11 @@ scripts/piston-check.mts     reference solutions through the whole judging path
 scripts/piston-latency.mts   Submit wall-time checkpoint (largest suite, cache bypassed)
 scripts/visualizer-check.mts every seeded problem's visible cases, traced for real
 scripts/chat-smoke.mts       disclosed tutor payload; live OpenAI when a key is set
-docker-compose.dev.yml
+docker-compose.dev.yml       local Postgres + Piston
+docker-compose.prod.yml      app + Postgres + native Piston for the VPS
+Dockerfile                   Node 22 production image, with migrate/seed tooling
+deploy/                      VPS bootstrap, deploy, backup, restore, Caddy example
+.github/workflows/deploy.yml ARM build, GHCR push, SSH deploy by digest
 ```
 
 ## Checks

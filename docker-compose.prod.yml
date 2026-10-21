@@ -1,0 +1,122 @@
+# Production stack for the Oracle ARM64 VPS.
+#
+# CI runs deploy/vps-deploy.sh, which exports APP_IMAGE, migrates, and recreates
+# the app. For first-time setup, deploy/vps-bootstrap.sh builds and starts only
+# Postgres + Piston.
+#
+# Three services, no host ports except the app on loopback:
+#   app       the image built by .github/workflows/deploy.yml
+#   postgres  durable practice data, reachable only on the Compose network
+#   piston    the natively built engine from ../piston (Dockerfile.python)
+#
+# `deploy/vps-bootstrap.sh` builds Piston once and starts Postgres + Piston.
+# `deploy/vps-deploy.sh` (run by CI) pulls the app digest, migrates, then
+# recreates the app. Routine deploys never rebuild Piston and never touch the
+# Postgres volume.
+#
+# Caddy is already installed on the host and proxies a domain to
+# 127.0.0.1:${APP_PORT:-3000}; see deploy/Caddyfile.example.
+
+name: dsa-software
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-dsa_software}
+    volumes:
+      # PG18 keeps data under /var/lib/postgresql/<major>/, so the parent
+      # directory is what gets mounted. Mounting /var/lib/postgresql/data is the
+      # pre-18 pattern and makes the 18 image refuse to start.
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # The natively built engine. Piston's package index is amd64-only, so the
+  # upstream image cannot serve Python on ARM64; ../piston/Dockerfile.python
+  # compiles CPython 3.12.0 and Isolate on the build host instead.
+  piston:
+    image: ${PISTON_NATIVE_IMAGE:-piston-native:python-3.12.0}
+    build:
+      context: ${PISTON_SOURCE_DIR:-../piston}
+      dockerfile: Dockerfile.python
+    restart: unless-stopped
+    # Isolate sandboxes each job with its own mount, PID, IPC and network
+    # namespaces plus a cgroup. Same reason as the dev stack.
+    privileged: true
+    # Executable temporary storage, matching the upstream engine's compose file.
+    tmpfs:
+      - /tmp:exec
+    environment:
+      # Same limits as docker-compose.dev.yml: a visualizer trace is megabytes
+      # on stdout, and the runner asks for less than these ceilings.
+      PISTON_OUTPUT_MAX_SIZE: '4194304'
+      PISTON_RUN_TIMEOUT: '5000'
+      PISTON_RUN_CPU_TIME: '5000'
+      PISTON_RUN_MEMORY_LIMIT: '536870912'
+      PISTON_COMPILE_TIMEOUT: '20000'
+      PISTON_COMPILE_CPU_TIME: '20000'
+      PISTON_COMPILE_MEMORY_LIMIT: '1073741824'
+    # Do not mount anything over /piston: the bundled Python runtime lives
+    # there, and a volume would hide it.
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - >-
+          fetch('http://127.0.0.1:2000/api/v2/runtimes')
+          .then((r) => r.json())
+          .then((runtimes) => {
+            if (!runtimes.some((r) => r.language === 'python' && r.version === '3.12.0')) {
+              throw new Error('python 3.12.0 is not loaded');
+            }
+          })
+          .then(() => process.exit(0))
+          .catch(() => process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+
+  app:
+    # CI exports the digest reference; the default keeps commands like
+    # `up postgres piston` usable during first-time bootstrap.
+    image: ${APP_IMAGE:-ghcr.io/visheshgubrani/practice-dsa:latest}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      piston:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in .env}
+      PISTON_URL: http://piston:2000
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      NODE_ENV: production
+    # The only published port: loopback for the host Caddy to reverse proxy.
+    ports:
+      - "127.0.0.1:${APP_PORT:-3000}:3000"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - >-
+          fetch('http://127.0.0.1:3000/api/health')
+          .then((response) => process.exit(response.ok ? 0 : 1))
+          .catch(() => process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+
+volumes:
+  postgres_data:

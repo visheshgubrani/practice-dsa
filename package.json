@@ -17,6 +17,7 @@
     "visualizer:sync": "node scripts/sync-visualizer.mjs",
     "visualizer:check": "tsx scripts/visualizer-check.mts",
     "db:up": "docker compose -f docker-compose.dev.yml up -d",
+    "db:up:native": "docker compose -f docker-compose.dev.yml -f docker-compose.piston-native.yml up -d --build",
     "db:down": "docker compose -f docker-compose.dev.yml down",
     "db:logs": "docker compose -f docker-compose.dev.yml logs -f postgres",
     "db:generate": "drizzle-kit generate",

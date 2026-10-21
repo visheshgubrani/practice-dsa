@@ -1,0 +1,39 @@
+# Keep secrets, local state, and generated output out of the image context.
+.git
+.gitignore
+.github
+.agents
+.aws
+.codex
+.cursor
+
+node_modules
+.next
+coverage
+*.tsbuildinfo
+next-env.d.ts
+
+# Environment files never enter an image; Compose injects them at runtime.
+.env
+.env.*
+*.dump
+
+# Generated at build time by scripts/sync-monaco.mjs and sync-visualizer.mjs.
+public/monaco
+public/vendor
+
+# Local authoring input; the committed catalog modules and sheet manifest are
+# what the build and seed actually read.
+docs/catalog/sources
+
+# Deployment-side files are not part of the application image.
+deploy
+docker-compose.dev.yml
+docker-compose.piston-native.yml
+docker-compose.prod.yml
+.previous-image
+.deployed-image
+backups
+README.md
+AGENTS.md
+CLAUDE.md

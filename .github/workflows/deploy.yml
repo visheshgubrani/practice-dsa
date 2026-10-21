@@ -1,0 +1,110 @@
+name: Deploy to Oracle ARM VPS
+
+# Push to main, or run manually. A manual run is also the way to redeploy a
+# commit whose image was already built.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+# One deployment at a time. Never cancel a run halfway through a migration.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/visheshgubrani/practice-dsa
+
+jobs:
+  build-and-deploy:
+    # GitHub's native arm64 runner. The image is built on the architecture the
+    # VPS runs, so Docker never cross-compiles it.
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      VPS_PORT: ${{ secrets.VPS_PORT || '22' }}
+      VPS_APP_DIR: ${{ secrets.VPS_APP_DIR || 'practice-dsa' }}
+
+    steps:
+      - name: Check out the commit
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push the app image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/arm64
+          push: true
+          tags: ${{ env.IMAGE }}:sha-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+
+      - name: Set up SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$VPS_SSH_KEY" > "$HOME/.ssh/id_ed25519"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          cat > "$HOME/.ssh/config" <<EOF
+          Host dsa-vps
+            HostName $VPS_HOST
+            User $VPS_USER
+            Port $VPS_PORT
+            IdentityFile $HOME/.ssh/id_ed25519
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+            UserKnownHostsFile $HOME/.ssh/known_hosts
+            BatchMode yes
+          EOF
+          chmod 600 "$HOME/.ssh/config"
+          ssh dsa-vps true
+
+      - name: Copy deployment files from this commit
+        run: |
+          set -euo pipefail
+          tar -czf - docker-compose.prod.yml deploy \
+            | ssh dsa-vps "mkdir -p \"$VPS_APP_DIR\" && tar -xzf - -C \"$VPS_APP_DIR\""
+
+      - name: Log in to GHCR on the VPS
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$GHCR_TOKEN" \
+            | ssh dsa-vps "docker login ghcr.io --username '$GHCR_USER' --password-stdin"
+
+      - name: Deploy the image digest
+        env:
+          APP_IMAGE: ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          ssh dsa-vps "cd \"$VPS_APP_DIR\" && APP_IMAGE='$APP_IMAGE' bash deploy/vps-deploy.sh"
+
+      - name: Remove temporary GHCR credentials
+        if: always()
+        run: ssh dsa-vps "docker logout ghcr.io" || true

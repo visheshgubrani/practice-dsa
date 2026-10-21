@@ -37,6 +37,12 @@ yarn-error.log*
 # local database dumps from `pg_dump` (see README)
 *.dump
 
+# deployment state written by deploy/vps-deploy.sh and deploy/backup-db.sh on
+# the VPS (see docs/deploy.md)
+/.previous-image
+/.deployed-image
+/backups/
+
 # generated: monaco's AMD build, copied from node_modules by scripts/sync-monaco.mjs
 /public/monaco/
 

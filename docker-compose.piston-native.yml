@@ -1,0 +1,67 @@
+# Native-build Piston for ARM64 (and amd64) deployment.
+#
+# The pinned upstream image (ghcr.io/engineer-man/piston) ships no runtimes
+# and its package index only publishes amd64-built archives, so it cannot
+# serve Python on an ARM64 VPS. This override replaces it with an image
+# built from the local Piston checkout (`../piston` by default, point
+# PISTON_SOURCE_DIR elsewhere if needed), which compiles CPython 3.12.0 and
+# Isolate natively for its host architecture and bundles them.
+#
+#   pnpm db:up:native       # build + start postgres and the native piston
+#   pnpm piston:check       # verify judging against the bundled Python
+#
+# Before an upgrade, preserve the running native image as piston-native:rollback.
+# Restore it with PISTON_NATIVE_IMAGE=piston-native:rollback and this merged
+# compose configuration: up -d --no-build --pull never --wait piston.
+# See the README for the complete commands. The upstream image is an amd64-only
+# fallback; on ARM64 rollback must use a previously working native image.
+# The upstream piston_data volume remains untouched by this configuration.
+#
+# Everything not listed here (the loopback port mapping, the execution
+# limits, `privileged: true`, the PostgreSQL service and its volume) is
+# inherited unchanged from docker-compose.dev.yml.
+name: dsa-software-dev
+
+services:
+  piston:
+    # Built locally by this override; never published to a registry.
+    image: ${PISTON_NATIVE_IMAGE:-piston-native:python-3.12.0}
+    build:
+      # The Piston repository with Dockerfile.python in its root.
+      context: ${PISTON_SOURCE_DIR:-../piston}
+      dockerfile: Dockerfile.python
+    # Python 3.12.0 lives inside the image at /piston/packages. The
+    # upstream service's `piston_data:/piston` mount would shadow exactly
+    # that directory with an empty (or amd64-populated) volume — mounting a
+    # volume over existing image data hides the data — so the mount is
+    # dropped here rather than overridden. Jobs, cgroup state and everything
+    # else the API writes still land on the container's own filesystem.
+    # https://docs.docker.com/engine/storage/volumes/#mounting-a-volume-over-existing-data
+    volumes: !reset []
+    # Executable temporary storage, matching the upstream engine's own
+    # compose file: /tmp is mounted with exec, not the default noexec.
+    tmpfs:
+      - /tmp:exec
+    # The bundled runtime must be present and loaded: fail the health check
+    # if the engine reports any Python other than exactly 3.12.0. The
+    # explicit process.exit calls also keep node from lingering on the
+    # keep-alive socket after the response, which would stall the check.
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - >-
+          fetch('http://127.0.0.1:2000/api/v2/runtimes')
+          .then((r) => r.json())
+          .then((runtimes) => {
+            if (!runtimes.some((r) => r.language === 'python' && r.version === '3.12.0')) {
+              throw new Error('python 3.12.0 is not loaded');
+            }
+          })
+          .then(() => process.exit(0))
+          .catch(() => process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s

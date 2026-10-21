@@ -1,0 +1,25 @@
+# /etc/caddy/Caddyfile
+#
+# Add this site block to the Caddyfile already installed on the VPS, replace
+# the domain, generate the hash on the VPS (the command prompts, so the password
+# stays out of shell history), then `sudo systemctl reload caddy`.
+#
+#   caddy hash-password
+#
+# The one basic_auth block covers the whole site, including /api/*. Caddy's
+# automatic HTTPS still works for the ACME challenges, which are handled before
+# basic_auth.
+#
+# The app itself is only bound to 127.0.0.1:3000 (see docker-compose.prod.yml).
+
+dsa.example.com {
+	basic_auth {
+		dsa REPLACE_WITH_CADDY_HASH
+	}
+
+	# flush_interval -1 keeps the tutor's streamed replies streaming instead
+	# of arriving as one buffered response.
+	reverse_proxy 127.0.0.1:3000 {
+		flush_interval -1
+	}
+}
