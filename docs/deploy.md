@@ -24,9 +24,13 @@ typecheck step; run those locally before pushing.
 
 | Service | Image | Exposure |
 | --- | --- | --- |
-| `app` | `ghcr.io/visheshgubrani/practice-dsa@sha256:…` | `127.0.0.1:3000` only |
-| `postgres` | `postgres:18-alpine` | Compose network only |
+| `app` | `ghcr.io/visheshgubrani/practice-dsa@sha256:…` | `127.0.0.1:3002` only |
+| `postgres` | `postgres:18-alpine` | Compose network + `127.0.0.1:5483` |
 | `piston` | locally built `piston-native:python-3.12.0` | Compose network only |
+
+Both published ports are loopback-only. They dodge the ports already taken on
+the VPS: 3000/3001 belong to the academy and cramlify clients, and Postgres
+slots 5470/5482 belong to cramlify and swingtradervcp.
 
 Caddy, already installed on the host, terminates HTTPS for the domain and
 proxies to the loopback app port with one basic-auth login (`dsa`).
@@ -124,8 +128,9 @@ $EDITOR .env
 
 Fill in:
 
-- `POSTGRES_PASSWORD` — a long random password.
-- `DATABASE_URL` — the same credentials, but host `postgres`, port `5432`.
+- `POSTGRES_PASSWORD` and `DATABASE_URL` — the defaults are the standard
+  `postgres`/`postgres` login against the Compose service, so nothing has to
+  change. If you rotate the password, change both values together and
   URL-encode characters such as `@`, `:`, `/`, and `#` in the password (and
   percent-encode or Compose-escape `$`), because both the URL parser and
   Compose's `.env` interpolation read that value.
@@ -252,7 +257,7 @@ ssh VPS_USER@VPS_HOST
 cd ~/practice-dsa
 cat .deployed-image
 docker compose --env-file .env -f docker-compose.prod.yml ps
-curl -fsS http://127.0.0.1:3000/api/health
+curl -fsS http://127.0.0.1:3002/api/health
 ```
 
 The expected health body is `{"status":"ok"}`. A `503` means Postgres is not
@@ -361,7 +366,7 @@ Health failure behavior is intentional: with Postgres stopped, the route returns
 `503` and the Compose health check fails; it does not expose the database error.
 
 ```bash
-curl -i http://127.0.0.1:3000/api/health
+curl -i http://127.0.0.1:3002/api/health
 ```
 
 ## Verify Piston and the app on ARM
@@ -428,7 +433,7 @@ it.
 | GHCR `denied` | The VPS login happened; confirm the repository's Actions permissions allow package write and the package is linked to the repo. |
 | `db:migrate` fails | Stop and inspect `logs app`; do not retry with a reset volume. |
 | `/api/health` is 503 | Postgres container state, `DATABASE_URL` host `postgres`, password encoding. |
-| Caddy returns 502 | App not listening on `127.0.0.1:3000`; check `docker compose ps`. |
+| Caddy returns 502 | App not listening on `127.0.0.1:3002`; check `docker compose ps`. |
 | Caddy returns 401 everywhere | That is the basic_auth block working; use `curl -u dsa`. |
 | Piston unhealthy | `logs piston`; check cgroup v2 and that `/piston` is not mounted. |
 
@@ -439,4 +444,5 @@ it.
 - It does not seed the catalog.
 - It does not dump, restore, reset, or roll the database back.
 - It does not edit Caddy or DNS.
-- It does not publish the Postgres or Piston ports.
+- It does not publish the Piston port, and it does not change the app's or
+  Postgres's loopback-only port mappings.

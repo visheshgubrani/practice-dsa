@@ -4,10 +4,14 @@
 # the app. For first-time setup, deploy/vps-bootstrap.sh builds and starts only
 # Postgres + Piston.
 #
-# Three services, no host ports except the app on loopback:
-#   app       the image built by .github/workflows/deploy.yml
-#   postgres  durable practice data, reachable only on the Compose network
-#   piston    the natively built engine from ../piston (Dockerfile.python)
+# Three services. Published ports are loopback-only:
+#   app       the image built by .github/workflows/deploy.yml   (3002:3000)
+#   postgres  durable practice data                             (5483:5432)
+#   piston    the natively built engine from ../piston          (network only)
+#
+# The host ports dodge the ones already taken on the VPS: Postgres slots
+# 5470/5482 belong to cramlify and swingtradervcp, and 3000/3001 belong to the
+# academy and cramlify clients.
 #
 # `deploy/vps-bootstrap.sh` builds Piston once and starts Postgres + Piston.
 # `deploy/vps-deploy.sh` (run by CI) pulls the app digest, migrates, then
@@ -15,7 +19,7 @@
 # Postgres volume.
 #
 # Caddy is already installed on the host and proxies a domain to
-# 127.0.0.1:${APP_PORT:-3000}; see deploy/Caddyfile.example.
+# 127.0.0.1:${APP_PORT:-3002}; see deploy/Caddyfile.example.
 
 name: dsa-software
 
@@ -25,8 +29,12 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-dsa_software}
+    # Loopback-only, like the app: lets psql/pg_dump on the host reach the
+    # database without exposing it to the LAN.
+    ports:
+      - '127.0.0.1:${POSTGRES_PORT:-5483}:5432'
     volumes:
       # PG18 keeps data under /var/lib/postgresql/<major>/, so the parent
       # directory is what gets mounted. Mounting /var/lib/postgresql/data is the
@@ -97,13 +105,13 @@ services:
       piston:
         condition: service_healthy
     environment:
-      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in .env}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/dsa_software}
       PISTON_URL: http://piston:2000
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       NODE_ENV: production
-    # The only published port: loopback for the host Caddy to reverse proxy.
+    # The only other published port: loopback for the host Caddy to reverse proxy.
     ports:
-      - "127.0.0.1:${APP_PORT:-3000}:3000"
+      - "127.0.0.1:${APP_PORT:-3002}:3000"
     healthcheck:
       test:
         - CMD

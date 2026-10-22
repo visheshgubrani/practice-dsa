@@ -240,8 +240,9 @@ The production install lives on an Oracle ARM64 VPS. GitHub Actions builds the
 app natively on `ubuntu-24.04-arm`, pushes a SHA-tagged image and its digest to
 GHCR, then SSHes to the VPS to migrate and recreate the app from that digest.
 Postgres 18 and a natively built Piston run beside it in
-`docker-compose.prod.yml`; only the app is published, on `127.0.0.1:3000`, for
-the host Caddy to reverse proxy. One Caddy `basic_auth` block protects the whole
+`docker-compose.prod.yml`; the app is published on `127.0.0.1:3002` for the
+host Caddy to reverse proxy, and Postgres is reachable on `127.0.0.1:5483`.
+Both are loopback-only and dodge the ports the VPS's other stacks already use. One Caddy `basic_auth` block protects the whole
 site, including the API.
 
 Piston is built once from the modified `~/piston` checkout and is not rebuilt by

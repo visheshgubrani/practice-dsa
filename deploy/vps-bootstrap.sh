@@ -20,7 +20,7 @@ COMPOSE=(docker compose --env-file "$ROOT_DIR/.env" -f "$ROOT_DIR/docker-compose
 
 if [[ ! -f "$ROOT_DIR/.env" ]]; then
   echo "error: $ROOT_DIR/.env is missing." >&2
-  echo "       cp deploy/env.example .env, then fill in the password and key." >&2
+  echo "       cp deploy/env.example .env; the defaults work, edit only if needed." >&2
   exit 1
 fi
 
