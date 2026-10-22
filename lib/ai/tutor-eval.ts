@@ -7,6 +7,15 @@ import type { Problem } from "@/lib/problems";
 
 /** Known factual regressions; these are correctness checks, not style scores. */
 export function tutorFactFailure(problem: Problem, editor: string, user: string, text: string): string | null {
+  if (problem.slug === "encode-and-decode-strings" &&
+      /empty (?:string|word)[^.\n]{0,45}(?:chunk|encoding|encodes|becomes|represented)(?:\s|is\b|as\b|by\b|[:,])*[`"']#[`"']/i.test(text)) {
+    return "encoded an empty word without its zero length digit";
+  }
+  if (problem.slug === "valid-parentheses" && /\bpush\b/i.test(text) &&
+      /\breturn\b/i.test(text) && /\bempty\b/i.test(text) &&
+      !/\bpop\b|remov|discard|take[^.\n]{0,20}off/i.test(text)) {
+    return "stack walkthrough omitted removing matched openers";
+  }
   if (problem.slug === "valid-parentheses" && /count[^.\n]{0,50}(?:each|type)/i.test(user)) {
     const badCounterexample = text.split(/(?<=[.!?])\s+/).some((sentence) =>
       sentence.includes("(]") && /counts?[^.\n]{0,40}(?:look balanced|are balanced|match|equal)/i.test(sentence),
@@ -44,7 +53,6 @@ export function decoderBoundaryFailure(
   editor = "",
 ): string | null {
   const conversion = /(?:length|size|n)\s*=\s*int\(/i.test(text);
-  const extraction = /(?:s|encoded)\s*\[[^\]\n]+:[^\]\n]+\]/i.test(text);
   const append = /\.append\(/i.test(text);
   const withoutExistingAssignments = text.replace(/`([^`\n]+)`/g, (quote, code: string) =>
     /\w+\s*=/.test(code) && editor.replace(/\s+/g, "").includes(code.replace(/\s+/g, "")) ? "[existing editor line]" : quote,
@@ -67,8 +75,17 @@ export function decoderBoundaryFailure(
   if (turnId === "append-length" && /```/.test(text)) {
     return "conceptual append clarification supplied code";
   }
-  if (turnId === "what-now" && [conversion, extraction, append, advance].filter(Boolean).length >= 3) {
-    return "hint supplied the remaining decoder implementation";
+  // Broad help may explain every remaining operation in prose. A multi-operation
+  // code handoff is still different from that explanation or one syntax snippet.
+  const code = Array.from(text.matchAll(/```[^\n]*\n([\s\S]*?)```/g), (match) => match[1]).join("\n");
+  const codeSteps = [
+    /(?:length|size|n)\s*=\s*int\(/i,
+    /(?:s|encoded)\s*\[[^\]\n]+:[^\]\n]+\]/i,
+    /\.append\(/i,
+    /\bi\s*(?:\+=|=\s*(?:end|start|j\s*\+|i\s*\+))/i,
+  ];
+  if (turnId === "what-now" && codeSteps.filter((pattern) => pattern.test(code)).length >= 3) {
+    return "broad help supplied the remaining decoder code";
   }
   return null;
 }

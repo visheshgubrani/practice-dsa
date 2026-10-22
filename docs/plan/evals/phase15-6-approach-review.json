@@ -1,0 +1,252 @@
+{
+  "reviewedAt": "2026-10-21",
+  "recording": "tutor-consistency-approach-follow-up.json",
+  "model": "gpt-6-luna",
+  "contractSha256": "ee0b7d10e7a624ce548357d8239b8842fed8ecbcd780c229951f2ffc2418fe8a",
+  "runsReviewed": 57,
+  "repliesReviewed": 174,
+  "verdict": "passed for the requested teaching behavior; minor wording notes retained",
+  "automatedChecks": {
+    "passed": 50,
+    "hardFailures": 0,
+    "keywordMatches": {
+      "clean": 157,
+      "total": 174
+    }
+  },
+  "rubric": [
+    "Correct algorithm and examples",
+    "Connected useful explanation through the final result",
+    "Continuation grounded in the live buffer",
+    "Focused narrow requests and explicit complete-code requests",
+    "Hidden-case disclosure and editor/result separation",
+    "Readable beginner pacing"
+  ],
+  "fullSolutionExamplesPassed": 15,
+  "minorNotes": [
+    {
+      "conversationId": "parens-order-matters",
+      "run": 3,
+      "turnId": "stack",
+      "note": "The example initially names the stack order backwards, immediately says actually, and then traces the correct order and both removals. Nonblocking self-correction, but less clear than a clean trace."
+    },
+    {
+      "conversationId": "codec-decode-connected",
+      "run": 1,
+      "turnId": "like-this",
+      "note": "Says the outer boundary check means empty input returns an empty list, then acknowledges the decoder is unfinished. That is the intended final behavior; this partial editor still needs a return. No current judge result is claimed, but the wording could distinguish intent from actual execution more carefully."
+    }
+  ],
+  "diagnostics": "Keyword matches are not teaching quality. Misses include valid current-value cursors, answer versus return wording, deliberate small-example changes, concrete guidance lacking a closing task, and supplied nested-loop history that an older keyword probe expected to mention a hashmap.",
+  "conversations": [
+    {
+      "conversationId": "longest-consecutive-supplied",
+      "runsReviewed": [
+        1,
+        2,
+        3
+      ],
+      "turnsReviewed": 21,
+      "review": "All three runs explain the set/start/count/maximum/result path, check actual edits, identify the unchanged buffer, and explain final return placement. Correctly warns about duplicate starts when the reconstructed outer loop still uses nums.",
+      "blockingFindings": []
+    },
+    {
+      "conversationId": "longest-consecutive-connected",
+      "runsReviewed": [
+        1,
+        2,
+        3
+      ],
+      "turnsReviewed": 21,
+      "review": "All three connected runs retain the set-based approach, continue through counting/best/return, and do not assume done changed the buffer. One overview calls the largest count the answer without using the word return; later continuations explicitly explain the return.",
+      "blockingFindings": []
+    },
+    {
+      "conversationId": "longest-consecutive-focused-hint",
+      "runsReviewed": [
+        1,
+        2,
+        3
+      ],
+      "turnsReviewed": 3,
+      "review": "Each explicit small-hint request gets only a set/membership hint, without the full approach.",
+      "blockingFindings": []
+    },
+    {
+      "conversationId": "two-sum-handholding",
+      "runsReviewed": [
+        1,
+        2,
+        3
+      ],
+      "turnsReviewed": 15,
+      "review": "Complete hashmap approaches are followed by the requested nested-loop approach; confusion uses a small trace; the narrow pair validation stays focused.",
+      "blockingFindings": []
+    },
+    {
+      "conversationId": "two-sum-concrete-hint",
+      "runsReviewed": [
+        1,
+        2,
+        3
+      ],
+      "turnsReviewed": 12,
+      "review": "Explains the chosen loops, switches only when the learner asks about a hashmap, and resumes from the still-empty loop body.",
+      "blockingFindings": []
+    },
+    {
+      "conversationId": "two-sum-nested-supplied",
+      "runsReviewed": [
+        1,
+        2,
+        3
+      ],
+      "turnsReviewed": 12,
+      "review": "Supplied resume history still establishes nested loops, so retaining them is correct despite the older diagnostic expecting hashmap keywords. Initial blank-buffer hashmap choices are also valid.",
+      "blockingFindings": []
+    },
+    {
+      "conversationId": "parens-order-matters",
+      "runsReviewed": [
+        1,
+        2,
+        3
+      ],
+      "turnsReviewed": 12,
+      "review": "All stack overviews/resumes include matching and removal, invalid conditions, and final emptiness. Counts versus order and smaller traces are correct. One trace immediately corrects its own initial ordering phrase; see minor note.",
+      "blockingFindings": []
+    },
+    {
+      "conversationId": "parens-order-supplied",
+      "runsReviewed": [
+        1,
+        2,
+        3
+      ],
+      "turnsReviewed": 12,
+      "review": "All three supplied-history overviews and resumes include matched-opener removal; invalid-order traces and final empty-stack reasoning are correct.",
+      "blockingFindings": []
+    },
+    {
+      "conversationId": "confusion-and-resume-independent",
+      "runsReviewed": [
+        1,
+        2,
+        3
+      ],
+      "turnsReviewed": 9,
+      "review": "Plain-language map/index traces, the requested exact return line, and resumptions correctly reflect pass in the current editor.",
+      "blockingFindings": []
+    },
+    {
+      "conversationId": "confusion-and-resume-connected",
+      "runsReviewed": [
+        1,
+        2,
+        3
+      ],
+      "turnsReviewed": 9,
+      "review": "Retains the hashmap approach and notices the unedited pass after the exact-line request. Some resumptions reuse previously requested local code inline; no complete replacement method or loop is handed over.",
+      "blockingFindings": []
+    },
+    {
+      "conversationId": "parens-alternative",
+      "runsReviewed": [
+        1,
+        2,
+        3
+      ],
+      "turnsReviewed": 9,
+      "review": "All three runs explain push/check/pop/final emptiness and keep the stack when the learner suggests counting.",
+      "blockingFindings": []
+    },
+    {
+      "conversationId": "codec-prints",
+      "runsReviewed": [
+        1,
+        2,
+        3
+      ],
+      "turnsReviewed": 3,
+      "review": "Separates debug prints from the actual null/None returned by unfinished decode; explains encoding boundaries and the complete decoding approach in prose.",
+      "blockingFindings": []
+    },
+    {
+      "conversationId": "codec-prints-refreshed",
+      "runsReviewed": [
+        1,
+        2,
+        3
+      ],
+      "turnsReviewed": 3,
+      "review": "Corrects the supplied earlier assistant claim about the returned word; explains null/None and missing boundaries without changing the agreed format.",
+      "blockingFindings": []
+    },
+    {
+      "conversationId": "two-sum-stale-result",
+      "runsReviewed": [
+        1,
+        2,
+        3
+      ],
+      "turnsReviewed": 3,
+      "review": "Uses the current draft and disclosed duplicate case without attributing an earlier result to the current editor; no unrevealed marker appears.",
+      "blockingFindings": []
+    },
+    {
+      "conversationId": "parens-debug",
+      "runsReviewed": [
+        1,
+        2,
+        3
+      ],
+      "turnsReviewed": 3,
+      "review": "Traces the actual revealed invalid-order case and distinguishes the returned boolean from debug prints.",
+      "blockingFindings": []
+    },
+    {
+      "conversationId": "two-sum-long-thread",
+      "runsReviewed": [
+        1,
+        2,
+        3
+      ],
+      "turnsReviewed": 3,
+      "review": "Recalls the established nested-loop agreement and the current pass buffer in all three runs.",
+      "blockingFindings": []
+    },
+    {
+      "conversationId": "two-sum-syntax-then-solution",
+      "runsReviewed": [
+        1,
+        2,
+        3
+      ],
+      "turnsReviewed": 6,
+      "review": "Local syntax help remains local, then complete code is supplied only for the explicit full-solution request. All three complete implementations passed five examples each.",
+      "blockingFindings": []
+    },
+    {
+      "conversationId": "codec-decode-independent",
+      "runsReviewed": [
+        1,
+        2,
+        3
+      ],
+      "turnsReviewed": 9,
+      "review": "Broad help explains the full decoding approach; digit-scan validation and append-length clarification stay focused without teaching new cursor moves or supplying the remaining code.",
+      "blockingFindings": []
+    },
+    {
+      "conversationId": "codec-decode-connected",
+      "runsReviewed": [
+        1,
+        2,
+        3
+      ],
+      "turnsReviewed": 9,
+      "review": "Connected broad explanations retain the length-prefix format, including 0# for an empty word. Narrow questions stay focused. One validation describes the eventual empty-list result while the draft is still incomplete; see minor note.",
+      "blockingFindings": []
+    }
+  ]
+}

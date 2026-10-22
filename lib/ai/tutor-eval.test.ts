@@ -47,12 +47,40 @@ it("catches the recorded short remaining implementation without a return or loop
   assert.ok(decoderBoundaryFailure("like-this", reply));
 });
 
+it("catches empty-word and missing-pop mistakes found in the approach review", () => {
+  const recorded = JSON.parse(readFileSync("docs/plan/evals/tutor-consistency-approach-follow-up-attempt2.json", "utf8"));
+  for (const [id, runNumber, turnId, slug] of [
+    ["codec-decode-connected", 2, "like-this", "encode-and-decode-strings"],
+    ["parens-order-supplied", 1, "stack", "valid-parentheses"],
+    ["parens-alternative", 2, "propose-stack", "valid-parentheses"],
+  ] as const) {
+    const run = recorded.runs.find((r: { id: string; run: number }) => r.id === id && r.run === runNumber);
+    const turn = run.turns.find((t: { id: string }) => t.id === turnId);
+    const problem = toPublicProblem(PROBLEMS.find((p) => p.slug === slug)!);
+    assert.ok(tutorFactFailure(problem, turn.editorCode, turn.user, turn.text), `${id}/${turnId}`);
+  }
+  const codec = toPublicProblem(PROBLEMS.find((p) => p.slug === "encode-and-decode-strings")!);
+  assert.equal(tutorFactFailure(codec, "", "", "An empty string's chunk is `0#`; an empty list encodes as an empty string."), null);
+  assert.equal(tutorFactFailure(codec, "", "", "Even an empty word has a length digit: its chunk is `0#`, not `#`."), null);
+  const parens = toPublicProblem(PROBLEMS.find((p) => p.slug === "valid-parentheses")!);
+  assert.equal(tutorFactFailure(parens, "", "", "Push openers; check and remove a matched opener. Return whether the stack is empty."), null);
+  assert.equal(tutorFactFailure(parens, "", "", "Push ( then [; ) cannot match the top [, so this input is invalid."), null);
+});
+
 it("catches prose cursor instructions and keeps local conceptual explanations", () => {
   for (const text of ["Then advance i by the length.", "Move `i` past the payload.", "Set the cursor to the end.", "Now i jumps past the word."]) {
     assert.ok(decoderBoundaryFailure("append-length", text), text);
   }
   assert.equal(decoderBoundaryFailure("append-length", "The length measures the word; append the word itself, not the number."), null);
   assert.equal(decoderBoundaryFailure("like-this", "Yes, j marks # and s[i:j] holds the digits."), null);
+});
+
+it("allows the remaining approach in broad help while rejecting a remaining-code handoff", () => {
+  const explanation = "Convert the length digits to a number, extract that many characters, append the word, then move i past it. Repeat until the encoded input ends and return the words.";
+  assert.equal(decoderBoundaryFailure("what-now", explanation), null);
+  assert.ok(decoderBoundaryFailure("append-length", explanation));
+  assert.ok(decoderBoundaryFailure("what-now", "```python\nlength = int(s[i:j])\nword = s[j + 1:j + 1 + length]\nwords.append(word)\ni = j + 1 + length\n```"));
+  assert.equal(decoderBoundaryFailure("what-now", "```python\nj = i\nwhile s[j] != '#':\n    j += 1\n```"), null);
 });
 
 it("distinguishes an existing cursor assignment from a new advancement instruction", () => {

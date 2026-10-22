@@ -1,7 +1,13 @@
 # Phase 15 — Beginner tutor
 
-**Status:** complete (2026-10-10), including work unit 15.5 and the renewed
-teaching and browser gates. The original evidence is retained below as superseded history.
+**Status:** work units 15.1–15.5 complete (2026-10-10); requested follow-up
+15.6 complete (approved and verified 2026-10-21). Earlier acceptance evidence is retained
+below and does not establish acceptance of the changed teaching contract.
+
+Work unit 15.6 supersedes the one-idea pacing and remaining-algorithm boundary
+described in the original phase below. A complete prose approach is allowed;
+complete code still requires an explicit request. Phase 17's pending browser
+acceptance is unchanged.
 
 Phase 11 made replies consistent and Phase 12 tried to stop them at the
 question. Both did it by accumulating rules: answer only this, never that, do
@@ -27,7 +33,7 @@ Keep `gpt-6-luna`, the OpenAI provider, and user-triggered chat. No automatic
 coaching, learner profiles, gamification, database migrations, judging changes,
 review-behaviour changes, or `/api/chat` schema changes.
 
-## Tutor behavior
+## Original tutor behavior (15.1–15.5)
 
 The contract now lives in five labelled blocks in `lib/ai/prompts.ts` instead of
 one flat rule list, with representative conversations instead of question-shape
@@ -134,7 +140,7 @@ review, with zero hard failures.
   conversations, using disposable practice data.
 - [x] Confirm zero hard failures across the three runs.
 
-**Phase gate:** a beginner reading the recorded replies understands why a tool
+**Original phase gate (15.1–15.5):** a beginner reading the recorded replies understands why a tool
 helps and what to try next, without receiving the complete algorithm unless they
 asked for it. No hard failures in the evaluation. Without a live-model
 evaluation, the teaching gate stays pending.
@@ -153,6 +159,97 @@ evaluation, the teaching gate stays pending.
   Retry, keyboard selection, and restored conversations on disposable data.
 - [x] Re-record both contracts, review all revised replies, run lint, typecheck,
   tests and build, and close the phase only after the renewed gate passes.
+
+### 15.6 Explain the approach, then guide implementation
+
+**Approval:** the user explicitly requested implementation of the proposed
+"Tutor: explain the approach, then guide implementation" plan on 2026-10-21.
+
+**Evidence and decision:** the supplied Longest Consecutive Sequence chat gives
+isolated corrections without connecting counting, maximum tracking, and the
+return value. The production prompt requires "one idea per message" and calls
+a remaining-algorithm walkthrough a full solution; the evaluation also rejects
+ordered prose approaches. Replace those conflicting rules rather than layering
+exceptions onto them. Complete prose explanations answer broad help requests;
+focused hints and clarifications stay focused. "Okay done" means inspect the
+live buffer and continue, correcting a blocking mistake without assuming an edit.
+
+- [x] Rewrite the teaching contract and examples; preserve focused chat actions,
+  explicit requests for complete code, learner approach, and disclosure rules.
+- [x] Update prompt assertions and behavioral evaluation boundaries; preserve
+  unsolicited-code, narrow-clarification, stale-result, and hidden-case checks.
+- [x] Add supplied-history and connected Longest Consecutive conversations with
+  clearly labelled reconstructed buffers, including unchanged-code continuation.
+- [x] Run three live repetitions per conversation; save new evidence and manually
+  review correctness, continuity, useful completeness, and code disclosure.
+- [x] Run lint, typecheck, tests, build, and chat smoke; update active project
+  instructions and scope, and record actual results.
+
+**Gate:** broad help explains the connected approach through the final result;
+continuation moves from the actual editor through a meaningful part of the
+implementation. Narrow requests remain focused and complete code remains
+explicitly requested. No public API, model, database, persistence, or UI changes.
+Teaching acceptance remains pending if live evaluation is unavailable.
+
+#### 15.6 Verification record (2026-10-21)
+
+- Focused prompt/evaluation tests: **39 passed**, including the final code
+  boundary and factual checks after live-review corrections. Lint and typecheck
+  passed; the production build passed with Next.js 16.3.5.
+- The default full-suite invocation ran **505 tests**, with one unrelated coach
+  count failure: saved practice on its fixed date adds to its fixture counts.
+  An empty temporary database also exposed overlap between the coach's empty-day
+  assertion and the dashboard's parallel fixtures on `2019-01-01`.
+- All intended test globs, expanded and run with `tsx --test
+  --test-concurrency=1`, passed **516 tests** on a fresh temporary database using
+  the existing migrations. The original database's complete public-table data
+  fingerprint matched before/after:
+  `387729a461499246d264f35ddfae8b78f107420aea677b8ed1cf2fb0f46365ba`.
+  The temporary database was removed. No existing database was migrated or seeded.
+- This host has pnpm 12.11.2; invocations used
+  `--config.manage-package-manager-versions=false
+  --config.verify-deps-before-run=false` to use installed dependencies without
+  writing package-manager setup files or automatically installing packages.
+- [First live attempt](./evals/tutor-consistency-approach-follow-up-attempt1.json):
+  57 conversation runs, 174 replies, **12 hard failures** (eight remaining-code
+  handoffs on Longest Consecutive, two decoder code handoffs, and two narrow
+  append clarifications teaching cursor advancement). This failed acceptance.
+  The corrected contract makes broad help/done replies prose-only unless code is
+  explicitly requested, and keeps narrow questions focused even after an overview.
+- [Second live attempt](./evals/tutor-consistency-approach-follow-up-attempt2.json)
+  passed its 50 automated checks with zero hard failures under the checks then
+  present, but **failed manual acceptance**: the connected decoder validation
+  (run 2) called an empty word's chunk `#` instead of `0#`; the supplied stack
+  overview/resume (run 1) and alternative stack overview (run 2) omitted removal
+  of matched openers. These are now covered by regression checks against the
+  actual recording. The revised contract teaches state changes for each outcome,
+  traces examples before using them, and demonstrates both matched-opener removal
+  and the zero length digit. Other minor wording notes were not treated as an
+  automated quality score.
+- [Final live recording](./evals/tutor-consistency-approach-follow-up.json):
+  **50/50 checks passed**, **57 conversation runs**, **174 replies**, and **zero
+  hard failures**, using `gpt-6-luna` with the production teaching contract and
+  public Postgres problem context. No evaluation chats were written to practice
+  history. Longest Consecutive buffers are labelled reconstructed/synthetic.
+- [Manual review of all 174 replies](./evals/phase15-6-approach-review.json):
+  the requested teaching behavior passes across all 19 conversations and three
+  repetitions. Longest Consecutive overviews connect set/start/count/maximum to
+  the answer, continuations explain the return, and unchanged buffers are noticed.
+  Explicit small hints and narrow decoder questions stay focused; stack
+  explanations include removal and empty words use `0#`. All three explicitly
+  requested complete Two Sum implementations passed five examples each
+  (15 checks: ordinary, later pair, duplicates, negatives, and zero).
+- Two nonblocking wording notes remain recorded: one stack trace immediately
+  corrects its own initial ordering phrase; one decoder validation describes the
+  intended empty-list result while acknowledging that the decoder is unfinished;
+  that draft still needs a return. The review does not claim perfect generative replies.
+  Keyword diagnostics (157/174) remain diagnostics, including valid cursor
+  alternatives and supplied nested-loop history; they are not the teaching gate.
+
+**15.6 gate: passed.** The final lint, typecheck, production build, 39 focused
+checks, 516 isolated serial tests, live checks, and scoped manual acceptance are
+complete. Public APIs, model/provider, chat controls, persistence, judging, and
+hidden-case disclosure are unchanged. Phase 17's browser gate remains pending.
 
 ## Renewed acceptance (2026-10-10)
 

@@ -61,7 +61,7 @@ wait_for_healthy() {
 }
 
 log "Pulling $APP_IMAGE"
-"${COMPOSE[@]}" pull --quiet app
+"${COMPOSE[@]}" --progress plain pull app
 
 log "Ensuring Postgres and Piston are running"
 "${COMPOSE[@]}" up -d --no-build --wait --wait-timeout 180 postgres piston

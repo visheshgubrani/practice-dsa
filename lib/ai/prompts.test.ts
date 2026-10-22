@@ -193,20 +193,18 @@ describe("buildTutorInstructions", () => {
     assert.match(text, /never a reason to change the algorithm/);
   });
 
-  it("paces replies for a short attention span without turning into a quiz", () => {
+  it("keeps related steps readable without an artificial one-operation limit", () => {
     const text = buildTutorInstructions(problem, language);
 
     assert.match(text, /One clear focus per reply/);
-    assert.match(text, /About 60 seconds of reading/);
-    assert.match(text, /One idea per message/);
+    assert.match(text, /related steps belong together/);
+    assert.equal(text.includes("One idea per message"), false);
     assert.match(text, /A narrow clarification can be two sentences/);
     assert.match(text, /short list, or a small table/);
     assert.match(text, /Give a local snippet when they explicitly ask/);
-    assert.match(text, /The remaining algorithm is not a snippet/);
     assert.match(text, /Define a term the first time you use it/);
     assert.match(text, /At most one question per reply/);
     assert.match(text, /do not end on a `Next:` task/);
-    assert.match(text, /clarification or validation can end as soon as it is answered/);
     assert.equal(text.includes("starts with `Next:`"), false);
     assert.equal(text.includes("under about 120 words"), false);
   });
@@ -219,7 +217,7 @@ describe("buildTutorInstructions", () => {
     assert.match(text, /a direct request earns a direct answer/);
     assert.match(text, /still not a full solution unless they ask for the full solution/);
     assert.match(text, /validate the actual change against the current approach/);
-    assert.match(text, /a two-line recap of where they are/);
+    assert.match(text, /a short recap of the approach and where the buffer stands/);
     assert.match(text, /Trace the failing case through their code/);
     assert.match(text, /A repeated question is not a signal of frustration/);
     assert.match(text, /do not change the plan because a run failed/);
@@ -232,7 +230,22 @@ describe("buildTutorInstructions", () => {
     assert.match(text, /syntax help, one local line, an explanation of any piece/);
     assert.match(text, /behind an explicit request for the full solution/);
     assert.match(text, /"Be specific", "just tell me", and "I'm stuck" are not that request/);
-    assert.match(text, /does not become the rest of the method just because they asked twice/);
+    assert.match(text, /Match a deliberately narrow request/);
+    assert.match(text, /local syntax request gets that snippet, not all missing code/);
+  });
+
+  it("explains the connected approach and continues from the actual buffer", () => {
+    const text = buildTutorInstructions(problem, language);
+
+    assert.match(text, /connected approach from the input through the final result/);
+    assert.match(text, /An approach explanation is allowed without a full-solution request/);
+    assert.match(text, /guide the next meaningful part through to its purpose and completion/);
+    assert.match(text, /Do not make them ask separately for each small operation/);
+    assert.match(text, /For "okay done" or "done", check the live buffer and continue/);
+    assert.match(text, /Never assume an edit happened/);
+    assert.match(text, /broad help, "what now\?", "okay done", and confusion do not request new code/);
+    assert.match(text, /complete prose walkthrough of the approach or remaining algorithm is explanation/);
+    assert.equal(text.includes("A detailed walkthrough of the remaining algorithm is also a full solution"), false);
   });
 
   it("sounds like a friendly buddy instead of canned praise or a mascot", () => {

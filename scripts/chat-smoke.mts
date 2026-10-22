@@ -122,6 +122,30 @@ const TWO_SUM_DRAFT = `class Solution:
             # looking for the complement
 `;
 
+/** Reconstructed from the reported chat, not original editor snapshots. */
+const CONSECUTIVE_STARTER = `class Solution:
+    def longestConsecutive(self, nums: List[int]) -> int:
+        pass
+`;
+const CONSECUTIVE_EMPTY_SET = `class Solution:
+    def longestConsecutive(self, nums: List[int]) -> int:
+        seen = set()
+        best = 0
+        for num in nums:
+            if num in seen:
+                continue
+`;
+const CONSECUTIVE_POPULATED = CONSECUTIVE_EMPTY_SET.replace("seen = set()", "seen = set(nums)");
+const CONSECUTIVE_WRONG_WALK = CONSECUTIVE_POPULATED.replace("if num in seen:", "if num - 1 in seen:") + `            length = 0
+            i = 1
+            while nums[i] == num:
+                length += 1
+                i += 1
+`;
+/** Synthetic continuations exercise counting, retaining the best, and return. */
+const CONSECUTIVE_COUNTED = CONSECUTIVE_WRONG_WALK.replace("length = 0", "length = 1").replace("while nums[i] == num:", "while num + i in seen:");
+const CONSECUTIVE_BEST = CONSECUTIVE_COUNTED + "            best = max(best, length)\n";
+
 const PARENS_STARTER = `class Solution:
     def isValid(self, s: str) -> bool:
         pass
@@ -505,8 +529,9 @@ type TurnSpec = {
 
 type ConversationSpec = {
   id: string;
-  slug: "two-sum" | "valid-parentheses" | "encode-and-decode-strings";
+  slug: "two-sum" | "valid-parentheses" | "encode-and-decode-strings" | "longest-consecutive-sequence";
   purpose: string;
+  editorOrigin?: string;
   prior: Array<{ role: "user" | "assistant"; text: string }>;
   /**
    * Each turn is asked with its own supplied history. The model's reply is
@@ -530,6 +555,7 @@ type TurnResult = {
 type ConversationResult = {
   id: string;
   purpose: string;
+  editorOrigin?: string;
   run: number;
   turns: TurnResult[];
 };
@@ -567,7 +593,7 @@ function gradeTurn(turn: TurnSpec, text: string, problem: Problem): Grade {
     hardFails.push("unsolicited full solution");
   }
 
-  if (turn.id === "what-now" || turn.id === "like-this" || turn.id === "append-length") {
+  if (problem.slug === "encode-and-decode-strings") {
     const boundary = decoderBoundaryFailure(turn.id, text, turn.editorCode);
     if (boundary) hardFails.push(boundary);
   }
@@ -911,19 +937,6 @@ function directLineMiss(text: string, line: string): string | null {
   return "did not name the exact local line";
 }
 
-/** A reply that walks the learner through the whole remaining method. */
-function walksWholeMethod(text: string): string | null {
-  const steps = [
-    /\bfor\b[^\n]{0,40}\bin\s+(?:enumerate\s*\(|range\s*\()/i,
-    /\[\s*\w+\s*\]\s*=/i,
-    /complement\s+in\s+(?:seen|lookup|memo|d)\b/i,
-    /^\s*return\s+/im,
-  ];
-  return steps.filter((pattern) => pattern.test(text)).length >= 3
-    ? "walked the remaining dictionary steps"
-    : null;
-}
-
 /** "What did we agree on?" fails only when the reply cannot name the agreement. */
 function forgetsAgreementMiss(text: string): string | null {
   const namesPlan =
@@ -1016,8 +1029,8 @@ function namingKindnessMiss(text: string): string | null {
   return reason ? null : "named a step but gave no reason for it";
 }
 
-/** A replied recipe is an ordered walkthrough, or a paste of the whole buffer. */
-function readsLikeRecipeMiss(text: string, editor: string): string | null {
+/** Broad help may give an ordered prose approach; complete code still waits. */
+function codeHandoffMiss(text: string, editor: string): string | null {
   if (codeBlocks(text).some(completeMethodBlock)) {
     return "handed over a complete method";
   }
@@ -1031,20 +1044,7 @@ function readsLikeRecipeMiss(text: string, editor: string): string | null {
   ) {
     return "pasted the whole buffer back instead of pointing at it";
   }
-  const ordered = text
-    .split("\n")
-    .filter((line) =>
-      /\b(?:add|write|check|store|save|skip|take|return|append|pop|push|compare|look up|walk)\b/i.test(
-        line,
-      ),
-    ).length;
-  const hasRecipeMarker =
-    /\b(?:here'?s (?:the|how)|step \d|steps?:|first,|second,|third,|then,|next,|finally,|the plan is|in order)\b/i.test(
-      text,
-    );
-  return ordered >= 4 && hasRecipeMarker
-    ? "gave the ordered recipe instead of one idea"
-    : null;
+  return null;
 }
 
 /** Support the learner's calls and show that they were heard. */
@@ -1140,6 +1140,101 @@ function conversationSpecs(): ConversationSpec[] {
   const switchesToCounting =
     /\b(?:next:|instead|let's count|we should count|switch to counting)\b/i;
 
+  function consecutiveProbes(supplied: boolean): TurnSpec[] {
+    const reported = [
+      {
+        role: "user" as const,
+        text: "Okkk so how to do it, we have to create hash table/dict? we have to use for loop or while loop like what to do here?",
+      },
+      {
+        role: "assistant" as const,
+        text: "A set is a better fit than a dict here: you only need to ask whether a number exists, not store anything beside it. Use a for loop to consider the numbers in the set. Only start counting from a number whose predecessor isn't in the set; then a while loop can walk forward through the consecutive numbers and count that run. That way you don't recount the same run from every number.",
+      },
+      { role: "user" as const, text: "what to do , im confused" },
+      {
+        role: "assistant" as const,
+        text: "Let's fix just the set first. In your code, seen starts empty and never gets any values, so if num in seen is always false. seen should contain all the numbers from nums before you start checking runs. Think of [1, 2, 3]: the set lets you ask 'is 2 here?' without searching through the list. Once it's filled, you'll scan its values and use the while loop to check consecutive numbers.",
+      },
+      { role: "user" as const, text: "Okay done" },
+      {
+        role: "assistant" as const,
+        text: "seen = set(nums) is right. But now if num in seen is always true, so that continue skips every number. The skip check should be about whether num - 1 is in seen: if it is, num is in the middle of a run, not its start.",
+      },
+      { role: "user" as const, text: "Okay now what" },
+      {
+        role: "assistant" as const,
+        text: "Your i is an offset from num, not an index into nums. So the while loop should ask whether the next value, num + i, is in seen—not compare nums[i] with num. For example, starting at num = 1, i = 1 checks whether 2 exists. Count each value you find, then advance i. Start length at 1, since num itself is already part of the run.",
+      },
+    ];
+    const afterCounting = [
+      ...reported,
+      { role: "user" as const, text: "Okay done" },
+      { role: "assistant" as const, text: "The counting loop is fixed. Compare each completed run's length with best and keep the larger value." },
+    ];
+    const afterUnchanged = [
+      ...afterCounting,
+      { role: "user" as const, text: "Okay done" },
+      { role: "assistant" as const, text: "The buffer still has no update to best. Keep the longer length after each run, before moving to another starting number." },
+    ];
+    return [
+      {
+        id: "approach",
+        user: reported[0]!.text,
+        editorCode: CONSECUTIVE_STARTER,
+        prior: supplied ? [] : undefined,
+        mustMention: [
+          /set/i,
+          /predecessor|num\s*-\s*1|previous|one less|before|start/i,
+          /count|length/i,
+          /longest|maximum|largest|best/i,
+          /return/i,
+        ],
+      },
+      {
+        id: "confused",
+        user: reported[2]!.text,
+        editorCode: CONSECUTIVE_EMPTY_SET,
+        prior: supplied ? reported.slice(0, 2) : undefined,
+        mustMention: [/set|seen/i, /run|sequence|count|length|consecutive/i],
+      },
+      {
+        id: "done-populating",
+        user: reported[4]!.text,
+        editorCode: CONSECUTIVE_POPULATED,
+        prior: supplied ? reported.slice(0, 4) : undefined,
+        mustMention: [/num\s*-\s*1|predecessor|previous|before|one less/i, /count|length|walk/i],
+      },
+      {
+        id: "what-now",
+        user: reported[6]!.text,
+        editorCode: CONSECUTIVE_WRONG_WALK,
+        prior: supplied ? reported.slice(0, 6) : undefined,
+        mustMention: [/set|seen/i, /offset|next|num\s*\+\s*i/i, /longest|best|maximum|largest/i, /return/i],
+      },
+      {
+        id: "done-counting",
+        user: "Okay done",
+        editorCode: CONSECUTIVE_COUNTED,
+        prior: supplied ? reported : undefined,
+        mustMention: [/longest|best|maximum|largest/i, /return/i],
+      },
+      {
+        id: "done-unchanged",
+        user: "Okay done",
+        editorCode: CONSECUTIVE_COUNTED,
+        prior: supplied ? afterCounting : undefined,
+        mustMention: [/best|longest|maximum/i, /still|missing|not yet|hasn't|haven't|doesn't|no update|not.*updat/i],
+      },
+      {
+        id: "done-tracking-best",
+        user: "Okay done",
+        editorCode: CONSECUTIVE_BEST,
+        prior: supplied ? afterUnchanged : undefined,
+        mustMention: [/return/i, /outside|after|once|finish|end/i],
+      },
+    ];
+  }
+
   /**
    * The beginner probes. `mode` picks whether each question is asked on its own
    * with supplied history, or in order with the model's own earlier replies.
@@ -1156,7 +1251,7 @@ function conversationSpecs(): ConversationSpec[] {
         ],
         mustNot: [rejectsBruteForce, /\b(?:seen|complement)\b/i],
         missIf: (text) =>
-          namingKindnessMiss(text) ?? readsLikeRecipeMiss(text, TWO_SUM_STARTER),
+          namingKindnessMiss(text) ?? codeHandoffMiss(text, TWO_SUM_STARTER),
       },
       {
         id: "choose-loops",
@@ -1169,7 +1264,7 @@ function conversationSpecs(): ConversationSpec[] {
         mustNot: [rejectsBruteForce, /\b(?:give up|pointless|waste of time)\b/i],
         missIf: (text) =>
           acknowledgesThinkingMiss(text) ??
-          readsLikeRecipeMiss(text, TWO_SUM_NESTED),
+          codeHandoffMiss(text, TWO_SUM_NESTED),
       },
       {
         id: "hashmap",
@@ -1183,7 +1278,7 @@ function conversationSpecs(): ConversationSpec[] {
         ],
         mustNot: [rejectsBruteForce],
         missIf: (text) =>
-          readsLikeRecipeMiss(text, TWO_SUM_NESTED) ?? deadEndMiss(text),
+          codeHandoffMiss(text, TWO_SUM_NESTED) ?? deadEndMiss(text),
       },
       {
         id: "resume",
@@ -1206,7 +1301,7 @@ function conversationSpecs(): ConversationSpec[] {
         prior: mode === "supplied" ? [] : undefined,
         mustMention: [/stack/i, /open|clos|bracket|paren/i],
         missIf: (text) =>
-          namingKindnessMiss(text) ?? readsLikeRecipeMiss(text, PARENS_STARTER),
+          namingKindnessMiss(text) ?? codeHandoffMiss(text, PARENS_STARTER),
       },
       {
         id: "counting",
@@ -1274,13 +1369,34 @@ function conversationSpecs(): ConversationSpec[] {
         missIf: (text) =>
           resumeMiss(text) ??
           backToItMiss(text) ??
-          walksWholeMethod(text) ??
           cannedVoiceMiss(text),
       },
     ];
   }
 
   return [
+    ...(["supplied", "connected"] as const).map((mode): ConversationSpec => ({
+      id: `longest-consecutive-${mode}`,
+      slug: "longest-consecutive-sequence",
+      purpose: "Reported approach, confusion, done, and what-now turns, followed by synthetic counting/best/return continuations and an unchanged-buffer check.",
+      editorOrigin: "Reconstructed from the user-supplied chat; original editor snapshots were not provided. Later counting/best buffers are synthetic continuations.",
+      independent: mode === "supplied",
+      prior: [],
+      turns: consecutiveProbes(mode === "supplied"),
+    })),
+    {
+      id: "longest-consecutive-focused-hint",
+      slug: "longest-consecutive-sequence",
+      purpose: "An explicit small hint stays focused despite broader approach help being allowed.",
+      editorOrigin: "Synthetic starter for the focused-hint regression.",
+      prior: [],
+      turns: [{
+        id: "hint",
+        user: "Give me just one small hint, not the whole approach.",
+        editorCode: CONSECUTIVE_STARTER,
+        mustMention: [/set|start|predecessor|lookup|membership/i],
+      }],
+    },
     {
       id: "two-sum-handholding",
       slug: "two-sum",
@@ -1683,7 +1799,7 @@ async function runConversation(
     }
   }
 
-  return { id: spec.id, purpose: spec.purpose, run, turns };
+  return { id: spec.id, purpose: spec.purpose, editorOrigin: spec.editorOrigin, run, turns };
 }
 
 function summarize(results: ConversationResult[]): {
@@ -1703,9 +1819,10 @@ async function main(): Promise<void> {
   const twoSum = await getProblem("two-sum");
   const parens = await getProblem("valid-parentheses");
   const codec = await getProblem("encode-and-decode-strings");
-  if (!twoSum || !parens || !codec) {
+  const consecutive = await getProblem("longest-consecutive-sequence");
+  if (!twoSum || !parens || !codec || !consecutive) {
     throw new Error(
-      "two-sum, valid-parentheses, and encode-and-decode-strings must be in the database. Run: pnpm db:migrate && pnpm db:seed",
+      "two-sum, valid-parentheses, encode-and-decode-strings, and longest-consecutive-sequence must be in the database. No seed is performed by this read-only evaluation.",
     );
   }
 
@@ -2008,6 +2125,16 @@ async function main(): Promise<void> {
     startPayload.includes("One clear focus per reply"),
   );
   recordTrue(
+    "instructions allow the connected approach through the final result",
+    startPayload.includes("connected approach from the input through the final result") &&
+      !startPayload.includes("One idea per message"),
+  );
+  recordTrue(
+    "done checks the live buffer and continues without assuming an edit",
+    startPayload.includes('For "okay done" or "done", check the live buffer and continue') &&
+      startPayload.includes("Never assume an edit happened"),
+  );
+  recordTrue(
     "instructions make confusion a reason to shrink the example",
     startPayload.includes("do not repeat the same sentence louder"),
   );
@@ -2048,12 +2175,13 @@ async function main(): Promise<void> {
 
   // The default label names this phase, so a bare `pnpm chat:smoke` cannot
   // overwrite an older phase's recorded evaluation.
-  const label = process.env.CHAT_SMOKE_LABEL ?? "beginner-revised";
+  const label = process.env.CHAT_SMOKE_LABEL ?? "approach-follow-up";
   const gate = process.env.CHAT_SMOKE_GATE !== "0";
   const problems = {
     "two-sum": twoSum,
     "valid-parentheses": parens,
     "encode-and-decode-strings": codec,
+    "longest-consecutive-sequence": consecutive,
   } as const;
   const specs = conversationSpecs();
   const jobs = specs.flatMap((spec) =>
@@ -2083,6 +2211,7 @@ async function main(): Promise<void> {
       const saved = recorded.runs.filter((r: ConversationResult) => r.id === spec.id && r.run === run);
       assert.equal(saved.length, 1, `Missing or duplicate recording for ${spec.id}/${run}`);
       const result: ConversationResult = saved[0];
+      assert.equal(result.editorOrigin, spec.editorOrigin);
       seen.add(`${result.id}/${result.run}`);
       assert.equal(result.turns.length, spec.turns.length);
       return { ...result, turns: spec.turns.map((turn, index) => {

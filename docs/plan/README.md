@@ -9,6 +9,17 @@ daily coach with a short LLM note. Implementation and automated/API/live-note
 checks are complete (2026-10-18); the real-browser acceptance pass is pending
 because no browser binary is available in this environment. [Phase 16](./16-dashboard-and-reviews-ui.md), including implementation review corrections in work unit 16.9, is complete (2026-10-10). [Phase 15](./15-beginner-tutor.md), including review corrections in work unit 15.5, is complete (2026-10-10).
 
+**Requested tutor follow-up (2026-10-21):** [work unit 15.6](./15-beginner-tutor.md#156-explain-the-approach-then-guide-implementation)
+is complete after explicit user approval. Broad help explains the connected
+approach through the final result; "okay done" checks the live buffer and
+continues. Complete code still requires an explicit request. This supersedes
+the one-idea/remaining-algorithm restrictions in earlier tutor evidence and does
+not change Phase 17's pending acceptance or the current phase. Final verification:
+lint, typecheck, build, 516 tests in an isolated serial run, 50/50 live checks,
+and manual review of 174 replies over three repetitions. The phase file records
+the default suite's unrelated coach-fixture conflicts and two minor wording
+notes from the live review; earlier failed recordings are preserved.
+
 [Phase 8 work unit 8.7](./08-python-visualizer.md#87-snap-code-arrows-to-their-rows) is complete (2026-10-12), including the drawing-error correction and browser acceptance gate. Its 141 marker-position checks passed within one pixel, all 429 tests and the production checks passed, and the browser and targeted real-engine traces preserved practice data counts.
 
 **Deployment note (2026-10-20):** for the ARM64 VPS the engine now runs from a

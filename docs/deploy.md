@@ -437,6 +437,50 @@ it.
 | Caddy returns 401 everywhere | That is the basic_auth block working; use `curl -u dsa`. |
 | Piston unhealthy | `logs piston`; check cgroup v2 and that `/piston` is not mounted. |
 
+### SSH disconnect follow-up (2026-10-22)
+
+Approved operational fix; implementation and local verification complete.
+Verification on the VPS is pending the next deployment.
+This does not change the current application phase or its acceptance gates.
+
+[Run 39760126142](https://github.com/visheshgubrani/practice-dsa/actions/runs/39760126142)
+built and published the image, then lost SSH with `Broken pipe` / exit `255`
+after 4 minutes 16 seconds without output during the quiet pull. An idle
+connection timeout is the leading hypothesis; the logs do not establish a
+Postgres or application configuration error.
+
+- [x] Configure the workflow's `dsa-vps` host with `ServerAliveInterval 30`,
+  `ServerAliveCountMax 6`, and `ConnectTimeout 15`.
+- [x] Use `--progress plain pull app` with the existing Compose arguments.
+- [x] Validate workflow YAML, shell syntax, rendered SSH settings, Compose
+  configuration, lint, and typecheck.
+- [x] Verify the full suite with isolated fixtures and a production build;
+  record the actual results and default-command limitations below.
+- [ ] On the next deployment, verify visible pull progress, completed
+  migrations, healthy app startup, and the recorded image digest.
+
+The deployment stays synchronous. If SSH still disconnects, inspect VPS
+SSH/Docker journals, memory, and disk usage around the failure before changing
+the deployment flow.
+
+Local verification (pnpm 10.33.2):
+
+- Workflow YAML parsed; all five workflow shell blocks and every `deploy/*.sh`
+  script passed `bash -n`. `ssh -G` over the workflow's rendered host block
+  confirmed the three settings without connecting to the VPS.
+- `docker compose --env-file deploy/env.example -f docker-compose.prod.yml
+  --progress plain config --quiet`, `pnpm lint`, and `pnpm typecheck` passed.
+- `pnpm test` on a disposable database copy passed 504/506 tests. The two coach
+  count failures match the already documented fixture interference; a serial
+  run passed 515/516, with one coach count still affected by copied practice
+  records on its fixed test date. The full suite, with its globs expanded
+  recursively and `--test-concurrency=1`, passed **516/516** on a catalog-only
+  copy. Both disposable copies were removed; the source database was read-only.
+- `pnpm build` was blocked by the environment's Turbopack port-binding
+  restriction, including the retry outside the sandbox. `pnpm build --webpack`
+  passed outside the sandbox; the first Webpack attempt inside the sandbox
+  could not capture TypeScript's config output. No build configuration changed.
+
 ## What CI does not do
 
 - It does not run lint, tests, or typecheck.
