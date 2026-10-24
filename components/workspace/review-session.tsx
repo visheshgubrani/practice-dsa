@@ -13,6 +13,7 @@ import { DialogTrigger } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
 import type { useReviewCard } from "@/lib/hooks/use-review-card";
 import { scheduleReviewBoundary } from "@/lib/reviews/boundary";
+import { reviewRatingAction } from "@/lib/reviews/prompt";
 
 type ReviewSchedule = ReturnType<typeof useReviewCard>;
 
@@ -32,6 +33,13 @@ export function ReviewSession({
 }) {
   const { card, status, error, refresh, ratingResult } = schedule;
   const [now, setNow] = useState(() => Date.now());
+  const ratingAction = reviewRatingAction({
+    status,
+    enrolled: card.enrolled,
+    active: card.active,
+    ratingPending: schedule.ratingPending !== null,
+    rated: ratingResult !== null,
+  });
 
   useEffect(() => {
     if (!card.active || !card.dueAt) return;
@@ -77,9 +85,7 @@ export function ReviewSession({
             </p>
           ) : null}
         </div>
-        {!ratingResult &&
-        (schedule.ratingPending ||
-          (status === "ready" && (!card.enrolled || card.active))) ? (
+        {ratingAction ? (
           <DialogTrigger
             render={
               <Button
@@ -91,7 +97,7 @@ export function ReviewSession({
             }
             onClick={onFinishReview}
           >
-            {schedule.ratingPending ? "Retry rating" : "Finish review"}
+            {ratingAction === "retry" ? "Retry rating" : "Finish review"}
           </DialogTrigger>
         ) : null}
       </div>

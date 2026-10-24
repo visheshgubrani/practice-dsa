@@ -8,10 +8,14 @@ import { isValidElement, type ReactNode } from "react";
 import * as jsxRuntime from "react/jsx-runtime";
 import ts from "typescript";
 
-import type { ReviewNotesControls } from "@/components/workspace/review-controls";
+import type {
+  ReviewNotesControls,
+  ReviewRatingEntry,
+} from "@/components/workspace/review-controls";
 import type { ReviewSession } from "@/components/workspace/review-session";
 import type { useReviewCard } from "@/lib/hooks/use-review-card";
 import * as client from "./client";
+import * as prompt from "./prompt";
 import * as types from "./types";
 
 // Run the actual hook and JSX conditions without a DOM or database. Only React
@@ -51,6 +55,14 @@ function buttonWithText(node: ReactNode, label: string): ReactNode {
   if (!isValidElement<{ children?: ReactNode }>(node)) return null;
   if (node.type === "button" && node.props.children === label) return node;
   return buttonWithText(node.props.children, label);
+}
+
+function textOf(node: ReactNode): string {
+  if (typeof node === "string") return node;
+  if (typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(textOf).join("");
+  if (!isValidElement<{ children?: ReactNode }>(node)) return "";
+  return textOf(node.props.children);
 }
 
 it("reopens and replays a committed first rating after its response is lost", async () => {
@@ -141,10 +153,12 @@ it("reopens and replays a committed first rating after its response is lost", as
     "@/components/ui/dialog": { DialogTrigger: "button" },
     "@/components/ui/spinner": { Spinner: "span" },
     "@/lib/utils": { cn: () => "" },
+    "@/lib/reviews/prompt": prompt,
   };
-  const controls = loadSource<{ ReviewNotesControls: typeof ReviewNotesControls }>(
-    "../../components/workspace/review-controls.tsx", uiImports,
-  );
+  const controls = loadSource<{
+    ReviewNotesControls: typeof ReviewNotesControls;
+    ReviewRatingEntry: typeof ReviewRatingEntry;
+  }>("../../components/workspace/review-controls.tsx", uiImports);
   const session = loadSource<{ ReviewSession: typeof ReviewSession }>(
     "../../components/workspace/review-session.tsx",
     { ...uiImports, react, "@/lib/reviews/boundary": {} },
@@ -180,4 +194,92 @@ it("reopens and replays a committed first rating after its response is lost", as
   assert.equal(logs, 1);
   assert.equal(schedule.ratingPending, null);
   assert.equal(schedule.ratingResult?.requestId, pending.requestId);
+});
+
+it("keeps the rating entry reachable from the always-visible review banner", () => {
+  const uiImports = {
+    "react/jsx-runtime": jsxRuntime,
+    "next/link": { default: "a" },
+    "@/components/ui/alert": { Alert: "aside", AlertTitle: "h3", AlertDescription: "p" },
+    "@/components/ui/button": { Button: "button", buttonVariants: () => "" },
+    "@/components/ui/dialog": { DialogTrigger: "button" },
+    "@/components/ui/spinner": { Spinner: "span" },
+    "@/lib/utils": { cn: () => "" },
+    "@/lib/reviews/prompt": prompt,
+  };
+  const controls = loadSource<{ ReviewRatingEntry: typeof ReviewRatingEntry }>(
+    "../../components/workspace/review-controls.tsx",
+    uiImports,
+  );
+
+  const pendingRequest: types.ReviewRateRequest = {
+    rating: "good",
+    requestId: crypto.randomUUID(),
+    expectedRevision: 1,
+    submissionId: null,
+  };
+  const savedResult: types.ReviewRateResult = {
+    dueAt: "2026-10-25T10:00:00.000Z",
+    revision: 2,
+    rating: "good",
+    requestId: crypto.randomUUID(),
+    reviewedAt: "2026-10-24T10:00:00.000Z",
+    next: null,
+  };
+  type Summary = {
+    card: types.ReviewCardState;
+    status: "loading" | "ready" | "error";
+    ratingPending: types.ReviewRateRequest | null;
+    ratingResult: types.ReviewRateResult | null;
+    ratingSaving: boolean;
+  };
+  const summary = (
+    overrides: Partial<{
+      enrolled: boolean;
+      active: boolean;
+      status: Summary["status"];
+      pending: boolean;
+      rated: boolean;
+      saving: boolean;
+    }> = {},
+  ): Summary => {
+    const state = {
+      enrolled: true,
+      active: true,
+      status: "ready" as Summary["status"],
+      pending: false,
+      rated: false,
+      saving: false,
+      ...overrides,
+    };
+    return {
+      card: {
+        enrolled: state.enrolled,
+        active: state.active,
+        dueAt: null,
+        lastRating: null,
+        revision: 1,
+      },
+      status: state.status,
+      ratingPending: state.pending ? pendingRequest : null,
+      ratingResult: state.rated ? savedResult : null,
+      ratingSaving: state.saving,
+    };
+  };
+  const entry = (schedule: Summary) =>
+    controls.ReviewRatingEntry({
+      schedule,
+      onOpenPending: () => {},
+      onFinish: () => {},
+    });
+
+  assert.ok(buttonWithText(entry(summary()), "Finish review"));
+  assert.ok(
+    buttonWithText(entry(summary({ enrolled: false, active: false })), "Finish review"),
+  );
+  assert.ok(buttonWithText(entry(summary({ pending: true, status: "error" })), "Retry rating"));
+  assert.match(textOf(entry(summary({ active: false }))), /Reviews paused/);
+  assert.equal(entry(summary({ rated: true })), null);
+  assert.equal(entry(summary({ status: "loading" })), null);
+  assert.equal(entry(summary({ status: "error" })), null);
 });

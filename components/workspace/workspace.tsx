@@ -26,6 +26,10 @@ import {
 } from "@/lib/practice/keys";
 import type { PracticeProgress, VerifiedAccepted } from "@/lib/practice/types";
 import {
+  decideReviewPrompt,
+  reviewRatingAction,
+} from "@/lib/reviews/prompt";
+import {
   isRunResult,
   isVerifiedAcceptance,
   summarizeRun,
@@ -56,6 +60,7 @@ import { ReviewSession } from "./review-session";
 import {
   AcceptedReviewOffer,
   ReviewNotesControls,
+  ReviewRatingEntry,
 } from "./review-controls";
 import { ReviewRatingDialog } from "./review-rating-dialog";
 
@@ -147,10 +152,19 @@ export function Workspace({
   const [consoleMinimized, setConsoleMinimized] = useState(false);
   const [acceptedReviewOffer, setAcceptedReviewOffer] = useState(false);
   const [ratingDialogOpen, setRatingDialogOpen] = useState(false);
+  /**
+   * A completed review Submit waiting to open the rating dialog. It stays set
+   * while the review card loads; `reviewPromptDoneRef` retires it once the
+   * dialog opens or the card proves unrateable for this visit.
+   */
+  const [reviewPrompt, setReviewPrompt] = useState<{
+    submissionId: string | null;
+  } | null>(null);
+  const reviewPromptDoneRef = useRef(false);
   const [problemTab, setProblemTab] = useState<ProblemTab>("description");
   const ratingTriggerRef = useRef<HTMLElement | null>(null);
   const reviewSchedule = useReviewCard(problem.slug);
-  const { closeRating, openRating } = reviewSchedule;
+  const { closeRating, openRating, status: reviewStatus } = reviewSchedule;
   const consolePanelRef = usePanelRef();
   const problemPanelRef = usePanelRef();
   /** The left panel's width before a trace widened it, as a percentage string. */
@@ -191,6 +205,18 @@ export function Workspace({
     },
     [closeRating],
   );
+  const startRecallRating = useCallback(
+    (
+      trigger: HTMLElement | null,
+      activeSubmissionId: string | null | undefined,
+    ) => {
+      if (reviewStatus !== "ready") return;
+      ratingTriggerRef.current = trigger;
+      openRating("recall", activeSubmissionId ?? null);
+      setRatingDialogOpen(true);
+    },
+    [openRating, reviewStatus],
+  );
   const openInitialRating: React.MouseEventHandler<HTMLButtonElement> = (
     event,
   ) => {
@@ -200,8 +226,14 @@ export function Workspace({
   const openRecallRating: React.MouseEventHandler<HTMLButtonElement> = (
     event,
   ) => {
+    startRecallRating(event.currentTarget, submissionId);
+  };
+  const openPendingRating: React.MouseEventHandler<HTMLButtonElement> = (
+    event,
+  ) => {
+    // The captured request already owns the context; only reopen the dialog.
     ratingTriggerRef.current = event.currentTarget;
-    openRating("recall", submissionId);
+    setRatingDialogOpen(true);
   };
 
   /**
@@ -309,6 +341,20 @@ export function Workspace({
           });
           setAcceptedReviewOffer(true);
           markAccepted(problem.slug, languageId);
+        }
+
+        // Rating recall is part of finishing the review, not the judge. A
+        // completed Submit (even a non-accepted one) asks once. An engine
+        // failure or an HTTP error is not a recall attempt to rate.
+        if (
+          sessionMode === "review" &&
+          mode === "submit" &&
+          result.verdict !== "internal_error" &&
+          !reviewPromptDoneRef.current
+        ) {
+          setReviewPrompt((current) =>
+            current ?? { submissionId: result.submissionId ?? null },
+          );
         }
       } catch (error) {
         setRunState({
@@ -444,6 +490,39 @@ export function Workspace({
     acceptedReviewOffer &&
     (reviewSchedule.status !== "ready" || !reviewSchedule.card.enrolled);
 
+  const reviewRatingEntry = reviewRatingAction({
+    status: reviewStatus,
+    enrolled: reviewSchedule.card.enrolled,
+    active: reviewSchedule.card.active,
+    ratingPending: reviewSchedule.ratingPending !== null,
+    rated: reviewSchedule.ratingResult !== null,
+  });
+  const reviewPromptDecision = decideReviewPrompt({
+    pending: reviewPrompt !== null,
+    dialogOpen: ratingDialogOpen,
+    status: reviewStatus,
+    action: reviewRatingEntry,
+  });
+
+  /**
+   * A Submit can finish before the review card loads, so this waits instead of
+   * dropping the prompt. Every other outcome retires it for this visit; the
+   * card and the banner keep a manual way to rate.
+   */
+  useEffect(() => {
+    if (!reviewPrompt || reviewPromptDoneRef.current) return;
+    if (reviewPromptDecision === "idle" || reviewPromptDecision === "wait") {
+      return;
+    }
+    reviewPromptDoneRef.current = true;
+    if (reviewPromptDecision === "open") {
+      // Open after this render commits. The submit response and the review
+      // fetch both resolve asynchronously; the microtask keeps that opening
+      // outside the effect's synchronous render pass.
+      queueMicrotask(() => startRecallRating(null, reviewPrompt.submissionId));
+    }
+  }, [reviewPrompt, reviewPromptDecision, startRecallRating]);
+
   const banners =
     review ||
     revision ||
@@ -462,12 +541,19 @@ export function Workspace({
               Recall the key idea, outline the steps, then try coding. The code
               buffer restarts on refresh.
             </p>
-            <Link
-              href={`/problems/${problem.slug}`}
-              className="ml-auto shrink-0 text-support text-muted-foreground underline underline-offset-4 hover:text-foreground"
-            >
-              leave review mode
-            </Link>
+            <div className="ml-auto flex shrink-0 items-center gap-2">
+              <ReviewRatingEntry
+                schedule={reviewSchedule}
+                onOpenPending={openPendingRating}
+                onFinish={openRecallRating}
+              />
+              <Link
+                href={`/problems/${problem.slug}`}
+                className="shrink-0 text-support text-muted-foreground underline underline-offset-4 hover:text-foreground"
+              >
+                leave review mode
+              </Link>
+            </div>
           </div>
       ) : null}
         {showAcceptedReviewOffer ? (

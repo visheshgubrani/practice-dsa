@@ -376,9 +376,12 @@ The notes below describe the implementation through Phase 17.
   or resume a row there; a paused card keeps its schedule, stops counting as
   due, and never sets the next-due boundary. **Start next review** opens the
   first due problem. Review starts with fresh code and requires explicit reveals
-  of notes and saved solutions; its buffer resets on refresh. Finish and rate
-  Again, Hard, Good, or Easy even without a Submit. FSRS stores the next due
-  date; retries cannot schedule the same rating twice.
+  of notes and saved solutions; its buffer resets on refresh. The first completed
+  Submit opens the recall rating once (without recording it), and the review
+  banner keeps **Finish review** / **Retry rating** reachable from any tab or
+  scroll position. Finish and rate Again, Hard, Good, or Easy even without a
+  Submit. FSRS stores the next due date; retries cannot schedule the same rating
+  twice.
 - **Ratings and practice activity are separate.** Ratings never affect solved
   status or streaks. A verified Piston Submit still counts as practice. In
   Review, solved problems submit revisions preserving their first solve;

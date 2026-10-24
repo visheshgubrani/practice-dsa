@@ -1,6 +1,7 @@
 # Phase 14 — Rate before review enrollment
 
-**Status:** complete (2026-10-08), including lost-response recovery in work unit 14.5.
+**Status:** complete (2026-10-08), including lost-response recovery in work unit 14.5
+and the review-submit follow-up in work unit 14.6 (2026-10-24).
 
 Change review enrollment from an immediate-due unrated card to one atomic
 initial self-rating and FSRS schedule. The flow becomes: solve or attempt → Add
@@ -176,3 +177,82 @@ without creating a new rating or losing its captured context.
   `pnpm build` passed outside the sandbox after the sandbox blocked Turbopack's
   worker port. No database writes or new browser acceptance run were performed
   for this follow-up; the original full-suite/browser record above is retained.
+
+### 14.6 Auto-show the recall rating after a review Submit
+
+Requested 2026-10-24 after reviewing a problem at
+`/problems/trapping-rain-water?review=1`: after the Submit the rating card did
+not appear, and the **Finish review** control was not visible.
+
+**Evidence**
+
+- Submit does not unmount the review card. `ReviewSession` renders whenever the
+  session mode is review, inside the Description tab; the submit path only
+  updates run state, history, and practice progress.
+- No submit path opened the rating dialog. The only **Finish review** control
+  lived inside the Description tab's scrollable content, so it was out of view
+  when the statement was scrolled, another tab was showing, or the card was
+  paused, already rated, or failed to load.
+- The deployed instance could not be inspected from the development
+  environment: the URL returns HTTP 401 behind basic auth and no browser target
+  is available here. The confirmation is source-level; browser acceptance is
+  recorded as pending.
+
+**Decisions**
+
+- The first completed review Submit opens the shared recall rating dialog once
+  per visit. Trigger on any completed verdict except `internal_error`; never on
+  Run, an HTTP error, or a runner failure.
+- Wait while the review card loads; retire the prompt without opening when the
+  card is paused, already rated this visit, an uncertain request is pending,
+  loading failed, or the dialog is already open.
+- Attach the completed Submit's persisted submission ID when present. A
+  non-persisted verdict still prompts with no submission ID.
+- Keep the Description card and add a compact **Finish review** / **Retry
+  rating** entry to the always-visible review banner. Paused cards show
+  "Reviews paused".
+- The automatic prompt never records a rating. No schema, API, scheduler, or
+  practice-data change.
+
+**Work**
+
+- [x] Add `reviewRatingAction` and `decideReviewPrompt` with unit tests.
+- [x] Apply the shared rating-entry rule to the review card and the review
+  banner, including the paused label.
+- [x] Queue one automatic prompt from a completed review Submit, wait through
+  loading, and open with that submission's ID.
+- [x] Extend the review component tests for the banner entry.
+- [x] Run lint, typecheck, focused and full tests, and the production build;
+  record the results.
+
+**Gate:** a completed review Submit offers the rating once without writing one;
+Run and failed Submits do not; and the rating entry is reachable from the review
+banner even when the Description card is scrolled away or hidden.
+
+### Work unit 14.6 verification (2026-10-24)
+
+- `./node_modules/.bin/eslint .` passed.
+- `./node_modules/.bin/tsc --noEmit` passed.
+- Focused `tsx --test lib/reviews/prompt.test.ts lib/reviews/recovery.test.ts`:
+  9 tests, 2 suites, 0 failures. The component test renders the real
+  `ReviewRatingEntry` and checks Finish review for active/unenrolled cards,
+  Retry rating while pending (including after a load error), the paused label,
+  and no entry for rated/loading/error cards.
+- Full suite: 524 tests, 136 suites, 0 failures against the freshly migrated
+  disposable database `dsa_phase146_check_20261024` (dropped afterwards). The
+  same suite against the local development database had one pre-existing
+  failure: `lib/db/queries/coach.test.ts` counts the user's real 2026-10-18
+  solves and ratings on top of its fixtures (4/4 instead of 2/2). The fresh
+  database isolates that fixture assumption and passes. No user row was
+  changed or deleted; the test fixtures created and removed their own rows.
+- Turbopack (`next build`, the repository's normal `pnpm build`) could not
+  start its worker in this environment: creating a child process that binds a
+  port fails with `Operation not permitted (os error 1)`, even with the file
+  sandbox widened. `next build --webpack` passed with Next.js 16.3.5: compiled
+  successfully, TypeScript passed, 12 pages generated, and all routes
+  reported. The Turbopack build still needs a normal unsandboxed shell.
+- Browser acceptance remains pending: no browser target is available in this
+  environment, and the deployed instance is behind HTTP basic auth (401). The
+  post-Submit dialog and banner are covered by the pure and component tests,
+  but the interactive check on the deployment is still outstanding. No
+  migration, schema, API, scheduler, or catalog change was made.

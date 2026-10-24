@@ -8,8 +8,13 @@ import { DialogTrigger } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import type { useReviewCard } from "@/lib/hooks/use-review-card";
+import { reviewRatingAction } from "@/lib/reviews/prompt";
 
 type ReviewSchedule = ReturnType<typeof useReviewCard>;
+type ReviewRatingSummary = Pick<
+  ReviewSchedule,
+  "card" | "status" | "ratingPending" | "ratingResult" | "ratingSaving"
+>;
 
 function dueLabel(dueAt: string): string {
   const due = new Date(dueAt);
@@ -160,6 +165,56 @@ export function ReviewNotesControls({
         </Alert>
       ) : null}
     </section>
+  );
+}
+
+/**
+ * The review banner's rating shortcut. The banner is outside both panels, so
+ * this stays reachable while the Description card is scrolled away or another
+ * tab is showing.
+ */
+export function ReviewRatingEntry({
+  schedule,
+  onOpenPending,
+  onFinish,
+}: {
+  schedule: ReviewRatingSummary;
+  onOpenPending: React.MouseEventHandler<HTMLButtonElement>;
+  onFinish: React.MouseEventHandler<HTMLButtonElement>;
+}) {
+  const { card, status, ratingPending, ratingResult, ratingSaving } = schedule;
+  const action = reviewRatingAction({
+    status,
+    enrolled: card.enrolled,
+    active: card.active,
+    ratingPending: ratingPending !== null,
+    rated: ratingResult !== null,
+  });
+
+  if (action === null) {
+    // The card carries the resume guidance; the banner at least names why no
+    // rating action is present instead of looking broken.
+    if (status === "ready" && card.enrolled && !card.active && !ratingResult) {
+      return (
+        <span className="shrink-0 text-support text-muted-foreground">
+          Reviews paused
+        </span>
+      );
+    }
+    return null;
+  }
+
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant={action === "retry" ? "outline" : "default"}
+      className="text-support"
+      disabled={ratingSaving}
+      onClick={action === "retry" ? onOpenPending : onFinish}
+    >
+      {action === "retry" ? "Retry rating" : "Finish review"}
+    </Button>
   );
 }
 

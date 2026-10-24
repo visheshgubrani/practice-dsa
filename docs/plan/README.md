@@ -20,6 +20,17 @@ and manual review of 174 replies over three repetitions. The phase file records
 the default suite's unrelated coach-fixture conflicts and two minor wording
 notes from the live review; earlier failed recordings are preserved.
 
+**Requested review follow-up (2026-10-24):** [work unit 14.6](./14-rate-before-review.md#146-auto-show-the-recall-rating-after-a-review-submit)
+is complete after explicit user approval. The first completed review Submit
+opens the recall rating once, and the always-visible review banner carries a
+**Finish review** / **Retry rating** entry, so the rating no longer depends on
+the Description card's scroll position or tab. The prompt never writes a
+rating. Verification: lint, typecheck, 524 tests in the isolated disposable
+suite, and a successful `next build --webpack`; Turbopack could not bind its
+worker in this environment and the browser acceptance remains pending, as
+recorded in the phase file. This does not change Phase 17's pending acceptance
+or the current phase.
+
 [Phase 8 work unit 8.7](./08-python-visualizer.md#87-snap-code-arrows-to-their-rows) is complete (2026-10-12), including the drawing-error correction and browser acceptance gate. Its 141 marker-position checks passed within one pixel, all 429 tests and the production checks passed, and the browser and targeted real-engine traces preserved practice data counts.
 
 **Deployment note (2026-10-20):** for the ARM64 VPS the engine now runs from a
@@ -105,7 +116,7 @@ Invariants and the “done” scenario live in [00-scope.md](./00-scope.md).
 - [x] [Phase 8 — Python visualizer: step-through dry runs](./08-python-visualizer.md)
 - [ ] [Phase 9 — Dashboard, topic sections, streaks, and revise mode](./09-dashboard.md)
 - [x] [Phase 13 — Personal notes and spaced repetition](./13-notes-and-reviews.md)
-- [x] [Phase 14 — Rate before review enrollment](./14-rate-before-review.md)
+- [x] [Phase 14 — Rate before review enrollment](./14-rate-before-review.md) — including auto-show recall rating after a review Submit (14.6)
 - [x] [Phase 15 — Beginner tutor](./15-beginner-tutor.md) — renewed teaching and browser gates passed
 - [x] [Phase 16 — Dashboard and reviews UI redesign](./16-dashboard-and-reviews-ui.md) — verified, including implementation review corrections in work unit 16.9
 - [ ] [Phase 17 — Today's plan: a deterministic coach with a short LLM note](./17-daily-coach.md) — implementation complete; browser acceptance pending
